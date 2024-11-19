@@ -1,0 +1,15 @@
+{
+  "name": "signalio",
+  "version": "1.0.0",
+  "description": "Signals, but lazier",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
+  }
+}

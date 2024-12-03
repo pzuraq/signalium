@@ -1,8 +1,8 @@
 {
-  "name": "signalio-repo",
+  "name": "signalium-repo",
   "private": true,
   "version": "1.0.0",
-  "description": "Signals, but lazier",
+  "description": "An opinionated take on JavaScript Signals",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

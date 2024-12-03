@@ -2,17 +2,18 @@
   "name": "signalium-repo",
   "private": true,
   "version": "1.0.0",
-  "description": "An opinionated take on JavaScript Signals",
+  "description": "Chain-reactivity at critical mass",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm test --workspaces"
   },
   "workspaces": [
-    "packages/*"
+    "./packages/*"
   ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@changesets/cli": "^2.27.10",
     "typescript": "^5.7.2"
   }
 }

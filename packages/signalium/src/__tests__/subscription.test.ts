@@ -266,7 +266,6 @@ describe('Subscription Signal functionality', () => {
     test('Can set value during resubscribe and value is used', async () => {
       const s = subscription(
         (get, set) => {
-          console.log('subscribing');
           set(get() + 1);
         },
         { initValue: 123 }
@@ -274,7 +273,7 @@ describe('Subscription Signal functionality', () => {
 
       let value;
 
-      const w = watcher(() => {
+      let w = watcher(() => {
         value = s.get();
       });
 
@@ -294,7 +293,7 @@ describe('Subscription Signal functionality', () => {
         subscribe: 1,
       });
 
-      watcher(() => {
+      w = watcher(() => {
         value = s.get();
       });
 
@@ -307,21 +306,182 @@ describe('Subscription Signal functionality', () => {
     });
 
     test('Can set value during resubscribe and cached parents are dirtied', async () => {
-      // ...
+      const s = subscription(
+        (get, set) => {
+          set(get() + 1);
+        },
+        { initValue: 123 }
+      );
+
+      const c = computed(() => {
+        return s.get() + 1;
+      });
+
+      let value;
+
+      let w = watcher(() => {
+        value = c.get();
+      });
+
+      await nextTick();
+
+      expect(value).toBe(125);
+      expect(s).toHaveValueAndCounts(124, {
+        subscribe: 1,
+      });
+
+      w.disconnect();
+
+      await nextTick();
+
+      expect(value).toBe(125);
+      expect(s).toHaveValueAndCounts(124, {
+        subscribe: 1,
+      });
+
+      w = watcher(() => {
+        value = c.get();
+      });
+
+      await nextTick();
+
+      expect(value).toBe(126);
+      expect(s).toHaveValueAndCounts(125, {
+        subscribe: 2,
+      });
     });
   });
 
-  describe('update', async () => {
+  describe('update', () => {
     test('Updates if consumed values are changed', async () => {
-      // ...
+      const a = state(0);
+
+      const s = subscription(
+        (get, set) => {
+          set(a.get() + 1);
+
+          return {
+            update() {
+              set(a.get() + 1);
+            },
+          };
+        },
+        { initValue: 123 }
+      );
+
+      watcher(() => {
+        s.get();
+      });
+
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 0,
+      });
+
+      await nextTick();
+
+      expect(s).toHaveValueAndCounts(1, {
+        subscribe: 1,
+      });
+
+      a.set(1);
+
+      expect(s).toHaveValueAndCounts(2, {
+        subscribe: 1,
+        update: 1,
+      });
     });
 
     test('Update is scheduled and values are pulled if subscription is active and dirtied, even if parents are not', async () => {
-      // ...
+      const a = state(0);
+
+      const s = subscription(
+        (get, set) => {
+          set(a.get() + 1);
+
+          return {
+            update() {
+              set(a.get() + 1);
+            },
+          };
+        },
+        { initValue: 123 }
+      );
+
+      const w = watcher(() => {
+        s.get();
+      });
+
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 0,
+      });
+
+      await nextTick();
+
+      expect(w).toHaveCounts({ effect: 1 });
+      expect(s).toHaveValueAndCounts(1, {
+        subscribe: 1,
+      });
+
+      a.set(1);
+
+      await nextTick();
+
+      expect(s).toHaveValueAndCounts(2, {
+        subscribe: 1,
+        update: 1,
+      });
+
+      expect(w).toHaveCounts({ effect: 1 });
     });
 
     test('Update is pulled eagerly if a parent is scheduled before a subscription and uses the updates value', async () => {
-      // ...
+      const a = state(0);
+      const b = state(0);
+
+      const s = subscription(
+        (get, set) => {
+          set(a.get() + 1);
+
+          return {
+            update() {
+              set(a.get() + 1);
+            },
+          };
+        },
+        { initValue: 123 }
+      );
+
+      let value;
+
+      const w = watcher(() => {
+        b.get();
+        value = s.get();
+      });
+
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 0,
+      });
+
+      await nextTick();
+
+      expect(w).toHaveCounts({ effect: 1 });
+      expect(s).toHaveValueAndCounts(1, {
+        subscribe: 1,
+      });
+
+      b.set(1);
+      a.set(1);
+
+      await nextTick();
+
+      expect(value).toBe(2);
+
+      expect(s).toHaveValueAndCounts(2, {
+        subscribe: 1,
+        update: 1,
+      });
+
+      expect(w).toHaveCounts({ effect: 2 });
     });
 
     test('Update can set value during eager pull and updated value is used by parent', async () => {
@@ -339,19 +499,155 @@ describe('Subscription Signal functionality', () => {
 
   describe('unsubscribe', async () => {
     test('It unsubscribes when all watchers are disconnected', async () => {
-      // ...
+      const s = subscription(
+        (get, set) => {
+          return {
+            unsubscribe() {
+              // ...
+            },
+          };
+        },
+        { initValue: 123 }
+      );
+
+      let value;
+
+      let w = watcher(() => {
+        value = s.get();
+      });
+
+      let w2 = watcher(() => {
+        s.get();
+      });
+
+      await nextTick();
+
+      expect(value).toBe(123);
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 1,
+        unsubscribe: 0,
+      });
+
+      w.disconnect();
+      w2.disconnect();
+
+      await nextTick();
+
+      expect(value).toBe(123);
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 1,
+        unsubscribe: 1,
+      });
     });
 
-    test('It unsubscribes at the when all watchers are disconnected at different times', async () => {
-      // ...
-    });
+    test('It unsubscribes when all watchers are disconnected at different times', async () => {
+      const s = subscription(
+        (get, set) => {
+          return {
+            unsubscribe() {
+              // ...
+            },
+          };
+        },
+        { initValue: 123 }
+      );
 
-    test('It stays subscribed when only some watchers are disconnected', async () => {
-      // ...
+      let value;
+
+      let w = watcher(() => {
+        value = s.get();
+      });
+
+      await nextTick();
+
+      expect(value).toBe(123);
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 1,
+        unsubscribe: 0,
+      });
+
+      let w2 = watcher(() => {
+        s.get();
+      });
+
+      await nextTick();
+
+      expect(value).toBe(123);
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 1,
+        unsubscribe: 0,
+      });
+
+      w.disconnect();
+
+      await nextTick();
+
+      expect(value).toBe(123);
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 1,
+        unsubscribe: 0,
+      });
+
+      w2.disconnect();
+
+      await nextTick();
+
+      expect(value).toBe(123);
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 1,
+        unsubscribe: 1,
+      });
     });
 
     test('It stays subscribed when all watchers are disconnected and new ones are connected in the same flush', async () => {
-      // ...
+      const s = subscription(
+        (get, set) => {
+          return {
+            unsubscribe() {
+              // ...
+            },
+          };
+        },
+        { initValue: 123 }
+      );
+
+      let value;
+
+      let w = watcher(() => {
+        value = s.get();
+      });
+
+      await nextTick();
+
+      expect(value).toBe(123);
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 1,
+        unsubscribe: 0,
+      });
+
+      w.disconnect();
+      let w2 = watcher(() => {
+        console.log('test');
+        s.get();
+      });
+
+      await nextTick();
+
+      expect(value).toBe(123);
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 1,
+        unsubscribe: 0,
+      });
+
+      w2.disconnect();
+
+      await nextTick();
+
+      expect(value).toBe(123);
+      expect(s).toHaveValueAndCounts(123, {
+        subscribe: 1,
+        unsubscribe: 1,
+      });
     });
   });
 });

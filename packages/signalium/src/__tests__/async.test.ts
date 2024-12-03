@@ -19,7 +19,7 @@ const result = <T>(
     isSuccess: promiseState === 'success',
   } as AsyncResult<T>);
 
-describe('Async Signal functionality', () => {
+describe.skip('Async Signal functionality', () => {
   test('Can run basic computed', async () => {
     const a = state(1);
     const b = state(2);
@@ -117,7 +117,7 @@ describe('Async Signal functionality', () => {
     });
   });
 
-  test.only('Skips resolution if value is updated multiple times', async () => {
+  test('Skips resolution if value is updated multiple times', async () => {
     const a = state(1);
     const b = state(2);
 

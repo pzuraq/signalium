@@ -1,0 +1,5 @@
+---
+"signalium": minor
+---
+
+Initial release

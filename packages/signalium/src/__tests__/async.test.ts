@@ -1,14 +1,14 @@
 import { describe, expect, test } from 'vitest';
-import { state, computed, asyncComputed } from './utils/instrumented';
+import { state, computed, asyncComputed } from './utils/instrumented.js';
 import { AsyncResult } from '../signals';
 
-const sleep = (ms = 0) => new Promise((r) => setTimeout(r, ms));
-const nextTick = () => new Promise((r) => setTimeout(r, 0));
+const sleep = (ms = 0) => new Promise(r => setTimeout(r, ms));
+const nextTick = () => new Promise(r => setTimeout(r, 0));
 
 const result = <T>(
   value: T | undefined,
   promiseState: 'pending' | 'error' | 'success',
-  isReady: boolean
+  isReady: boolean,
 ): AsyncResult<T> =>
   ({
     result: value,
@@ -17,7 +17,7 @@ const result = <T>(
     isReady,
     isError: promiseState === 'error',
     isSuccess: promiseState === 'success',
-  } as AsyncResult<T>);
+  }) as AsyncResult<T>;
 
 describe.skip('Async Signal functionality', () => {
   test('Can run basic computed', async () => {
@@ -449,7 +449,7 @@ describe.skip('Async Signal functionality', () => {
           equals(prev, next) {
             return Math.abs(prev - next) < 2;
           },
-        }
+        },
       );
 
       expect(c).toHaveValueAndCounts(3, { compute: 1 });
@@ -473,7 +473,7 @@ describe.skip('Async Signal functionality', () => {
           equals(prev, next) {
             return Math.abs(prev - next) < 2;
           },
-        }
+        },
       );
 
       const outer1 = computed(() => {

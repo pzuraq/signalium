@@ -1,16 +1,12 @@
-let currentWatcherFlush: number | null = null;
-let currentDisconnectFlush: number | null = null;
+let currentWatcherFlush: ReturnType<typeof setTimeout> | null = null;
+let currentDisconnectFlush: ReturnType<typeof setTimeout> | ReturnType<typeof requestIdleCallback> | null = null;
 
 export type FlushCallback = () => Promise<void>;
 
 const idleCallback =
-  typeof requestIdleCallback === 'function'
-    ? requestIdleCallback
-    : (cb: () => void) => setTimeout(cb, 0);
+  typeof requestIdleCallback === 'function' ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 0);
 
-export let scheduleWatchers: (flushWatchers: FlushCallback) => void = (
-  flushWatchers
-) => {
+export let scheduleWatchers: (flushWatchers: FlushCallback) => void = flushWatchers => {
   if (currentWatcherFlush !== null) return;
 
   currentWatcherFlush = setTimeout(() => {
@@ -20,9 +16,7 @@ export let scheduleWatchers: (flushWatchers: FlushCallback) => void = (
   }, 0);
 };
 
-export let scheduleDisconnects: (flushDisconnects: FlushCallback) => void = (
-  flushDisconnects
-) => {
+export let scheduleDisconnects: (flushDisconnects: FlushCallback) => void = flushDisconnects => {
   if (currentDisconnectFlush !== null) return;
 
   currentDisconnectFlush = idleCallback(() => {

@@ -8,7 +8,8 @@
   "scripts": {
     "lint": "eslint . && prettier --check .",
     "test": "npm test --workspaces",
-    "build": "npm run build --workspaces"
+    "build": "npm run build --workspaces",
+    "release": "npm run build && changeset publish"
   },
   "workspaces": [
     "./examples/*",

@@ -17,7 +17,7 @@ import {
   AsyncReady,
   Watcher,
   SignalWatcherEffect,
-} from '../../signals';
+} from '../../signals.js';
 
 class SignalCounts {
   name: string;
@@ -41,9 +41,7 @@ class SignalCounts {
   }
 }
 
-const countsKeys = Object.keys(new SignalCounts('')).filter(
-  (k) => k !== 'name'
-) as (keyof SignalCounts)[];
+const countsKeys = Object.keys(new SignalCounts('')).filter(k => k !== 'name') as (keyof SignalCounts)[];
 
 let currentOrder: string[] | undefined = [];
 const COUNTS = new WeakMap<Signal<any> | Watcher, SignalCounts>();
@@ -56,23 +54,18 @@ interface CustomMatchers<R = unknown> {
 }
 
 declare module 'vitest' {
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface Assertion<T = any> extends CustomMatchers<T> {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface AsymmetricMatchersContaining extends CustomMatchers {}
 }
 
-function toHaveValue(
-  this: { equals(a: unknown, b: unknown): boolean },
-  signal: Signal<any>,
-  value: any
-) {
+function toHaveValue(this: { equals(a: unknown, b: unknown): boolean }, signal: Signal<any>, value: any) {
   const signalValue = signal.get();
 
   return {
     pass: this.equals(signalValue, value),
-    message: () =>
-      `Expected signal value to be ${JSON.stringify(
-        value
-      )}, but got ${JSON.stringify(signalValue)}`,
+    message: () => `Expected signal value to be ${JSON.stringify(value)}, but got ${JSON.stringify(signalValue)}`,
   };
 }
 
@@ -92,8 +85,7 @@ function toHaveCounts(signal: Signal<any>, counts: SignalCounts) {
     if (count !== undefined && signalCounts[key] !== count) {
       return {
         pass: false,
-        message: () =>
-          `Expected ${key} count to be ${count} but got ${signalCounts[key]}`,
+        message: () => `Expected ${key} count to be ${count} but got ${signalCounts[key]}`,
       };
     }
   }
@@ -118,7 +110,7 @@ expect.extend({
         const messages = [
           !valueResult.pass && valueResult.message(),
           !countsResult.pass && countsResult.message(),
-        ].filter((m) => m);
+        ].filter(m => m);
 
         return messages.join('\n');
       },
@@ -134,16 +126,12 @@ expect.extend({
 
     return {
       pass: this.equals(order, expectedOrder),
-      message: () =>
-        `Expected compute count to be ${expectedOrder.toString()} but got ${order.toString()}`,
+      message: () => `Expected compute count to be ${expectedOrder.toString()} but got ${order.toString()}`,
     };
   },
 });
 
-export const state = <T>(
-  initialValue: T,
-  opts?: SignalOptions<T> & { name?: string }
-): WriteableSignal<T> => {
+export const state = <T>(initialValue: T, opts?: SignalOptions<T> & { name?: string }): WriteableSignal<T> => {
   const name = opts?.name || 'unlabeled';
   const s = createState(initialValue, opts);
 
@@ -166,32 +154,19 @@ export const state = <T>(
   return wrapper;
 };
 
-export function computed<T>(
-  name: string,
-  compute: SignalCompute<T>,
-  opts?: SignalOptions<T>
-): Signal<T>;
-export function computed<T>(
-  compute: SignalCompute<T>,
-  opts?: SignalOptions<T>
-): Signal<T>;
+export function computed<T>(name: string, compute: SignalCompute<T>, opts?: SignalOptions<T>): Signal<T>;
+export function computed<T>(compute: SignalCompute<T>, opts?: SignalOptions<T>): Signal<T>;
 export function computed<T>(
   nameOrCompute: string | SignalCompute<T>,
   computeOrOpts?: SignalCompute<T> | SignalOptions<T>,
-  maybeOpts?: SignalOptions<T>
+  maybeOpts?: SignalOptions<T>,
 ): Signal<T> {
   const name = typeof nameOrCompute === 'string' ? nameOrCompute : 'unlabeled';
-  const compute =
-    typeof nameOrCompute === 'string'
-      ? (computeOrOpts as SignalCompute<T>)
-      : nameOrCompute;
-  const opts =
-    typeof nameOrCompute === 'string'
-      ? maybeOpts
-      : (computeOrOpts as SignalOptions<T>);
+  const compute = typeof nameOrCompute === 'string' ? (computeOrOpts as SignalCompute<T>) : nameOrCompute;
+  const opts = typeof nameOrCompute === 'string' ? maybeOpts : (computeOrOpts as SignalOptions<T>);
   const counts = new SignalCounts(name);
 
-  const s = createComputed((v) => {
+  const s = createComputed(v => {
     counts.compute++;
 
     if (name) {
@@ -213,41 +188,25 @@ export function computed<T>(
   return wrapper;
 }
 
+export function asyncComputed<T>(name: string, compute: SignalAsyncCompute<T>, opts?: SignalOptions<T>): Signal<T>;
 export function asyncComputed<T>(
   name: string,
   compute: SignalAsyncCompute<T>,
-  opts?: SignalOptions<T>
+  opts: SignalOptionsWithInit<T>,
 ): Signal<T>;
-export function asyncComputed<T>(
-  name: string,
-  compute: SignalAsyncCompute<T>,
-  opts: SignalOptionsWithInit<T>
-): Signal<T>;
-export function asyncComputed<T>(
-  compute: SignalAsyncCompute<T>,
-  opts?: SignalOptions<T>
-): Signal<T>;
-export function asyncComputed<T>(
-  compute: SignalAsyncCompute<T>,
-  opts: SignalOptionsWithInit<T>
-): Signal<T>;
+export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts?: SignalOptions<T>): Signal<T>;
+export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
 export function asyncComputed<T>(
   nameOrCompute: string | SignalAsyncCompute<T>,
   computeOrOpts?: SignalCompute<T> | Partial<SignalOptionsWithInit<T>>,
-  maybeOpts?: Partial<SignalOptionsWithInit<T>>
+  maybeOpts?: Partial<SignalOptionsWithInit<T>>,
 ): Signal<AsyncResult<T>> | Signal<AsyncReady<T>> {
   const name = typeof nameOrCompute === 'string' ? nameOrCompute : 'unlabeled';
-  const compute =
-    typeof nameOrCompute === 'string'
-      ? (computeOrOpts as SignalCompute<T>)
-      : nameOrCompute;
-  const opts =
-    typeof nameOrCompute === 'string'
-      ? maybeOpts
-      : (computeOrOpts as SignalOptions<T>);
+  const compute = typeof nameOrCompute === 'string' ? (computeOrOpts as SignalCompute<T>) : nameOrCompute;
+  const opts = typeof nameOrCompute === 'string' ? maybeOpts : (computeOrOpts as SignalOptions<T>);
   const counts = new SignalCounts(name);
 
-  const s = createAsyncComputed(async (v) => {
+  const s = createAsyncComputed(async v => {
     counts.compute++;
 
     if (name) {
@@ -276,36 +235,19 @@ export function asyncComputed<T>(
 export function subscription<T>(
   name: string,
   subscribe: SignalSubscribe<T>,
-  opts?: SignalOptions<T>
+  opts?: SignalOptions<T>,
 ): Signal<T | undefined>;
-export function subscription<T>(
-  name: string,
-  subscribe: SignalSubscribe<T>,
-  opts: SignalOptionsWithInit<T>
-): Signal<T>;
-export function subscription<T>(
-  subscribe: SignalSubscribe<T>,
-  opts?: SignalOptions<T>
-): Signal<T | undefined>;
-export function subscription<T>(
-  subscribe: SignalSubscribe<T>,
-  opts: SignalOptionsWithInit<T>
-): Signal<T>;
+export function subscription<T>(name: string, subscribe: SignalSubscribe<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
+export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: SignalOptions<T>): Signal<T | undefined>;
+export function subscription<T>(subscribe: SignalSubscribe<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
 export function subscription<T>(
   nameOrSubscribe: string | SignalSubscribe<T>,
   subscribeOrOpts?: SignalSubscribe<T> | Partial<SignalOptionsWithInit<T>>,
-  maybeOpts?: Partial<SignalOptionsWithInit<T>>
+  maybeOpts?: Partial<SignalOptionsWithInit<T>>,
 ): Signal<T> | Signal<T | undefined> {
-  const name =
-    typeof nameOrSubscribe === 'string' ? nameOrSubscribe : 'unlabeled';
-  const subscribe =
-    typeof nameOrSubscribe === 'string'
-      ? (subscribeOrOpts as SignalSubscribe<T>)
-      : nameOrSubscribe;
-  const opts =
-    typeof nameOrSubscribe === 'string'
-      ? maybeOpts
-      : (subscribeOrOpts as SignalOptions<T>);
+  const name = typeof nameOrSubscribe === 'string' ? nameOrSubscribe : 'unlabeled';
+  const subscribe = typeof nameOrSubscribe === 'string' ? (subscribeOrOpts as SignalSubscribe<T>) : nameOrSubscribe;
+  const opts = typeof nameOrSubscribe === 'string' ? maybeOpts : (subscribeOrOpts as SignalOptions<T>);
   const counts = new SignalCounts(name);
 
   const s = createSubscription((get, set) => {
@@ -320,10 +262,10 @@ export function subscription<T>(
         counts.internalGet++;
         return get();
       },
-      (v) => {
+      v => {
         counts.internalSet++;
         set(v);
-      }
+      },
     );
 
     let subscriptionWrapper: SignalSubscription | undefined;
@@ -363,15 +305,9 @@ export function subscription<T>(
 
 export function watcher<T>(effect: SignalWatcherEffect): Watcher;
 export function watcher<T>(name: string, effect: SignalWatcherEffect): Watcher;
-export function watcher<T>(
-  nameOrEffect: string | SignalWatcherEffect,
-  maybeEffect?: SignalWatcherEffect
-): Watcher {
+export function watcher<T>(nameOrEffect: string | SignalWatcherEffect, maybeEffect?: SignalWatcherEffect): Watcher {
   const name = typeof nameOrEffect === 'string' ? nameOrEffect : 'unlabeled';
-  const effect =
-    typeof nameOrEffect === 'string'
-      ? (maybeEffect as SignalWatcherEffect)
-      : nameOrEffect;
+  const effect = typeof nameOrEffect === 'string' ? (maybeEffect as SignalWatcherEffect) : nameOrEffect;
 
   const counts = new SignalCounts(name);
 

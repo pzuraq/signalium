@@ -1,15 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import {
-  state,
-  computed,
-  asyncComputed,
-  subscription,
-  watcher,
-} from './utils/instrumented';
-import { AsyncResult } from '../signals';
+import { state, computed, subscription, watcher } from './utils/instrumented.js';
 
-const sleep = (ms = 0) => new Promise((r) => setTimeout(r, ms));
-const nextTick = () => new Promise((r) => setTimeout(r, 0));
+const sleep = (ms = 0) => new Promise(r => setTimeout(r, ms));
+const nextTick = () => sleep();
 
 describe('Subscription Signal functionality', () => {
   describe('subscribe', () => {
@@ -245,7 +238,7 @@ describe('Subscription Signal functionality', () => {
         (get, set) => {
           set(456);
         },
-        { initValue: 123 }
+        { initValue: 123 },
       );
 
       watcher(() => {
@@ -268,7 +261,7 @@ describe('Subscription Signal functionality', () => {
         (get, set) => {
           set(get() + 1);
         },
-        { initValue: 123 }
+        { initValue: 123 },
       );
 
       let value;
@@ -310,7 +303,7 @@ describe('Subscription Signal functionality', () => {
         (get, set) => {
           set(get() + 1);
         },
-        { initValue: 123 }
+        { initValue: 123 },
       );
 
       const c = computed(() => {
@@ -366,7 +359,7 @@ describe('Subscription Signal functionality', () => {
             },
           };
         },
-        { initValue: 123 }
+        { initValue: 123 },
       );
 
       watcher(() => {
@@ -404,7 +397,7 @@ describe('Subscription Signal functionality', () => {
             },
           };
         },
-        { initValue: 123 }
+        { initValue: 123 },
       );
 
       const w = watcher(() => {
@@ -448,7 +441,7 @@ describe('Subscription Signal functionality', () => {
             },
           };
         },
-        { initValue: 123 }
+        { initValue: 123 },
       );
 
       let value;
@@ -507,7 +500,7 @@ describe('Subscription Signal functionality', () => {
             },
           };
         },
-        { initValue: 123 }
+        { initValue: 123 },
       );
 
       let value;
@@ -549,7 +542,7 @@ describe('Subscription Signal functionality', () => {
             },
           };
         },
-        { initValue: 123 }
+        { initValue: 123 },
       );
 
       let value;
@@ -608,7 +601,7 @@ describe('Subscription Signal functionality', () => {
             },
           };
         },
-        { initValue: 123 }
+        { initValue: 123 },
       );
 
       let value;

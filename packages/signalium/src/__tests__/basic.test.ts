@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { state, computed } from './utils/instrumented';
+import { state, computed } from './utils/instrumented.js';
 
 describe.skip('Basic Signal functionality', () => {
   test('Can run basic computed', () => {
@@ -330,7 +330,7 @@ describe.skip('Basic Signal functionality', () => {
           equals(prev, next) {
             return Math.abs(prev - next) < 2;
           },
-        }
+        },
       );
 
       expect(c).toHaveValueAndCounts(3, { compute: 1 });
@@ -354,7 +354,7 @@ describe.skip('Basic Signal functionality', () => {
           equals(prev, next) {
             return Math.abs(prev - next) < 2;
           },
-        }
+        },
       );
 
       const outer1 = computed(() => {

@@ -1,4 +1,4 @@
-import { scheduleDisconnect, scheduleWatcher } from './scheduling';
+import { scheduleDisconnect, scheduleWatcher } from './scheduling.js';
 
 let CURRENT_CONSUMER: ComputedSignal<any> | undefined;
 let CURRENT_DEP_TAIL: Link | undefined;
@@ -36,10 +36,7 @@ export type SignalSubscription = {
   unsubscribe?(): void;
 };
 
-export type SignalSubscribe<T> = (
-  get: () => T,
-  set: (value: T) => void
-) => SignalSubscription | undefined | void;
+export type SignalSubscribe<T> = (get: () => T, set: (value: T) => void) => SignalSubscription | undefined | void;
 
 export interface SignalOptions<T> {
   equals?: SignalEquals<T>;
@@ -49,10 +46,7 @@ export interface SignalOptionsWithInit<T> extends SignalOptions<T> {
   initValue: T;
 }
 
-const SUBSCRIPTIONS = new WeakMap<
-  ComputedSignal<any>,
-  SignalSubscription | undefined | void
->();
+const SUBSCRIPTIONS = new WeakMap<ComputedSignal<any>, SignalSubscription | undefined | void>();
 
 const enum SignalState {
   Clean,
@@ -80,7 +74,7 @@ function linkNewDep(
   sub: ComputedSignal<any>,
   nextDep: Link | undefined,
   depsTail: Link | undefined,
-  ord: number
+  ord: number,
 ): Link {
   let newLink: Link;
 
@@ -142,9 +136,9 @@ function poolLink(link: Link) {
     dep._subs = nextSub;
   }
 
-  // @ts-expect-error
+  // @ts-expect-error - override to pool the value
   link.dep = undefined;
-  // @ts-expect-error
+  // @ts-expect-error - override to pool the value
   link.sub = undefined;
   link.nextDep = linkPool;
   linkPool = link;
@@ -152,10 +146,7 @@ function poolLink(link: Link) {
   link.prevSub = undefined;
 }
 
-export function endTrack(
-  sub: ComputedSignal<any>,
-  shouldDisconnect: boolean
-): void {
+export function endTrack(sub: ComputedSignal<any>, shouldDisconnect: boolean): void {
   if (CURRENT_DEP_TAIL !== undefined) {
     if (CURRENT_DEP_TAIL.nextDep !== undefined) {
       clearTrack(CURRENT_DEP_TAIL.nextDep, shouldDisconnect);
@@ -200,23 +191,15 @@ export class ComputedSignal<T> {
   _connectedCount: number;
 
   _currentValue: T | AsyncResult<T> | undefined;
-  _compute:
-    | SignalCompute<T>
-    | SignalAsyncCompute<T>
-    | SignalSubscribe<T>
-    | undefined;
+  _compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T> | undefined;
   _equals: SignalEquals<T>;
   _ref: WeakRef<ComputedSignal<T>> = new WeakRef(this);
 
   constructor(
     type: SignalType,
-    compute:
-      | SignalCompute<T>
-      | SignalAsyncCompute<T>
-      | SignalSubscribe<T>
-      | undefined,
+    compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T> | undefined,
     equals?: SignalEquals<T>,
-    initValue?: T
+    initValue?: T,
   ) {
     this._type = type;
     this._compute = compute;
@@ -228,17 +211,10 @@ export class ComputedSignal<T> {
   get(): T | AsyncResult<T> {
     let prevTracked = false;
 
-    if (
-      CURRENT_CONSUMER !== undefined &&
-      this._type !== SignalType.Watcher &&
-      !CURRENT_SEEN!.has(this)
-    ) {
+    if (CURRENT_CONSUMER !== undefined && this._type !== SignalType.Watcher && !CURRENT_SEEN!.has(this)) {
       const ord = CURRENT_ORD++;
 
-      const nextDep =
-        CURRENT_DEP_TAIL === undefined
-          ? CURRENT_CONSUMER._deps
-          : CURRENT_DEP_TAIL.nextDep;
+      const nextDep = CURRENT_DEP_TAIL === undefined ? CURRENT_CONSUMER._deps : CURRENT_DEP_TAIL.nextDep;
       let newLink: Link | undefined = nextDep;
 
       while (newLink !== undefined) {
@@ -266,9 +242,7 @@ export class ComputedSignal<T> {
 
       this._check(CURRENT_IS_WATCHED && !prevTracked);
 
-      CURRENT_DEP_TAIL =
-        newLink ??
-        linkNewDep(this, CURRENT_CONSUMER, nextDep, CURRENT_DEP_TAIL, ord);
+      CURRENT_DEP_TAIL = newLink ?? linkNewDep(this, CURRENT_CONSUMER, nextDep, CURRENT_DEP_TAIL, ord);
 
       CURRENT_DEP_TAIL.version = this._version;
       CURRENT_SEEN!.add(this);
@@ -352,6 +326,7 @@ export class ComputedSignal<T> {
     const prevIsWatched = CURRENT_IS_WATCHED;
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
       CURRENT_CONSUMER = this;
       CURRENT_ORD = 0;
       CURRENT_SEEN = new WeakSet();
@@ -382,15 +357,13 @@ export class ComputedSignal<T> {
               isSuccess: false,
             });
 
-          const nextValue = (this._compute as SignalAsyncCompute<T>)(
-            value?.result
-          );
+          const nextValue = (this._compute as SignalAsyncCompute<T>)(value?.result);
 
           if ('then' in (nextValue as Promise<T>)) {
             const currentVersion = ++this._version;
 
             (nextValue as Promise<T>).then(
-              (result) => {
+              result => {
                 if (currentVersion !== this._version) {
                   return;
                 }
@@ -404,7 +377,7 @@ export class ComputedSignal<T> {
                 this._version++;
                 this._dirtyConsumers();
               },
-              (error) => {
+              error => {
                 if (currentVersion !== this._version) {
                   return;
                 }
@@ -414,7 +387,7 @@ export class ComputedSignal<T> {
                 value.isError = true;
                 this._version++;
                 this._dirtyConsumers();
-              }
+              },
             );
 
             value.isPending = true;
@@ -437,14 +410,14 @@ export class ComputedSignal<T> {
           if (shouldConnect) {
             const subscription = (this._compute as SignalSubscribe<T>)(
               () => this._currentValue as T,
-              (value) => {
+              value => {
                 if (this._equals(value, this._currentValue as T)) {
                   return;
                 }
                 this._currentValue = value;
                 this._version++;
                 this._dirtyConsumers();
-              }
+              },
             );
             SUBSCRIPTIONS.set(this, subscription);
           } else {
@@ -591,7 +564,7 @@ export class ComputedSignal<T> {
   }
 }
 
-export interface AsyncPending<T> {
+export interface AsyncPending {
   result: undefined;
   error: unknown;
   isPending: boolean;
@@ -609,14 +582,14 @@ export interface AsyncReady<T> {
   isSuccess: boolean;
 }
 
-export type AsyncResult<T> = AsyncPending<T> | AsyncReady<T>;
+export type AsyncResult<T> = AsyncPending | AsyncReady<T>;
 
 class StateSignal<T> implements StateSignal<T> {
   private _consumers: WeakRef<ComputedSignal<unknown>>[] = [];
 
   constructor(
     private _value: T,
-    private _equals: SignalEquals<T> = (a, b) => a === b
+    private _equals: SignalEquals<T> = (a, b) => a === b,
   ) {}
 
   get(): T {
@@ -651,62 +624,33 @@ class StateSignal<T> implements StateSignal<T> {
   }
 }
 
-export function state<T>(
-  initialValue: T,
-  opts?: SignalOptions<T>
-): StateSignal<T> {
+export function state<T>(initialValue: T, opts?: SignalOptions<T>): StateSignal<T> {
   return new StateSignal(initialValue, opts?.equals);
 }
 
-export function computed<T>(
-  compute: (prev: T | undefined) => T,
-  opts?: SignalOptions<T>
-): Signal<T> {
-  return new ComputedSignal(
-    SignalType.Computed,
-    compute,
-    opts?.equals
-  ) as Signal<T>;
+export function computed<T>(compute: (prev: T | undefined) => T, opts?: SignalOptions<T>): Signal<T> {
+  return new ComputedSignal(SignalType.Computed, compute, opts?.equals) as Signal<T>;
 }
 
 export function asyncComputed<T>(
   compute: (prev: T | undefined) => Promise<T>,
-  opts?: SignalOptions<T>
+  opts?: SignalOptions<T>,
 ): Signal<AsyncResult<T>>;
 export function asyncComputed<T>(
   compute: (prev: T | undefined) => Promise<T>,
-  opts: SignalOptionsWithInit<T>
+  opts: SignalOptionsWithInit<T>,
 ): Signal<AsyncReady<T>>;
 export function asyncComputed<T>(
   compute: (prev: T | undefined) => Promise<T>,
-  opts?: Partial<SignalOptionsWithInit<T>>
+  opts?: Partial<SignalOptionsWithInit<T>>,
 ): Signal<AsyncResult<T>> {
-  return new ComputedSignal(
-    SignalType.Async,
-    compute,
-    opts?.equals,
-    opts?.initValue
-  ) as Signal<AsyncResult<T>>;
+  return new ComputedSignal(SignalType.Async, compute, opts?.equals, opts?.initValue) as Signal<AsyncResult<T>>;
 }
 
-export function subscription<T>(
-  subscribe: SignalSubscribe<T>,
-  opts?: SignalOptions<T>
-): Signal<T | undefined>;
-export function subscription<T>(
-  subscribe: SignalSubscribe<T>,
-  opts: SignalOptionsWithInit<T>
-): Signal<T>;
-export function subscription<T>(
-  subscribe: SignalSubscribe<T>,
-  opts?: Partial<SignalOptionsWithInit<T>>
-): Signal<T> {
-  return new ComputedSignal(
-    SignalType.Subscription,
-    subscribe,
-    opts?.equals,
-    opts?.initValue
-  ) as Signal<T>;
+export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: SignalOptions<T>): Signal<T | undefined>;
+export function subscription<T>(subscribe: SignalSubscribe<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
+export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: Partial<SignalOptionsWithInit<T>>): Signal<T> {
+  return new ComputedSignal(SignalType.Subscription, subscribe, opts?.equals, opts?.initValue) as Signal<T>;
 }
 
 export interface Watcher {

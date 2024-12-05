@@ -1,5 +1,5 @@
-import { ComputedSignal } from './signals';
-import { scheduleWatchers, scheduleDisconnects } from './config';
+import type { ComputedSignal } from './signals.js';
+import { scheduleWatchers, scheduleDisconnects } from './config.js';
 
 let PENDING_FLUSH_WATCHERS: {
   promise: Promise<void>;
@@ -15,7 +15,7 @@ export const scheduleWatcher = (watcher: ComputedSignal<any>) => {
   if (PENDING_FLUSH_WATCHERS === null) {
     let resolve: () => void;
 
-    const promise = new Promise<void>((r) => {
+    const promise = new Promise<void>(r => {
       resolve = r;
     });
 

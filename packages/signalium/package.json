@@ -1,10 +1,11 @@
 {
-  "name": "signalio",
-  "version": "1.0.0",
-  "description": "Signals, but lazier",
+  "name": "signalium",
+  "version": "0.0.0",
+  "description": "Chain-reactivity at critical mass",
   "main": "index.js",
   "scripts": {
-    "test": "vitest"
+    "dev": "vitest",
+    "test": "vitest run"
   },
   "author": "",
   "license": "ISC",

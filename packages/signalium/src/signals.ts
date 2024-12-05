@@ -1,12 +1,12 @@
 import { scheduleDisconnect, scheduleWatcher } from './scheduling';
 
-let CURRENT_CONSUMER: WeakRef<ComputedSignal<any>> | undefined;
-let CURRENT_CONSUMED: Set<ComputedSignal<any>> | undefined;
-let LAST_CONSUMED: Set<ComputedSignal<any>> | undefined;
+let CURRENT_CONSUMER: ComputedSignal<any> | undefined;
+let CURRENT_DEP_TAIL: Link | undefined;
 let CURRENT_ORD: number = 0;
 let CURRENT_IS_WATCHED: boolean = false;
+let CURRENT_SEEN: WeakSet<ComputedSignal<any>> | undefined;
 
-let CLOCK = 0;
+let id = 0;
 
 const enum SignalType {
   Computed,
@@ -49,30 +49,153 @@ export interface SignalOptionsWithInit<T> extends SignalOptions<T> {
   initValue: T;
 }
 
-const CANCELLED_REFS = new WeakSet<WeakRef<ComputedSignal<any>>>();
-
-function derefSignal<T>(
-  ref: WeakRef<ComputedSignal<T>>
-): ComputedSignal<T> | undefined {
-  return CANCELLED_REFS.has(ref) ? undefined : ref.deref();
-}
-
 const SUBSCRIPTIONS = new WeakMap<
   ComputedSignal<any>,
   SignalSubscription | undefined | void
 >();
 
+const enum SignalState {
+  Clean,
+  MaybeDirty,
+  Dirty,
+}
+
+interface Link {
+  sub: WeakRef<ComputedSignal<any>>;
+  dep: ComputedSignal<any>;
+  ord: number;
+  version: number;
+
+  nextDep: Link | undefined;
+  nextSub: Link | undefined;
+  prevSub: Link | undefined;
+
+  nextDirty: Link | undefined;
+}
+
+let linkPool: Link | undefined;
+
+function linkNewDep(
+  dep: ComputedSignal<any>,
+  sub: ComputedSignal<any>,
+  nextDep: Link | undefined,
+  depsTail: Link | undefined,
+  ord: number
+): Link {
+  let newLink: Link;
+
+  if (linkPool !== undefined) {
+    newLink = linkPool;
+    linkPool = newLink.nextDep;
+    newLink.nextDep = nextDep;
+    newLink.dep = dep;
+    newLink.sub = sub._ref;
+    newLink.ord = ord;
+  } else {
+    newLink = {
+      dep,
+      sub: sub._ref,
+      ord,
+      version: 0,
+      nextDep,
+      nextDirty: undefined,
+      prevSub: undefined,
+      nextSub: undefined,
+    };
+  }
+
+  if (depsTail === undefined) {
+    sub._deps = newLink;
+  } else {
+    depsTail.nextDep = newLink;
+  }
+
+  if (dep._subs === undefined) {
+    dep._subs = newLink;
+  } else {
+    const oldTail = dep._subsTail!;
+    newLink.prevSub = oldTail;
+    oldTail.nextSub = newLink;
+  }
+
+  dep._subsTail = newLink;
+
+  return newLink;
+}
+
+function poolLink(link: Link) {
+  const dep = link.dep;
+  const nextSub = link.nextSub;
+  const prevSub = link.prevSub;
+
+  if (nextSub !== undefined) {
+    nextSub.prevSub = prevSub;
+    link.nextSub = undefined;
+  } else {
+    dep._subsTail = prevSub;
+  }
+
+  if (prevSub !== undefined) {
+    prevSub.nextSub = nextSub;
+    link.prevSub = undefined;
+  } else {
+    dep._subs = nextSub;
+  }
+
+  // @ts-expect-error
+  link.dep = undefined;
+  // @ts-expect-error
+  link.sub = undefined;
+  link.nextDep = linkPool;
+  linkPool = link;
+
+  link.prevSub = undefined;
+}
+
+export function endTrack(
+  sub: ComputedSignal<any>,
+  shouldDisconnect: boolean
+): void {
+  if (CURRENT_DEP_TAIL !== undefined) {
+    if (CURRENT_DEP_TAIL.nextDep !== undefined) {
+      clearTrack(CURRENT_DEP_TAIL.nextDep, shouldDisconnect);
+      CURRENT_DEP_TAIL.nextDep = undefined;
+    }
+  } else if (sub._deps !== undefined) {
+    clearTrack(sub._deps, shouldDisconnect);
+    sub._deps = undefined;
+  }
+}
+
+function clearTrack(link: Link, shouldDisconnect: boolean): void {
+  do {
+    const nextDep = link.nextDep;
+
+    if (shouldDisconnect) {
+      scheduleDisconnect(link.dep);
+    }
+
+    poolLink(link);
+
+    link = nextDep!;
+  } while (link !== undefined);
+}
+
+// const registry = new FinalizationRegistry(poolLink);
+
 export class ComputedSignal<T> {
+  id = id++;
   _type: SignalType;
 
-  // Map from consumer signals to the ord of this signals consumption in the
-  // consumer. So if this is the first signal consumed in that context, it would
-  // be [ConsumerSignal, 0] for instance. Ords are used to build a priority
-  // queue for updates that allows us to skip a second downward step.
-  _consumers: Map<WeakRef<ComputedSignal<any>>, number> = new Map();
-  _consumed: Set<ComputedSignal<any>> | undefined;
-  _dirtyQueue: (ComputedSignal<any> | number)[] | boolean = true;
-  _updatedAt: number = -1;
+  _subs: Link | undefined;
+  _subsTail: Link | undefined;
+
+  _deps: Link | undefined;
+  _dirtyDep: Link | undefined;
+
+  _state: SignalState = SignalState.Dirty;
+
+  _version: number = 0;
 
   _connectedCount: number;
 
@@ -83,7 +206,7 @@ export class ComputedSignal<T> {
     | SignalSubscribe<T>
     | undefined;
   _equals: SignalEquals<T>;
-  _ref: WeakRef<ComputedSignal<T>> | undefined;
+  _ref: WeakRef<ComputedSignal<T>> = new WeakRef(this);
 
   constructor(
     type: SignalType,
@@ -103,19 +226,52 @@ export class ComputedSignal<T> {
   }
 
   get(): T | AsyncResult<T> {
-    const consumers = this._consumers;
+    let prevTracked = false;
 
     if (
-      this._type !== SignalType.Watcher &&
       CURRENT_CONSUMER !== undefined &&
-      !consumers.has(CURRENT_CONSUMER)
+      this._type !== SignalType.Watcher &&
+      !CURRENT_SEEN!.has(this)
     ) {
-      const prevConsumed = LAST_CONSUMED?.delete(this);
-      CURRENT_CONSUMED!.add(this);
+      const ord = CURRENT_ORD++;
 
-      this._check(CURRENT_IS_WATCHED && !prevConsumed);
+      const nextDep =
+        CURRENT_DEP_TAIL === undefined
+          ? CURRENT_CONSUMER._deps
+          : CURRENT_DEP_TAIL.nextDep;
+      let newLink: Link | undefined = nextDep;
 
-      consumers.set(CURRENT_CONSUMER!, CURRENT_ORD++);
+      while (newLink !== undefined) {
+        if (newLink.dep === this) {
+          prevTracked = true;
+
+          if (CURRENT_DEP_TAIL === undefined) {
+            CURRENT_CONSUMER._deps = newLink;
+          } else {
+            CURRENT_DEP_TAIL.nextDep = newLink;
+          }
+
+          newLink.ord = ord;
+          newLink.nextDirty = undefined;
+
+          if (this._subs === undefined) {
+            this._subs = newLink;
+          }
+
+          break;
+        }
+
+        newLink = newLink.nextDep;
+      }
+
+      this._check(CURRENT_IS_WATCHED && !prevTracked);
+
+      CURRENT_DEP_TAIL =
+        newLink ??
+        linkNewDep(this, CURRENT_CONSUMER, nextDep, CURRENT_DEP_TAIL, ord);
+
+      CURRENT_DEP_TAIL.version = this._version;
+      CURRENT_SEEN!.add(this);
     } else {
       this._check();
     }
@@ -124,8 +280,7 @@ export class ComputedSignal<T> {
   }
 
   _check(shouldWatch = false): number {
-    let queue = this._dirtyQueue;
-    let updated = this._updatedAt;
+    let state = this._state;
     let connectedCount = this._connectedCount;
 
     const wasConnected = connectedCount > 0;
@@ -137,79 +292,85 @@ export class ComputedSignal<T> {
 
     if (shouldConnect) {
       if (this._type === SignalType.Subscription) {
-        queue = true;
+        state = SignalState.Dirty;
       } else {
-        const consumed = this._consumed!;
+        let link = this._deps;
 
-        if (consumed !== undefined) {
-          for (const signal of consumed) {
-            if (updated < signal._check(true)) {
-              queue = true;
-              break;
-            }
-          }
-        }
+        while (link !== undefined) {
+          const dep = link.dep;
 
-        if (Array.isArray(queue)) {
-          for (let i = 0; i < queue.length; i += 2) {
-            const signal = queue[i + 1] as ComputedSignal<any>;
-
-            signal._consumers!.set(this._ref!, queue[i] as number);
+          if (link.version !== dep._check(true)) {
+            state = SignalState.Dirty;
+            break;
           }
 
-          this._dirtyQueue = queue = false;
+          link = link.nextDep;
         }
       }
+
+      this._resetDirty();
     }
 
-    if (queue === false) {
-      return updated;
+    if (state === SignalState.Clean) {
+      return this._version;
     }
 
-    if (Array.isArray(queue)) {
-      for (let i = 0; i < queue.length; i += 2) {
-        const signal = queue[i + 1] as ComputedSignal<any>;
+    if (state === SignalState.MaybeDirty) {
+      let dirty = this._dirtyDep;
 
-        if (updated < signal._check()) {
-          queue = true;
+      while (dirty !== undefined) {
+        const dep = dirty.dep;
+
+        if (dirty.version !== dep._check()) {
+          state = SignalState.Dirty;
           break;
-        } else {
-          signal._consumers!.set(this._ref!, queue[i] as number);
         }
+
+        dirty = dirty.nextDirty;
       }
     }
 
-    if (queue === true) {
-      const { _ref, _type } = this;
+    if (state === SignalState.Dirty) {
+      this._run(wasConnected, connectedCount > 0, shouldConnect);
+    } else {
+      this._resetDirty();
+    }
 
-      if (_ref) {
-        CANCELLED_REFS.add(_ref);
-      }
+    this._state = SignalState.Clean;
+    this._dirtyDep = undefined;
 
-      const prevConsumer = CURRENT_CONSUMER;
-      const prevConsumed = CURRENT_CONSUMED;
-      const prevLastConsumed = LAST_CONSUMED;
-      const prevOrd = CURRENT_ORD;
-      const prevIsWatched = CURRENT_IS_WATCHED;
+    return this._version;
+  }
 
-      try {
-        CURRENT_CONSUMER = this._ref = new WeakRef(this);
-        LAST_CONSUMED = this._consumed;
-        CURRENT_CONSUMED = this._consumed = new Set();
-        CURRENT_ORD = 0;
-        CURRENT_IS_WATCHED = this._connectedCount > 0;
+  _run(wasConnected: boolean, isConnected: boolean, shouldConnect: boolean) {
+    const { _type: type } = this;
 
-        if (_type === SignalType.Computed) {
+    const prevConsumer = CURRENT_CONSUMER;
+    const prevOrd = CURRENT_ORD;
+    const prevSeen = CURRENT_SEEN;
+    const prevDepTail = CURRENT_DEP_TAIL;
+    const prevIsWatched = CURRENT_IS_WATCHED;
+
+    try {
+      CURRENT_CONSUMER = this;
+      CURRENT_ORD = 0;
+      CURRENT_SEEN = new WeakSet();
+      CURRENT_DEP_TAIL = undefined;
+      CURRENT_IS_WATCHED = isConnected;
+
+      switch (type) {
+        case SignalType.Computed: {
           const prevValue = this._currentValue as T;
           const nextValue = (this._compute as SignalCompute<T>)(prevValue);
 
-          if (updated === -1 || !this._equals(prevValue!, nextValue)) {
+          if (!this._equals(prevValue!, nextValue)) {
             this._currentValue = nextValue;
-            this._updatedAt = CLOCK++;
+            this._version++;
           }
-        } else if (_type === SignalType.Async) {
-          const currentRef = this._ref;
+          break;
+        }
 
+        case SignalType.Async: {
           const value =
             (this._currentValue as AsyncResult<T>) ??
             (this._currentValue = {
@@ -225,10 +386,12 @@ export class ComputedSignal<T> {
             value?.result
           );
 
-          if (typeof (nextValue as Promise<T>)?.then === 'function') {
+          if ('then' in (nextValue as Promise<T>)) {
+            const currentVersion = ++this._version;
+
             (nextValue as Promise<T>).then(
               (result) => {
-                if (CANCELLED_REFS.has(currentRef)) {
+                if (currentVersion !== this._version) {
                   return;
                 }
 
@@ -238,18 +401,18 @@ export class ComputedSignal<T> {
                 value.isPending = false;
                 value.isSuccess = true;
 
-                this._updatedAt = CLOCK++;
+                this._version++;
                 this._dirtyConsumers();
               },
               (error) => {
-                if (CANCELLED_REFS.has(currentRef)) {
+                if (currentVersion !== this._version) {
                   return;
                 }
 
                 value.error = error;
                 value.isPending = false;
                 value.isError = true;
-                this._updatedAt = CLOCK++;
+                this._version++;
                 this._dirtyConsumers();
               }
             );
@@ -257,7 +420,6 @@ export class ComputedSignal<T> {
             value.isPending = true;
             value.isError = false;
             value.isSuccess = false;
-            this._updatedAt = CLOCK++;
           } else {
             value.result = nextValue as T;
             value.isReady = true;
@@ -265,52 +427,71 @@ export class ComputedSignal<T> {
             value.isSuccess = true;
             value.isError = false;
 
-            this._updatedAt = CLOCK++;
+            this._version++;
           }
-        } else if (_type === SignalType.Subscription) {
+
+          break;
+        }
+
+        case SignalType.Subscription: {
           if (shouldConnect) {
             const subscription = (this._compute as SignalSubscribe<T>)(
               () => this._currentValue as T,
               (value) => {
-                if (
-                  this._updatedAt !== -1 &&
-                  this._equals(value, this._currentValue as T)
-                ) {
+                if (this._equals(value, this._currentValue as T)) {
                   return;
                 }
-
                 this._currentValue = value;
-                this._updatedAt = CLOCK++;
+                this._version++;
                 this._dirtyConsumers();
               }
             );
-
             SUBSCRIPTIONS.set(this, subscription);
           } else {
-            (this._compute as SignalSubscription)!.update?.();
+            const subscription = SUBSCRIPTIONS.get(this);
+
+            subscription?.update?.();
           }
-        } else {
+
+          break;
+        }
+
+        default: {
           (this._compute as SignalWatcherEffect)!();
-          this._updatedAt = CLOCK++;
         }
-      } finally {
-        if (wasConnected && LAST_CONSUMED !== undefined) {
-          for (const signal of LAST_CONSUMED) {
-            scheduleDisconnect(signal);
-          }
-        }
-
-        CURRENT_CONSUMER = prevConsumer;
-        LAST_CONSUMED = prevLastConsumed;
-        CURRENT_CONSUMED = prevConsumed;
-        CURRENT_ORD = prevOrd;
-        CURRENT_IS_WATCHED = prevIsWatched;
       }
+    } finally {
+      endTrack(this, wasConnected);
+
+      CURRENT_CONSUMER = prevConsumer;
+      CURRENT_SEEN = prevSeen;
+      CURRENT_DEP_TAIL = prevDepTail;
+      CURRENT_ORD = prevOrd;
+      CURRENT_IS_WATCHED = prevIsWatched;
     }
+  }
 
-    this._dirtyQueue = false;
+  _resetDirty() {
+    let dirty = this._dirtyDep;
 
-    return this._updatedAt;
+    while (dirty !== undefined) {
+      const dep = dirty.dep;
+      const oldHead = dep._subs;
+
+      if (oldHead === undefined) {
+        dep._subs = dirty;
+        dirty.nextSub = undefined;
+        dirty.prevSub = undefined;
+      } else {
+        dirty.nextSub = oldHead;
+        oldHead.prevSub = dirty;
+        dep._subs = dirty;
+      }
+
+      let nextDirty = dirty.nextDirty;
+      dirty.nextDirty = undefined;
+      dirty = nextDirty;
+    }
   }
 
   _dirty() {
@@ -319,40 +500,65 @@ export class ComputedSignal<T> {
         scheduleWatcher(this);
       }
 
-      // else do nothing, only schedul if connected
+      // else do nothing, only schedule if connected
     } else if (this._type === SignalType.Watcher) {
       scheduleWatcher(this);
     } else {
       this._dirtyConsumers();
     }
+
+    this._subs = undefined;
   }
 
   _dirtyConsumers() {
-    const consumers = this._consumers;
+    let link = this._subs;
 
-    for (const [consumerRef, ord] of consumers) {
-      const consumer = derefSignal(
-        consumerRef as WeakRef<ComputedSignal<unknown>>
-      );
+    while (link !== undefined) {
+      const consumer = link.sub.deref();
 
       if (consumer === undefined) {
+        const nextSub = link.nextSub;
+        poolLink(link);
+        link = nextSub;
         continue;
       }
 
-      let dirtyQueue = consumer._dirtyQueue;
+      const state = consumer._state;
 
-      if (dirtyQueue === true) {
+      if (state === SignalState.Dirty) {
+        const nextSub = link.nextSub;
+        link = nextSub;
         continue;
-      } else if (dirtyQueue === false) {
-        consumer._dirtyQueue = dirtyQueue = [];
       }
 
-      priorityQueueInsert(dirtyQueue, this, ord);
+      if (state === SignalState.MaybeDirty) {
+        let dirty = consumer._dirtyDep;
+        const ord = link.ord;
 
-      consumer._dirty();
+        if (dirty!.ord > ord) {
+          consumer._dirtyDep = link;
+          link.nextDirty = dirty;
+        } else {
+          let nextDirty = dirty!.nextDirty;
+
+          while (nextDirty !== undefined && nextDirty!.ord < ord) {
+            dirty = nextDirty;
+            nextDirty = dirty.nextDirty;
+          }
+
+          link.nextDirty = nextDirty;
+          dirty!.nextDirty = link;
+        }
+      } else {
+        // consumer._dirtyQueueLength = dirtyQueueLength + 2;
+        consumer._state = SignalState.MaybeDirty;
+        consumer._dirtyDep = link;
+        link.nextDirty = undefined;
+        consumer._dirty();
+      }
+
+      link = link.nextSub;
     }
-
-    consumers.clear();
   }
 
   _disconnect(count = 1) {
@@ -373,8 +579,14 @@ export class ComputedSignal<T> {
       }
     }
 
-    for (const consumed of this._consumed!) {
-      consumed._disconnect();
+    let link = this._deps;
+
+    while (link !== undefined) {
+      const dep = link.dep;
+
+      dep._disconnect();
+
+      link = link.nextDep;
     }
   }
 }
@@ -409,7 +621,7 @@ class StateSignal<T> implements StateSignal<T> {
 
   get(): T {
     if (CURRENT_CONSUMER !== undefined) {
-      this._consumers.push(CURRENT_CONSUMER);
+      this._consumers.push(CURRENT_CONSUMER._ref);
     }
 
     return this._value!;
@@ -425,40 +637,18 @@ class StateSignal<T> implements StateSignal<T> {
     const { _consumers: consumers } = this;
 
     for (const consumerRef of consumers) {
-      const consumer = derefSignal(consumerRef);
+      const consumer = consumerRef.deref();
 
       if (consumer === undefined) {
         continue;
       }
 
-      consumer._dirtyQueue = true;
+      consumer._state = SignalState.Dirty;
       consumer._dirty();
     }
 
     consumers.length = 0;
   }
-}
-
-function priorityQueueInsert<T>(
-  queue: (ComputedSignal<any> | number)[],
-  signal: ComputedSignal<any>,
-  ord: number
-): void {
-  let left = 0,
-    right = queue.length / 2;
-
-  // Perform binary search to find the correct insertion index
-  while (left < right) {
-    const mid = Math.floor((left + right) / 2);
-    if ((queue[mid * 2] as number) < ord) {
-      left = mid + 1;
-    } else {
-      right = mid;
-    }
-  }
-
-  // Insert the new tuple at the found index
-  queue.splice(left * 2, 0, ord, signal);
 }
 
 export function state<T>(
@@ -537,23 +727,18 @@ export function watcher(fn: () => void): Watcher {
 
 export function untrack<T = void>(fn: () => T): T {
   const prevConsumer = CURRENT_CONSUMER;
-  const prevConsumed = CURRENT_CONSUMED;
-  const prevLastConsumed = LAST_CONSUMED;
   const prevOrd = CURRENT_ORD;
   const prevIsWatched = CURRENT_IS_WATCHED;
 
   try {
     CURRENT_CONSUMER = undefined;
-    LAST_CONSUMED = undefined;
-    CURRENT_CONSUMED = undefined;
+    // LAST_CONSUMED = undefined;
     CURRENT_ORD = 0;
     CURRENT_IS_WATCHED = false;
 
     return fn();
   } finally {
     CURRENT_CONSUMER = prevConsumer;
-    LAST_CONSUMED = prevLastConsumed;
-    CURRENT_CONSUMED = prevConsumed;
     CURRENT_ORD = prevOrd;
     CURRENT_IS_WATCHED = prevIsWatched;
   }

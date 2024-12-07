@@ -1,5 +1,11 @@
 # signalium
 
+## 0.2.0
+
+### Minor Changes
+
+- 4696d06: Refactor await and invalidate to make them more composable
+
 ## 0.1.1
 
 ### Patch Changes

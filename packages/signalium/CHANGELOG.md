@@ -1,5 +1,11 @@
 # signalium
 
+## 0.1.1
+
+### Patch Changes
+
+- 033a814: Add await and invalidate to async signals
+
 ## 0.1.0
 
 ### Minor Changes

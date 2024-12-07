@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { state, computed } from './utils/instrumented.js';
 
-describe.skip('Basic Signal functionality', () => {
+describe('Basic Signal functionality', () => {
   test('Can run basic computed', () => {
     const a = state(1);
     const b = state(2);

@@ -17,6 +17,7 @@ import {
   AsyncReady,
   Watcher,
   SignalWatcherEffect,
+  AsyncSignal,
 } from '../../signals.js';
 
 class SignalCounts {
@@ -194,13 +195,13 @@ export function asyncComputed<T>(
   compute: SignalAsyncCompute<T>,
   opts: SignalOptionsWithInit<T>,
 ): Signal<T>;
-export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts?: SignalOptions<T>): Signal<T>;
-export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
+export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts?: SignalOptions<T>): AsyncSignal<T>;
+export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts: SignalOptionsWithInit<T>): AsyncSignal<T>;
 export function asyncComputed<T>(
   nameOrCompute: string | SignalAsyncCompute<T>,
   computeOrOpts?: SignalCompute<T> | Partial<SignalOptionsWithInit<T>>,
   maybeOpts?: Partial<SignalOptionsWithInit<T>>,
-): Signal<AsyncResult<T>> | Signal<AsyncReady<T>> {
+): AsyncSignal<T> {
   const name = typeof nameOrCompute === 'string' ? nameOrCompute : 'unlabeled';
   const compute = typeof nameOrCompute === 'string' ? (computeOrOpts as SignalCompute<T>) : nameOrCompute;
   const opts = typeof nameOrCompute === 'string' ? maybeOpts : (computeOrOpts as SignalOptions<T>);
@@ -224,6 +225,14 @@ export function asyncComputed<T>(
     get() {
       counts.get++;
       return s.get();
+    },
+
+    invalidate() {
+      s.invalidate();
+    },
+
+    await() {
+      return s.await();
     },
   };
 

@@ -1,5 +1,6 @@
 export type {
   Signal,
+  AsyncSignal,
   WriteableSignal,
   SignalCompute,
   SignalAsyncCompute,

@@ -10,11 +10,9 @@ import {
   WriteableSignal,
   SignalCompute,
   SignalAsyncCompute,
-  AsyncResult,
   SignalSubscribe,
   SignalSubscription,
   SignalOptionsWithInit,
-  AsyncReady,
   Watcher,
   SignalWatcherEffect,
   AsyncSignal,
@@ -225,14 +223,6 @@ export function asyncComputed<T>(
     get() {
       counts.get++;
       return s.get();
-    },
-
-    invalidate() {
-      s.invalidate();
-    },
-
-    await() {
-      return s.await();
     },
   };
 

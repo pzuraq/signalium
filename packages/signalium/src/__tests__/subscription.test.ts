@@ -620,7 +620,6 @@ describe('Subscription Signal functionality', () => {
 
       w.disconnect();
       let w2 = watcher(() => {
-        console.log('test');
         s.get();
       });
 

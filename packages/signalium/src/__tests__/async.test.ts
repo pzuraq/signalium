@@ -9,14 +9,17 @@ const result = <T>(
   value: T | undefined,
   promiseState: 'pending' | 'error' | 'success',
   isReady: boolean,
+  error?: any,
 ): AsyncResult<T> =>
   ({
     result: value,
-    error: undefined,
+    error,
     isPending: promiseState === 'pending',
     isReady,
     isError: promiseState === 'error',
     isSuccess: promiseState === 'success',
+    await: expect.any(Function),
+    invalidate: expect.any(Function),
   }) as AsyncResult<T>;
 
 describe('Async Signal functionality', () => {
@@ -180,8 +183,8 @@ describe('Async Signal functionality', () => {
       });
 
       const compC = asyncComputed(async () => {
-        const a = compA.await();
-        const b = compB.await();
+        const a = compA.get().await();
+        const b = compB.get().await();
 
         return a + b;
       });
@@ -230,8 +233,8 @@ describe('Async Signal functionality', () => {
       });
 
       const compC = asyncComputed(async () => {
-        const a = compA.await();
-        const b = compB.await();
+        const a = compA.get().await();
+        const b = compB.get().await();
 
         return a + b;
       });
@@ -244,20 +247,10 @@ describe('Async Signal functionality', () => {
 
       await sleep(50);
 
-      expect(compC).toHaveValueAndCounts(
-        {
-          result: undefined,
-          error: 'error',
-          isPending: false,
-          isReady: false,
-          isError: true,
-          isSuccess: false,
-        },
-        {
-          compute: 2,
-          resolve: 0,
-        },
-      );
+      expect(compC).toHaveValueAndCounts(result(undefined, 'error', false, 'error'), {
+        compute: 2,
+        resolve: 0,
+      });
     });
   });
 });

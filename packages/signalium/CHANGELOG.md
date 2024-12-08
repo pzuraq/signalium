@@ -1,5 +1,11 @@
 # signalium
 
+## 0.2.2
+
+### Patch Changes
+
+- 0376187: Fix a circular ref and add logs to detect circular refs in dev
+
 ## 0.2.1
 
 ### Patch Changes

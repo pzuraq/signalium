@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { state, computed, asyncComputed } from './utils/instrumented.js';
+import { state, asyncComputed } from './utils/instrumented.js';
 import { AsyncResult } from '../signals';
 
 const sleep = (ms = 0) => new Promise(r => setTimeout(r, ms));

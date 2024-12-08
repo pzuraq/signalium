@@ -61,6 +61,7 @@ const enum SignalState {
 const WAITING = Symbol();
 
 interface Link {
+  id: number;
   sub: WeakRef<ComputedSignal<any>>;
   dep: ComputedSignal<any>;
   ord: number;
@@ -74,6 +75,51 @@ interface Link {
 }
 
 let linkPool: Link | undefined;
+
+const checkForCircularLinks = (link: Link | undefined) => {
+  if (!link) return;
+
+  for (const key of ['nextDep', 'nextSub', 'prevSub', 'nextDirty'] as const) {
+    let currentLink: Link | undefined = link?.[key];
+
+    while (currentLink !== undefined) {
+      if (currentLink === link) {
+        throw new Error(
+          `Circular link detected via ${key}. This is a bug, please report it to the Signalium maintainers.`,
+        );
+      }
+
+      currentLink = currentLink[key];
+    }
+  }
+};
+
+const typeToString = (type: SignalType) => {
+  switch (type) {
+    case SignalType.Computed:
+      return 'Computed';
+    case SignalType.Subscription:
+      return 'Subscription';
+    case SignalType.Async:
+      return 'Async';
+    case SignalType.Watcher:
+      return 'Watcher';
+  }
+};
+
+const printComputed = (computed: ComputedSignal<any>) => {
+  const type = typeToString(computed._type);
+
+  return `ComputedSignal<${type}:${computed.id}>`;
+};
+
+const printLink = (link: Link) => {
+  const sub = link.sub.deref();
+  const subStr = sub === undefined ? 'undefined' : printComputed(sub);
+  const depStr = printComputed(link.dep);
+
+  return `Link<${link.id}> sub(${subStr}) -> dep(${depStr})`;
+};
 
 function linkNewDep(
   dep: ComputedSignal<any>,
@@ -93,6 +139,7 @@ function linkNewDep(
     newLink.ord = ord;
   } else {
     newLink = {
+      id: id++,
       dep,
       sub: sub._ref,
       ord,
@@ -288,6 +335,8 @@ export class ComputedSignal<T> {
 
       CURRENT_DEP_TAIL = newLink ?? linkNewDep(this, CURRENT_CONSUMER, nextDep, CURRENT_DEP_TAIL, ord);
 
+      if (process.env.NODE_ENV !== 'production') checkForCircularLinks(CURRENT_DEP_TAIL);
+
       CURRENT_DEP_TAIL.version = this._version;
       CURRENT_SEEN!.add(this);
     } else {
@@ -314,6 +363,8 @@ export class ComputedSignal<T> {
       } else {
         let link = this._deps;
 
+        if (process.env.NODE_ENV !== 'production') checkForCircularLinks(link);
+
         while (link !== undefined) {
           const dep = link.dep;
 
@@ -325,8 +376,6 @@ export class ComputedSignal<T> {
           link = link.nextDep;
         }
       }
-
-      this._resetDirty();
     }
 
     if (state === SignalState.Clean) {
@@ -403,9 +452,8 @@ export class ComputedSignal<T> {
               value.isPending = false;
               value.isError = true;
               this._version++;
+              break;
             }
-
-            break;
           }
 
           if (CURRENT_IS_WAITING) {
@@ -527,14 +575,21 @@ export class ComputedSignal<T> {
         dirty.prevSub = undefined;
       } else {
         dirty.nextSub = oldHead;
+        dirty.prevSub = undefined;
         oldHead.prevSub = dirty;
         dep._subs = dirty;
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        checkForCircularLinks(this._dirtyDep);
       }
 
       let nextDirty = dirty.nextDirty;
       dirty.nextDirty = undefined;
       dirty = nextDirty;
     }
+
+    if (process.env.NODE_ENV !== 'production') checkForCircularLinks(this._dirtyDep);
   }
 
   _dirty() {
@@ -555,6 +610,8 @@ export class ComputedSignal<T> {
 
   _dirtyConsumers() {
     let link = this._subs;
+
+    if (process.env.NODE_ENV !== 'production') checkForCircularLinks(link);
 
     while (link !== undefined) {
       const consumer = link.sub.deref();

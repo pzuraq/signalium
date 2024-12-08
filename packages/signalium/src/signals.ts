@@ -208,8 +208,48 @@ export class ComputedSignal<T> {
     this._type = type;
     this._compute = compute;
     this._equals = equals ?? ((a, b) => a === b);
-    this._currentValue = initValue;
     this._connectedCount = type === SignalType.Watcher ? 1 : 0;
+
+    this._currentValue =
+      type !== SignalType.Async
+        ? initValue
+        : ({
+            result: initValue,
+            error: undefined,
+            isReady: initValue !== undefined,
+
+            isPending: true,
+            isError: false,
+            isSuccess: false,
+            didResolve: false,
+
+            invalidate: () => {
+              this._state = SignalState.Dirty;
+              this._dirty();
+            },
+
+            await: () => {
+              if (CURRENT_CONSUMER === undefined || CURRENT_CONSUMER._type !== SignalType.Async) {
+                throw new Error(
+                  'Cannot await an async signal outside of an async signal. If you are using an async function, you must use signal.await() for all async signals _before_ the first language-level `await` keyword statement (e.g. it must be synchronous).',
+                );
+              }
+
+              const value = this._currentValue as AsyncResult<T>;
+
+              if (value.isPending) {
+                const currentConsumer = CURRENT_CONSUMER;
+                ACTIVE_ASYNCS.get(this)?.finally(() => currentConsumer._check());
+
+                CURRENT_IS_WAITING = true;
+                throw WAITING;
+              } else if (value.isError) {
+                throw value.error;
+              }
+
+              return value.result as T;
+            },
+          } as AsyncResult<T>);
   }
 
   get(): T | AsyncResult<T> {
@@ -350,41 +390,7 @@ export class ComputedSignal<T> {
         }
 
         case SignalType.Async: {
-          const value: AsyncResult<T> =
-            (this._currentValue as AsyncResult<T>) ??
-            (this._currentValue = {
-              result: undefined,
-              error: undefined,
-              isPending: true,
-              isReady: false,
-              isError: false,
-              isSuccess: false,
-
-              invalidate: () => {
-                this._state = SignalState.Dirty;
-                this._dirty();
-              },
-
-              await: () => {
-                if (CURRENT_CONSUMER === undefined || CURRENT_CONSUMER._type !== SignalType.Async) {
-                  throw new Error(
-                    'Cannot await an async signal outside of an async signal. If you are using an async function, you must use signal.await() for all async signals _before_ the first language-level `await` keyword statement (e.g. it must be synchronous).',
-                  );
-                }
-
-                if (value.isPending) {
-                  const currentConsumer = CURRENT_CONSUMER;
-                  ACTIVE_ASYNCS.get(this)?.finally(() => currentConsumer._check());
-
-                  CURRENT_IS_WAITING = true;
-                  throw WAITING;
-                } else if (value.isError) {
-                  throw value.error;
-                }
-
-                return value.result as T;
-              },
-            });
+          const value: AsyncResult<T> = this._currentValue as AsyncResult<T>;
 
           let nextValue;
 
@@ -431,6 +437,7 @@ export class ComputedSignal<T> {
 
                 value.result = result;
                 value.isReady = true;
+                value.didResolve = true;
 
                 value.isPending = false;
                 value.isSuccess = true;
@@ -639,6 +646,7 @@ export interface AsyncPending<T> extends AsyncBaseResult<T> {
   isReady: false;
   isError: boolean;
   isSuccess: boolean;
+  didResolve: boolean;
 }
 
 export interface AsyncReady<T> extends AsyncBaseResult<T> {
@@ -648,6 +656,7 @@ export interface AsyncReady<T> extends AsyncBaseResult<T> {
   isReady: true;
   isError: boolean;
   isSuccess: boolean;
+  didResolve: boolean;
 }
 
 export type AsyncResult<T> = AsyncPending<T> | AsyncReady<T>;

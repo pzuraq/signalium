@@ -1,5 +1,11 @@
 # signalium
 
+## 0.2.1
+
+### Patch Changes
+
+- e8aa91a: Fix async init values
+
 ## 0.2.0
 
 ### Minor Changes

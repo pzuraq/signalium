@@ -8,16 +8,19 @@ const nextTick = () => new Promise(r => setTimeout(r, 0));
 const result = <T>(
   value: T | undefined,
   promiseState: 'pending' | 'error' | 'success',
-  isReady: boolean,
+  readyState: 'initial' | 'ready' | 'resolved',
   error?: any,
 ): AsyncResult<T> =>
   ({
     result: value,
     error,
     isPending: promiseState === 'pending',
-    isReady,
     isError: promiseState === 'error',
     isSuccess: promiseState === 'success',
+
+    isReady: readyState === 'ready' || readyState === 'resolved',
+    didResolve: readyState === 'resolved',
+
     await: expect.any(Function),
     invalidate: expect.any(Function),
   }) as AsyncResult<T>;
@@ -31,20 +34,20 @@ describe('Async Signal functionality', () => {
       return a.get() + b.get();
     });
 
-    expect(c).toHaveValueAndCounts(result(undefined, 'pending', false), {
+    expect(c).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
       compute: 1,
       resolve: 0,
     });
 
     await nextTick();
 
-    expect(c).toHaveValueAndCounts(result(3, 'success', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
       compute: 1,
       resolve: 1,
     });
 
     // stability
-    expect(c).toHaveValueAndCounts(result(3, 'success', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
       compute: 1,
       resolve: 1,
     });
@@ -58,28 +61,28 @@ describe('Async Signal functionality', () => {
       return a.get() + b.get();
     });
 
-    expect(c).toHaveValueAndCounts(result(undefined, 'pending', false), {
+    expect(c).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
       compute: 1,
       resolve: 0,
     });
 
     await nextTick();
 
-    expect(c).toHaveValueAndCounts(result(3, 'success', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
       compute: 1,
       resolve: 1,
     });
 
     a.set(2);
 
-    expect(c).toHaveValueAndCounts(result(3, 'pending', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'pending', 'resolved'), {
       compute: 2,
       resolve: 1,
     });
 
     await nextTick();
 
-    expect(c).toHaveValueAndCounts(result(4, 'success', true), {
+    expect(c).toHaveValueAndCounts(result(4, 'success', 'resolved'), {
       compute: 2,
       resolve: 2,
     });
@@ -93,28 +96,28 @@ describe('Async Signal functionality', () => {
       return a.get() + b.get();
     });
 
-    expect(c).toHaveValueAndCounts(result(undefined, 'pending', false), {
+    expect(c).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
       compute: 1,
       resolve: 0,
     });
 
     await nextTick();
 
-    expect(c).toHaveValueAndCounts(result(3, 'success', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
       compute: 1,
       resolve: 1,
     });
 
     a.set(1);
 
-    expect(c).toHaveValueAndCounts(result(3, 'success', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
       compute: 1,
       resolve: 1,
     });
 
     await nextTick();
 
-    expect(c).toHaveValueAndCounts(result(3, 'success', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
       compute: 1,
       resolve: 1,
     });
@@ -134,37 +137,74 @@ describe('Async Signal functionality', () => {
       return result;
     });
 
-    expect(c).toHaveValueAndCounts(result(undefined, 'pending', false), {
+    expect(c).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
       compute: 1,
       resolve: 0,
     });
 
     await nextTick();
 
-    expect(c).toHaveValueAndCounts(result(3, 'success', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
       compute: 1,
       resolve: 1,
     });
 
     a.set(2);
 
-    expect(c).toHaveValueAndCounts(result(3, 'pending', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'pending', 'resolved'), {
       compute: 2,
       resolve: 1,
     });
 
     a.set(3);
 
-    expect(c).toHaveValueAndCounts(result(3, 'pending', true), {
+    expect(c).toHaveValueAndCounts(result(3, 'pending', 'resolved'), {
       compute: 3,
       resolve: 1,
     });
 
     await sleep(200);
 
-    expect(c).toHaveValueAndCounts(result(5, 'success', true), {
+    expect(c).toHaveValueAndCounts(result(5, 'success', 'resolved'), {
       compute: 3,
       resolve: 3,
+    });
+  });
+
+  test('Can have initial value', async () => {
+    const a = state(1);
+    const b = state(2);
+
+    const c = asyncComputed(
+      async () => {
+        const result = a.get() + b.get();
+
+        await sleep(50);
+
+        return result;
+      },
+      {
+        initValue: 5,
+      },
+    );
+
+    expect(c).toHaveValueAndCounts(result(5, 'pending', 'ready'), {
+      compute: 1,
+      resolve: 0,
+    });
+
+    await nextTick();
+
+    expect(c).toHaveValueAndCounts(result(5, 'pending', 'ready'), {
+      compute: 1,
+      resolve: 0,
+    });
+
+    await sleep(60);
+
+    expect(c).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
+      compute: 1,
+      resolve: 1,
     });
   });
 
@@ -190,7 +230,7 @@ describe('Async Signal functionality', () => {
       });
 
       // Pull once to start the computation, trigger the computation
-      expect(compC).toHaveValueAndCounts(result(undefined, 'pending', false), {
+      expect(compC).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
         compute: 1,
         resolve: 0,
       });
@@ -198,7 +238,7 @@ describe('Async Signal functionality', () => {
       await nextTick();
 
       // Check after a tick to make sure we didn't resolve early
-      expect(compC).toHaveValueAndCounts(result(undefined, 'pending', false), {
+      expect(compC).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
         compute: 1,
         resolve: 0,
       });
@@ -206,14 +246,14 @@ describe('Async Signal functionality', () => {
       await sleep(30);
 
       // Check to make sure we don't resolve early after the first task completes
-      expect(compC).toHaveValueAndCounts(result(undefined, 'pending', false), {
+      expect(compC).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
         compute: 2,
         resolve: 0,
       });
 
       await sleep(30);
 
-      expect(compC).toHaveValueAndCounts(result(3, 'success', true), {
+      expect(compC).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
         compute: 3,
         resolve: 1,
       });
@@ -240,14 +280,14 @@ describe('Async Signal functionality', () => {
       });
 
       // Pull once to start the computation, trigger the computation
-      expect(compC).toHaveValueAndCounts(result(undefined, 'pending', false), {
+      expect(compC).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
         compute: 1,
         resolve: 0,
       });
 
       await sleep(50);
 
-      expect(compC).toHaveValueAndCounts(result(undefined, 'error', false, 'error'), {
+      expect(compC).toHaveValueAndCounts(result(undefined, 'error', 'initial', 'error'), {
         compute: 2,
         resolve: 0,
       });

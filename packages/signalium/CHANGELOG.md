@@ -1,5 +1,11 @@
 # signalium
 
+## 0.2.3
+
+### Patch Changes
+
+- 0ba50a0: Remove linked-lists for deps and subs
+
 ## 0.2.2
 
 ### Patch Changes

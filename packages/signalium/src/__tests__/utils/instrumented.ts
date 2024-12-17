@@ -1,4 +1,4 @@
-import { expect } from 'vitest';
+import { expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   state as createState,
   computed as createComputed,
@@ -187,12 +187,12 @@ export function computed<T>(
   return wrapper;
 }
 
-export function asyncComputed<T>(name: string, compute: SignalAsyncCompute<T>, opts?: SignalOptions<T>): Signal<T>;
+export function asyncComputed<T>(name: string, compute: SignalAsyncCompute<T>, opts?: SignalOptions<T>): AsyncSignal<T>;
 export function asyncComputed<T>(
   name: string,
   compute: SignalAsyncCompute<T>,
   opts: SignalOptionsWithInit<T>,
-): Signal<T>;
+): AsyncSignal<T>;
 export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts?: SignalOptions<T>): AsyncSignal<T>;
 export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts: SignalOptionsWithInit<T>): AsyncSignal<T>;
 export function asyncComputed<T>(

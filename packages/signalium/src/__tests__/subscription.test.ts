@@ -227,7 +227,7 @@ describe('Subscription Signal functionality', () => {
       await nextTick();
 
       expect(w).toHaveCounts({ effect: 2 });
-      expect(c).toHaveCounts({ get: 2, compute: 1 });
+      expect(c).toHaveValueAndCounts(123, { get: 3, compute: 1 });
       expect(s).toHaveValueAndCounts(123, {
         subscribe: 1,
       });
@@ -393,7 +393,7 @@ describe('Subscription Signal functionality', () => {
 
           return {
             update() {
-              set(a.get() + 1);
+              set(a.get());
             },
           };
         },
@@ -419,7 +419,7 @@ describe('Subscription Signal functionality', () => {
 
       await nextTick();
 
-      expect(s).toHaveValueAndCounts(2, {
+      expect(s).toHaveValueAndCounts(1, {
         subscribe: 1,
         update: 1,
       });

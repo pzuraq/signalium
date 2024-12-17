@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { state, asyncComputed } from './utils/instrumented.js';
+import { state, asyncComputed, computed } from './utils/instrumented.js';
 import { AsyncResult } from '../signals';
 
 const sleep = (ms = 0) => new Promise(r => setTimeout(r, ms));
@@ -131,7 +131,7 @@ describe('Async Signal functionality', () => {
       const result = a.get() + b.get();
 
       if (result === 4) {
-        await sleep(100);
+        await sleep(10);
       }
 
       return result;
@@ -163,7 +163,7 @@ describe('Async Signal functionality', () => {
       resolve: 1,
     });
 
-    await sleep(200);
+    await sleep(20);
 
     expect(c).toHaveValueAndCounts(result(5, 'success', 'resolved'), {
       compute: 3,
@@ -179,7 +179,7 @@ describe('Async Signal functionality', () => {
       async () => {
         const result = a.get() + b.get();
 
-        await sleep(50);
+        await sleep(10);
 
         return result;
       },
@@ -200,7 +200,7 @@ describe('Async Signal functionality', () => {
       resolve: 0,
     });
 
-    await sleep(60);
+    await sleep(20);
 
     expect(c).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
       compute: 1,
@@ -211,13 +211,13 @@ describe('Async Signal functionality', () => {
   describe('Awaiting', () => {
     test('Awaiting a computed will resolve the value', async () => {
       const compA = asyncComputed(async () => {
-        await sleep(20);
+        await sleep(10);
 
         return 1;
       });
 
       const compB = asyncComputed(async () => {
-        await sleep(20);
+        await sleep(10);
 
         return 2;
       });
@@ -243,7 +243,7 @@ describe('Async Signal functionality', () => {
         resolve: 0,
       });
 
-      await sleep(30);
+      await sleep(10);
 
       // Check to make sure we don't resolve early after the first task completes
       expect(compC).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
@@ -251,7 +251,7 @@ describe('Async Signal functionality', () => {
         resolve: 0,
       });
 
-      await sleep(30);
+      await sleep(10);
 
       expect(compC).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
         compute: 3,
@@ -261,7 +261,7 @@ describe('Async Signal functionality', () => {
 
     test('Awaiting a computed can handle errors', async () => {
       const compA = asyncComputed(async () => {
-        await sleep(20);
+        await sleep(10);
 
         throw 'error';
       });
@@ -285,11 +285,141 @@ describe('Async Signal functionality', () => {
         resolve: 0,
       });
 
-      await sleep(50);
+      await sleep(10);
 
       expect(compC).toHaveValueAndCounts(result(undefined, 'error', 'initial', 'error'), {
         compute: 2,
         resolve: 0,
+      });
+    });
+
+    test('Awaiting a computed does not let valid values override errors', async () => {
+      const compA = asyncComputed(async () => {
+        await sleep(10);
+
+        throw 'error';
+      });
+
+      const compB = asyncComputed(async () => {
+        await sleep(20);
+
+        return 2;
+      });
+
+      const compC = asyncComputed(async () => {
+        const aResult = compA.get();
+        const bResult = compB.get();
+
+        const b = bResult.await();
+        const a = aResult.await();
+
+        return a + b;
+      });
+
+      // Pull once to start the computation, trigger the computation
+      expect(compC).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
+        compute: 1,
+        resolve: 0,
+      });
+
+      await sleep(30);
+
+      expect(compC).toHaveValueAndCounts(result(undefined, 'error', 'initial', 'error'), {
+        compute: 2,
+        resolve: 0,
+      });
+    });
+
+    test('Await can be composed and nested', async () => {
+      const compA = asyncComputed('compA', async () => {
+        await sleep(20);
+        return 1;
+      });
+
+      const compB = asyncComputed('compB', async () => {
+        await sleep(20);
+        return 2;
+      });
+
+      const compC = computed('compC', () => {
+        const resultA = compA.get();
+        const resultB = compB.get();
+
+        return {
+          awaitA: resultA.await,
+          awaitB: resultB.await,
+        };
+      });
+
+      const compD = asyncComputed('compD', async () => {
+        const { awaitA, awaitB } = compC.get();
+        const a = awaitA();
+        const b = awaitB();
+
+        return a + b;
+      });
+
+      // Pull once to start the computation, trigger the computation
+      expect(compD).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
+        compute: 1,
+        resolve: 0,
+      });
+
+      await sleep(30);
+
+      expect(compD).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
+        compute: 3,
+        resolve: 1,
+      });
+    });
+
+    test('Await works with intermediate state', async () => {
+      const compA = asyncComputed('compA', async () => {
+        await sleep(20);
+        return 1;
+      });
+
+      const compB = asyncComputed('compB', async () => {
+        await sleep(40);
+        return 2;
+      });
+
+      const compC = computed('compC', () => {
+        const resultA = compA.get();
+        const resultB = compB.get();
+
+        return {
+          awaitA: resultA.await,
+          awaitB: resultB.await,
+        };
+      });
+
+      const compD = asyncComputed('compD', async () => {
+        const { awaitA, awaitB } = compC.get();
+        const a = awaitA();
+        const b = awaitB();
+
+        return a + b;
+      });
+
+      // Pull once to start the computation, trigger the computation
+      expect(compD).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
+        compute: 1,
+        resolve: 0,
+      });
+
+      await sleep(30);
+
+      expect(compD).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
+        compute: 2,
+        resolve: 0,
+      });
+
+      await sleep(30);
+
+      expect(compD).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
+        compute: 3,
+        resolve: 1,
       });
     });
   });

@@ -1,13 +1,10 @@
 import { scheduleDisconnect, scheduleWatcher } from './scheduling.js';
 
+let CURRENT_ORD = 0;
 let CURRENT_CONSUMER: ComputedSignal<any> | undefined;
-let CURRENT_DEP_TAIL: Link | undefined;
-let CURRENT_ORD: number = 0;
-let CURRENT_IS_WATCHED: boolean = false;
 let CURRENT_IS_WAITING: boolean = false;
-let CURRENT_SEEN: WeakSet<ComputedSignal<any>> | undefined;
 
-let id = 0;
+let ID = 0;
 
 const enum SignalType {
   Computed,
@@ -61,188 +58,30 @@ const enum SignalState {
 const WAITING = Symbol();
 
 interface Link {
-  id: number;
-  sub: WeakRef<ComputedSignal<any>>;
   dep: ComputedSignal<any>;
+  sub: WeakRef<ComputedSignal<any>>;
   ord: number;
   version: number;
-
-  nextDep: Link | undefined;
-  nextSub: Link | undefined;
-  prevSub: Link | undefined;
+  consumedAt: number;
 
   nextDirty: Link | undefined;
 }
 
-let linkPool: Link | undefined;
-
-const checkForCircularLinks = (link: Link | undefined) => {
-  if (!link) return;
-
-  for (const key of ['nextDep', 'nextSub', 'prevSub', 'nextDirty'] as const) {
-    let currentLink: Link | undefined = link?.[key];
-
-    while (currentLink !== undefined) {
-      if (currentLink === link) {
-        throw new Error(
-          `Circular link detected via ${key}. This is a bug, please report it to the Signalium maintainers.`,
-        );
-      }
-
-      currentLink = currentLink[key];
-    }
-  }
-};
-
-const typeToString = (type: SignalType) => {
-  switch (type) {
-    case SignalType.Computed:
-      return 'Computed';
-    case SignalType.Subscription:
-      return 'Subscription';
-    case SignalType.Async:
-      return 'Async';
-    case SignalType.Watcher:
-      return 'Watcher';
-  }
-};
-
-const printComputed = (computed: ComputedSignal<any>) => {
-  const type = typeToString(computed._type);
-
-  return `ComputedSignal<${type}:${computed.id}>`;
-};
-
-const printLink = (link: Link) => {
-  const sub = link.sub.deref();
-  const subStr = sub === undefined ? 'undefined' : printComputed(sub);
-  const depStr = printComputed(link.dep);
-
-  return `Link<${link.id}> sub(${subStr}) -> dep(${depStr})`;
-};
-
-function linkNewDep(
-  dep: ComputedSignal<any>,
-  sub: ComputedSignal<any>,
-  nextDep: Link | undefined,
-  depsTail: Link | undefined,
-  ord: number,
-): Link {
-  let newLink: Link;
-
-  if (linkPool !== undefined) {
-    newLink = linkPool;
-    linkPool = newLink.nextDep;
-    newLink.nextDep = nextDep;
-    newLink.dep = dep;
-    newLink.sub = sub._ref;
-    newLink.ord = ord;
-  } else {
-    newLink = {
-      id: id++,
-      dep,
-      sub: sub._ref,
-      ord,
-      version: 0,
-      nextDep,
-      nextDirty: undefined,
-      prevSub: undefined,
-      nextSub: undefined,
-    };
-  }
-
-  if (depsTail === undefined) {
-    sub._deps = newLink;
-  } else {
-    depsTail.nextDep = newLink;
-  }
-
-  if (dep._subs === undefined) {
-    dep._subs = newLink;
-  } else {
-    const oldTail = dep._subsTail!;
-    newLink.prevSub = oldTail;
-    oldTail.nextSub = newLink;
-  }
-
-  dep._subsTail = newLink;
-
-  return newLink;
-}
-
-function poolLink(link: Link) {
-  const dep = link.dep;
-  const nextSub = link.nextSub;
-  const prevSub = link.prevSub;
-
-  if (nextSub !== undefined) {
-    nextSub.prevSub = prevSub;
-    link.nextSub = undefined;
-  } else {
-    dep._subsTail = prevSub;
-  }
-
-  if (prevSub !== undefined) {
-    prevSub.nextSub = nextSub;
-    link.prevSub = undefined;
-  } else {
-    dep._subs = nextSub;
-  }
-
-  // @ts-expect-error - override to pool the value
-  link.dep = undefined;
-  // @ts-expect-error - override to pool the value
-  link.sub = undefined;
-  link.nextDep = linkPool;
-  linkPool = link;
-
-  link.prevSub = undefined;
-}
-
-export function endTrack(sub: ComputedSignal<any>, shouldDisconnect: boolean): void {
-  if (CURRENT_DEP_TAIL !== undefined) {
-    if (CURRENT_DEP_TAIL.nextDep !== undefined) {
-      clearTrack(CURRENT_DEP_TAIL.nextDep, shouldDisconnect);
-      CURRENT_DEP_TAIL.nextDep = undefined;
-    }
-  } else if (sub._deps !== undefined) {
-    clearTrack(sub._deps, shouldDisconnect);
-    sub._deps = undefined;
-  }
-}
-
-function clearTrack(link: Link, shouldDisconnect: boolean): void {
-  do {
-    const nextDep = link.nextDep;
-
-    if (shouldDisconnect) {
-      scheduleDisconnect(link.dep);
-    }
-
-    poolLink(link);
-
-    link = nextDep!;
-  } while (link !== undefined);
-}
-
 export class ComputedSignal<T> {
-  id = id++;
+  _id = ID++;
   _type: SignalType;
 
-  _subs: Link | undefined;
-  _subsTail: Link | undefined;
+  _deps = new Map<ComputedSignal<any>, Link>();
 
-  _deps: Link | undefined;
-  _dirtyDep: Link | undefined;
-
+  _dirtyDep: Link | undefined = undefined;
+  _subs = new Set<Link>();
   _state: SignalState = SignalState.Dirty;
-
   _version: number = 0;
-
-  _connectedCount: number;
-
+  _computedCount: number = 0;
+  _connectedCount: number = 0;
   _currentValue: T | AsyncResult<T> | undefined;
   _compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T> | undefined;
+
   _equals: SignalEquals<T>;
   _ref: WeakRef<ComputedSignal<T>> = new WeakRef(this);
 
@@ -300,45 +139,33 @@ export class ComputedSignal<T> {
   }
 
   get(): T | AsyncResult<T> {
-    let prevTracked = false;
+    if (CURRENT_CONSUMER !== undefined) {
+      const { _deps: deps, _computedCount: computedCount, _connectedCount: connectedCount } = CURRENT_CONSUMER;
+      const prevLink = deps.get(this);
 
-    if (CURRENT_CONSUMER !== undefined && this._type !== SignalType.Watcher && !CURRENT_SEEN!.has(this)) {
       const ord = CURRENT_ORD++;
 
-      const nextDep = CURRENT_DEP_TAIL === undefined ? CURRENT_CONSUMER._deps : CURRENT_DEP_TAIL.nextDep;
-      let newLink: Link | undefined = nextDep;
+      this._check(!prevLink && connectedCount > 0);
 
-      while (newLink !== undefined) {
-        if (newLink.dep === this) {
-          prevTracked = true;
+      if (prevLink === undefined) {
+        const newLink = {
+          dep: this,
+          sub: CURRENT_CONSUMER._ref,
+          ord,
+          version: this._version,
+          consumedAt: CURRENT_CONSUMER._computedCount,
+          nextDirty: undefined,
+        };
 
-          if (CURRENT_DEP_TAIL === undefined) {
-            CURRENT_CONSUMER._deps = newLink;
-          } else {
-            CURRENT_DEP_TAIL.nextDep = newLink;
-          }
-
-          newLink.ord = ord;
-          newLink.nextDirty = undefined;
-
-          if (this._subs === undefined) {
-            this._subs = newLink;
-          }
-
-          break;
-        }
-
-        newLink = newLink.nextDep;
+        deps.set(this, newLink);
+        this._subs.add(newLink);
+      } else if (prevLink.consumedAt !== computedCount) {
+        prevLink.ord = ord;
+        prevLink.version = this._version;
+        prevLink.consumedAt = computedCount;
+        // prevLink.nextDirty = undefined;
+        this._subs.add(prevLink);
       }
-
-      this._check(CURRENT_IS_WATCHED && !prevTracked);
-
-      CURRENT_DEP_TAIL = newLink ?? linkNewDep(this, CURRENT_CONSUMER, nextDep, CURRENT_DEP_TAIL, ord);
-
-      if (process.env.NODE_ENV !== 'production') checkForCircularLinks(CURRENT_DEP_TAIL);
-
-      CURRENT_DEP_TAIL.version = this._version;
-      CURRENT_SEEN!.add(this);
     } else {
       this._check();
     }
@@ -347,6 +174,7 @@ export class ComputedSignal<T> {
   }
 
   _check(shouldWatch = false): number {
+    // COUNTS.checks++;
     let state = this._state;
     let connectedCount = this._connectedCount;
 
@@ -361,19 +189,11 @@ export class ComputedSignal<T> {
       if (this._type === SignalType.Subscription) {
         state = SignalState.Dirty;
       } else {
-        let link = this._deps;
-
-        if (process.env.NODE_ENV !== 'production') checkForCircularLinks(link);
-
-        while (link !== undefined) {
-          const dep = link.dep;
-
+        for (const [dep, link] of this._deps) {
           if (link.version !== dep._check(true)) {
             state = SignalState.Dirty;
             break;
           }
-
-          link = link.nextDep;
         }
       }
     }
@@ -398,7 +218,7 @@ export class ComputedSignal<T> {
     }
 
     if (state === SignalState.Dirty) {
-      this._run(wasConnected, connectedCount > 0, shouldConnect);
+      this._run(wasConnected, shouldConnect);
     } else {
       this._resetDirty();
     }
@@ -409,22 +229,16 @@ export class ComputedSignal<T> {
     return this._version;
   }
 
-  _run(wasConnected: boolean, isConnected: boolean, shouldConnect: boolean) {
+  _run(wasConnected: boolean, shouldConnect: boolean) {
     const { _type: type } = this;
 
     const prevConsumer = CURRENT_CONSUMER;
-    const prevOrd = CURRENT_ORD;
-    const prevSeen = CURRENT_SEEN;
-    const prevDepTail = CURRENT_DEP_TAIL;
-    const prevIsWatched = CURRENT_IS_WATCHED;
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       CURRENT_CONSUMER = this;
-      CURRENT_ORD = 0;
-      CURRENT_SEEN = new WeakSet();
-      CURRENT_DEP_TAIL = undefined;
-      CURRENT_IS_WATCHED = isConnected;
+
+      this._computedCount++;
 
       switch (type) {
         case SignalType.Computed: {
@@ -552,44 +366,37 @@ export class ComputedSignal<T> {
         }
       }
     } finally {
-      endTrack(this, wasConnected);
+      const deps = this._deps;
+
+      for (const link of deps.values()) {
+        if (link.consumedAt === this._computedCount) continue;
+
+        const dep = link.dep;
+
+        if (wasConnected) {
+          scheduleDisconnect(dep);
+        }
+
+        deps.delete(dep);
+        dep._subs.delete(link);
+      }
 
       CURRENT_CONSUMER = prevConsumer;
-      CURRENT_SEEN = prevSeen;
-      CURRENT_DEP_TAIL = prevDepTail;
-      CURRENT_ORD = prevOrd;
-      CURRENT_IS_WATCHED = prevIsWatched;
     }
   }
 
   _resetDirty() {
     let dirty = this._dirtyDep;
+    // COUNTS.dirtyResetIterations++;
 
     while (dirty !== undefined) {
-      const dep = dirty.dep;
-      const oldHead = dep._subs;
-
-      if (oldHead === undefined) {
-        dep._subs = dirty;
-        dirty.nextSub = undefined;
-        dirty.prevSub = undefined;
-      } else {
-        dirty.nextSub = oldHead;
-        dirty.prevSub = undefined;
-        oldHead.prevSub = dirty;
-        dep._subs = dirty;
-      }
-
-      if (process.env.NODE_ENV !== 'production') {
-        checkForCircularLinks(this._dirtyDep);
-      }
+      // COUNTS.dirtyResetIterations++;
+      dirty.dep._subs.add(dirty);
 
       let nextDirty = dirty.nextDirty;
       dirty.nextDirty = undefined;
       dirty = nextDirty;
     }
-
-    if (process.env.NODE_ENV !== 'production') checkForCircularLinks(this._dirtyDep);
   }
 
   _dirty() {
@@ -604,61 +411,43 @@ export class ComputedSignal<T> {
     } else {
       this._dirtyConsumers();
     }
-
-    this._subs = undefined;
   }
 
   _dirtyConsumers() {
-    let link = this._subs;
+    for (const link of this._subs.values()) {
+      const sub = link.sub.deref();
 
-    if (process.env.NODE_ENV !== 'production') checkForCircularLinks(link);
+      if (sub === undefined) continue;
 
-    while (link !== undefined) {
-      const consumer = link.sub.deref();
-
-      if (consumer === undefined) {
-        const nextSub = link.nextSub;
-        poolLink(link);
-        link = nextSub;
-        continue;
-      }
-
-      const state = consumer._state;
-
-      if (state === SignalState.Dirty) {
-        const nextSub = link.nextSub;
-        link = nextSub;
-        continue;
-      }
-
-      if (state === SignalState.MaybeDirty) {
-        let dirty = consumer._dirtyDep;
-        const ord = link.ord;
-
-        if (dirty!.ord > ord) {
-          consumer._dirtyDep = link;
-          link.nextDirty = dirty;
-        } else {
-          let nextDirty = dirty!.nextDirty;
-
-          while (nextDirty !== undefined && nextDirty!.ord < ord) {
-            dirty = nextDirty;
-            nextDirty = dirty.nextDirty;
+      switch (sub._state) {
+        case SignalState.MaybeDirty: {
+          let dirty = sub._dirtyDep;
+          const ord = link.ord;
+          if (dirty!.ord > ord) {
+            sub._dirtyDep = link;
+            link.nextDirty = dirty;
+          } else {
+            let nextDirty = dirty!.nextDirty;
+            while (nextDirty !== undefined && nextDirty!.ord < ord) {
+              // COUNTS.dirtyInsertIterations++;
+              dirty = nextDirty;
+              nextDirty = dirty.nextDirty;
+            }
+            link.nextDirty = nextDirty;
+            dirty!.nextDirty = link;
           }
-
-          link.nextDirty = nextDirty;
-          dirty!.nextDirty = link;
+          break;
         }
-      } else {
-        // consumer._dirtyQueueLength = dirtyQueueLength + 2;
-        consumer._state = SignalState.MaybeDirty;
-        consumer._dirtyDep = link;
-        link.nextDirty = undefined;
-        consumer._dirty();
+        case SignalState.Clean: {
+          sub._state = SignalState.MaybeDirty;
+          sub._dirtyDep = link;
+          link.nextDirty = undefined;
+          sub._dirty();
+        }
       }
-
-      link = link.nextSub;
     }
+
+    this._subs = new Set();
   }
 
   _disconnect(count = 1) {
@@ -679,14 +468,10 @@ export class ComputedSignal<T> {
       }
     }
 
-    let link = this._deps;
-
-    while (link !== undefined) {
+    for (const link of this._deps.values()) {
       const dep = link.dep;
 
       dep._disconnect();
-
-      link = link.nextDep;
     }
   }
 }
@@ -719,7 +504,7 @@ export interface AsyncReady<T> extends AsyncBaseResult<T> {
 export type AsyncResult<T> = AsyncPending<T> | AsyncReady<T>;
 
 class StateSignal<T> implements StateSignal<T> {
-  private _consumers: WeakRef<ComputedSignal<unknown>>[] = [];
+  private _subs: WeakRef<ComputedSignal<unknown>>[] = [];
 
   constructor(
     private _value: T,
@@ -728,7 +513,7 @@ class StateSignal<T> implements StateSignal<T> {
 
   get(): T {
     if (CURRENT_CONSUMER !== undefined) {
-      this._consumers.push(CURRENT_CONSUMER._ref);
+      this._subs.push(CURRENT_CONSUMER._ref);
     }
 
     return this._value!;
@@ -740,21 +525,28 @@ class StateSignal<T> implements StateSignal<T> {
     }
 
     this._value = value;
+    const subs = this._subs;
+    const subsLength = subs.length;
 
-    const { _consumers: consumers } = this;
+    for (let i = 0; i < subsLength; i++) {
+      const sub = subs[i].deref();
 
-    for (const consumerRef of consumers) {
-      const consumer = consumerRef.deref();
-
-      if (consumer === undefined) {
+      if (sub === undefined) {
         continue;
       }
 
-      consumer._state = SignalState.Dirty;
-      consumer._dirty();
+      switch (sub._state) {
+        case SignalState.Clean:
+          sub._state = SignalState.Dirty;
+          sub._dirty();
+          break;
+        case SignalState.MaybeDirty:
+          sub._state = SignalState.Dirty;
+          break;
+      }
     }
 
-    consumers.length = 0;
+    this._subs = [];
   }
 }
 
@@ -790,7 +582,7 @@ export interface Watcher {
 }
 
 export function watcher(fn: () => void): Watcher {
-  const subscribers = new Set<() => void>();
+  const subscribers: (() => void)[] = [];
   const watcher = new ComputedSignal(SignalType.Watcher, () => {
     fn();
 
@@ -809,10 +601,10 @@ export function watcher(fn: () => void): Watcher {
     },
 
     subscribe(subscriber: () => void) {
-      subscribers.add(subscriber);
+      subscribers.push(subscriber);
 
       return () => {
-        subscribers.delete(subscriber);
+        subscribers.splice(subscribers.indexOf(subscriber), 1);
       };
     },
   };
@@ -824,19 +616,13 @@ export function isTracking(): boolean {
 
 export function untrack<T = void>(fn: () => T): T {
   const prevConsumer = CURRENT_CONSUMER;
-  const prevOrd = CURRENT_ORD;
-  const prevIsWatched = CURRENT_IS_WATCHED;
 
   try {
     CURRENT_CONSUMER = undefined;
     // LAST_CONSUMED = undefined;
-    CURRENT_ORD = 0;
-    CURRENT_IS_WATCHED = false;
 
     return fn();
   } finally {
     CURRENT_CONSUMER = prevConsumer;
-    CURRENT_ORD = prevOrd;
-    CURRENT_IS_WATCHED = prevIsWatched;
   }
 }

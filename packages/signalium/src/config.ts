@@ -1,27 +1,27 @@
-let currentWatcherFlush: ReturnType<typeof setTimeout> | null = null;
-let currentDisconnectFlush: ReturnType<typeof setTimeout> | ReturnType<typeof requestIdleCallback> | null = null;
+let currentFlush: ReturnType<typeof setTimeout> | null = null;
 
 export type FlushCallback = () => Promise<void>;
 
-const idleCallback =
-  typeof requestIdleCallback === 'function' ? requestIdleCallback : (cb: () => void) => setTimeout(cb, 0);
+export type FlushFn = (fn: () => Promise<void>) => void;
 
-export let scheduleWatchers: (flushWatchers: FlushCallback) => void = flushWatchers => {
-  if (currentWatcherFlush !== null) return;
+export let scheduleFlush: FlushFn = flushWatchers => {
+  if (currentFlush !== null) return;
 
-  currentWatcherFlush = setTimeout(() => {
-    currentWatcherFlush = null;
+  currentFlush = setTimeout(() => {
+    currentFlush = null;
 
     flushWatchers();
   }, 0);
 };
 
-export let scheduleDisconnects: (flushDisconnects: FlushCallback) => void = flushDisconnects => {
-  if (currentDisconnectFlush !== null) return;
+export const setScheduleFlush = (flushFn: FlushFn) => {
+  scheduleFlush = flushFn;
+};
 
-  currentDisconnectFlush = idleCallback(() => {
-    currentDisconnectFlush = null;
+export type BatchFn = (fn: () => void) => void;
 
-    flushDisconnects();
-  });
+export let runBatch: BatchFn = fn => fn();
+
+export const setRunBatch = (batchFn: BatchFn) => {
+  runBatch = batchFn;
 };

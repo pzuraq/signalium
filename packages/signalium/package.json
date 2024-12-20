@@ -4,6 +4,7 @@
   "type": "module",
   "repository": "https://github.com/pzuraq/signalium",
   "description": "Chain-reactivity at critical mass",
+  "main": "./dist/index.js",
   "exports": {
     ".": {
       "import": {

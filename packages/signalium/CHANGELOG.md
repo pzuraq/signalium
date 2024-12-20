@@ -1,5 +1,11 @@
 # signalium
 
+## 0.2.5
+
+### Patch Changes
+
+- 4ee723a: Add main entry to package.json
+
 ## 0.2.4
 
 ### Patch Changes

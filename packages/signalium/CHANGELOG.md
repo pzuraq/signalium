@@ -1,5 +1,11 @@
 # signalium
 
+## 0.2.4
+
+### Patch Changes
+
+- c2af4d0: Refactor scheduling, add batching for React Native
+
 ## 0.2.3
 
 ### Patch Changes

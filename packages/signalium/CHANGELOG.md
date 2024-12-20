@@ -1,5 +1,11 @@
 # signalium
 
+## 0.2.6
+
+### Patch Changes
+
+- 1bc41a1: Add config functions to public API
+
 ## 0.2.5
 
 ### Patch Changes

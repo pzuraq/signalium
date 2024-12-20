@@ -1,4 +1,5 @@
-import { scheduleDisconnect, scheduleWatcher } from './scheduling.js';
+import { scheduleDirty, scheduleDisconnect, schedulePull, scheduleWatcher } from './scheduling.js';
+import WeakRef from './weakref.js';
 
 let CURRENT_ORD = 0;
 let CURRENT_CONSUMER: ComputedSignal<any> | undefined;
@@ -125,7 +126,7 @@ export class ComputedSignal<T> {
 
               if (value.isPending) {
                 const currentConsumer = CURRENT_CONSUMER;
-                ACTIVE_ASYNCS.get(this)?.finally(() => currentConsumer._check());
+                ACTIVE_ASYNCS.get(this)?.finally(() => schedulePull(currentConsumer));
 
                 CURRENT_IS_WAITING = true;
                 throw WAITING;
@@ -305,7 +306,7 @@ export class ComputedSignal<T> {
                 value.isSuccess = true;
 
                 this._version++;
-                this._dirtyConsumers();
+                scheduleDirty(this);
               },
               error => {
                 if (currentVersion !== this._version || error === WAITING) {
@@ -316,7 +317,7 @@ export class ComputedSignal<T> {
                 value.isPending = false;
                 value.isError = true;
                 this._version++;
-                this._dirtyConsumers();
+                scheduleDirty(this);
               },
             );
 

@@ -1,39 +1,26 @@
-import type { ComputedSignal } from './signals.js';
-import { scheduleWatchers, scheduleDisconnects } from './config.js';
+import { ComputedSignal } from './signals.js';
+import { scheduleFlush, runBatch } from './config.js';
 
-let PENDING_FLUSH_WATCHERS: {
-  promise: Promise<void>;
-  resolve: () => void;
-} | null = null;
+let PENDING_DIRTIES: ComputedSignal<any>[] = [];
+let PENDING_PULLS: ComputedSignal<any>[] = [];
+let PENDING_WATCHERS: ComputedSignal<any>[] = [];
+let PENDING_DISCONNECTS = new Map<ComputedSignal<any>, number>();
 
-const PENDING_WATCHERS: ComputedSignal<any>[] = [];
-const PENDING_DISCONNECTS: Map<ComputedSignal<any>, number> = new Map();
+const microtask = () => Promise.resolve();
 
 export const scheduleWatcher = (watcher: ComputedSignal<any>) => {
   PENDING_WATCHERS.push(watcher);
-
-  if (PENDING_FLUSH_WATCHERS === null) {
-    let resolve: () => void;
-
-    const promise = new Promise<void>(r => {
-      resolve = r;
-    });
-
-    PENDING_FLUSH_WATCHERS = { promise, resolve: resolve! };
-  }
-
-  scheduleWatchers(flushWatchers);
+  scheduleFlush(flushWatchers);
 };
 
-const flushWatchers = async () => {
-  PENDING_FLUSH_WATCHERS!.resolve();
-  PENDING_FLUSH_WATCHERS = null;
-  let watcher;
-  while ((watcher = PENDING_WATCHERS.shift())) {
-    watcher._check();
-  }
+export const scheduleDirty = (signal: ComputedSignal<any>) => {
+  PENDING_DIRTIES.push(signal);
+  scheduleFlush(flushWatchers);
+};
 
-  PENDING_WATCHERS.length = 0;
+export const schedulePull = (signal: ComputedSignal<any>) => {
+  PENDING_PULLS.push(signal);
+  scheduleFlush(flushWatchers);
 };
 
 export const scheduleDisconnect = (disconnect: ComputedSignal<any>) => {
@@ -41,14 +28,35 @@ export const scheduleDisconnect = (disconnect: ComputedSignal<any>) => {
 
   PENDING_DISCONNECTS.set(disconnect, current + 1);
 
-  scheduleDisconnects(flushDisconnects);
+  scheduleFlush(flushWatchers);
 };
 
-const flushDisconnects = async () => {
-  await PENDING_FLUSH_WATCHERS?.promise;
-  for (const [signal, count] of PENDING_DISCONNECTS) {
-    signal._disconnect(count);
+const flushWatchers = async () => {
+  while (PENDING_DIRTIES.length > 0 || PENDING_PULLS.length > 0) {
+    for (const dirty of PENDING_DIRTIES) {
+      dirty._dirtyConsumers();
+    }
+
+    for (const pull of PENDING_PULLS) {
+      pull._check();
+    }
+
+    PENDING_DIRTIES = [];
+    PENDING_PULLS = [];
+
+    await microtask();
   }
 
-  PENDING_DISCONNECTS.clear();
+  runBatch(() => {
+    for (const watcher of PENDING_WATCHERS) {
+      watcher._check();
+    }
+
+    for (const [signal, count] of PENDING_DISCONNECTS) {
+      signal._disconnect(count);
+    }
+
+    PENDING_WATCHERS = [];
+    PENDING_DISCONNECTS.clear();
+  });
 };

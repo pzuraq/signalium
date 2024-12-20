@@ -243,7 +243,7 @@ describe('Async Signal functionality', () => {
         resolve: 0,
       });
 
-      await sleep(10);
+      await sleep(20);
 
       // Check to make sure we don't resolve early after the first task completes
       expect(compC).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
@@ -251,7 +251,7 @@ describe('Async Signal functionality', () => {
         resolve: 0,
       });
 
-      await sleep(10);
+      await sleep(20);
 
       expect(compC).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
         compute: 3,
@@ -285,7 +285,7 @@ describe('Async Signal functionality', () => {
         resolve: 0,
       });
 
-      await sleep(10);
+      await sleep(15);
 
       expect(compC).toHaveValueAndCounts(result(undefined, 'error', 'initial', 'error'), {
         compute: 2,
@@ -322,7 +322,7 @@ describe('Async Signal functionality', () => {
         resolve: 0,
       });
 
-      await sleep(30);
+      await sleep(40);
 
       expect(compC).toHaveValueAndCounts(result(undefined, 'error', 'initial', 'error'), {
         compute: 2,
@@ -368,7 +368,7 @@ describe('Async Signal functionality', () => {
       await sleep(30);
 
       expect(compD).toHaveValueAndCounts(result(3, 'success', 'resolved'), {
-        compute: 3,
+        compute: 2,
         resolve: 1,
       });
     });

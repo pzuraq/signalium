@@ -16,3 +16,4 @@ export type {
 } from './signals.js';
 
 export { state, computed, asyncComputed, subscription, watcher } from './signals.js';
+export { setRunBatch, setScheduleFlush } from './config.js';

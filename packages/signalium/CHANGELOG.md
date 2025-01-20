@@ -1,5 +1,11 @@
 # signalium
 
+## 0.2.7
+
+### Patch Changes
+
+- 2d6a0b6: Add CommonJS build for legacy interop
+
 ## 0.2.6
 
 ### Patch Changes

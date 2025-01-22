@@ -9,6 +9,9 @@
 
     /* Type Checking */
     "strict": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+
+    /* Modules */
+    "jsx": "react"
   }
 }

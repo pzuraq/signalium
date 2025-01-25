@@ -1,5 +1,11 @@
 # signalium
 
+## 0.2.8
+
+### Patch Changes
+
+- 344b6cb: Add immediate option to watcher
+
 ## 0.2.7
 
 ### Patch Changes

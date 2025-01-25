@@ -582,19 +582,34 @@ export interface Watcher {
   subscribe(subscriber: () => void): () => void;
 }
 
-export function watcher(fn: () => void): Watcher {
+export interface WatcherOpts {
+  immediate?: boolean;
+}
+
+export function watcher(fn: () => void, opts?: WatcherOpts): Watcher {
   const subscribers: (() => void)[] = [];
+
+  let initialized = false;
+
   const watcher = new ComputedSignal(SignalType.Watcher, () => {
     fn();
 
-    untrack(() => {
-      for (const subscriber of subscribers) {
-        subscriber();
-      }
-    });
+    if (initialized) {
+      untrack(() => {
+        for (const subscriber of subscribers) {
+          subscriber();
+        }
+      });
+    } else {
+      initialized = true;
+    }
   });
 
-  scheduleWatcher(watcher);
+  if (opts?.immediate) {
+    watcher.get();
+  } else {
+    scheduleWatcher(watcher);
+  }
 
   return {
     disconnect() {

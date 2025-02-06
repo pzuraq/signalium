@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../core/vanilla/dist/esm",
+    "rootDir": "../../core/vanilla/src",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "include": ["../../core/vanilla/src"],
+  "exclude": ["../../core/vanilla/**/__tests__"]
+}

@@ -91,6 +91,7 @@ export class ComputedSignal<T> {
     compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T> | undefined,
     equals?: SignalEquals<T>,
     initValue?: T,
+    context?: unknown,
   ) {
     this._type = type;
     this._compute = compute;
@@ -609,6 +610,10 @@ export function watcher(fn: () => void): Watcher {
       };
     },
   };
+}
+
+export function getCurrentConsumer(): ComputedSignal<any> | undefined {
+  return CURRENT_CONSUMER;
 }
 
 export function isTracking(): boolean {

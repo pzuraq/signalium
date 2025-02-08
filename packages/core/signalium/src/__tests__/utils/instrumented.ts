@@ -8,14 +8,9 @@ import {
   SignalOptions,
   Signal,
   WriteableSignal,
-  SignalCompute,
-  SignalAsyncCompute,
-  SignalSubscribe,
   SignalSubscription,
-  SignalOptionsWithInit,
   Watcher,
   SignalWatcherEffect,
-  AsyncSignal,
 } from '../../signals.js';
 
 class SignalCounts {
@@ -130,11 +125,11 @@ expect.extend({
   },
 });
 
-export const state = <T>(initialValue: T, opts?: SignalOptions<T> & { name?: string }): WriteableSignal<T> => {
-  const name = opts?.name || 'unlabeled';
+export const state = <T>(initialValue: T, opts?: SignalOptions<T>): WriteableSignal<T> => {
+  const desc = opts?.desc || 'unlabeled';
   const s = createState(initialValue, opts);
 
-  const counts = new SignalCounts(name);
+  const counts = new SignalCounts(desc);
 
   const wrapper = {
     get() {
@@ -153,23 +148,15 @@ export const state = <T>(initialValue: T, opts?: SignalOptions<T> & { name?: str
   return wrapper;
 };
 
-export function computed<T>(name: string, compute: SignalCompute<T>, opts?: SignalOptions<T>): Signal<T>;
-export function computed<T>(compute: SignalCompute<T>, opts?: SignalOptions<T>): Signal<T>;
-export function computed<T>(
-  nameOrCompute: string | SignalCompute<T>,
-  computeOrOpts?: SignalCompute<T> | SignalOptions<T>,
-  maybeOpts?: SignalOptions<T>,
-): Signal<T> {
-  const name = typeof nameOrCompute === 'string' ? nameOrCompute : 'unlabeled';
-  const compute = typeof nameOrCompute === 'string' ? (computeOrOpts as SignalCompute<T>) : nameOrCompute;
-  const opts = typeof nameOrCompute === 'string' ? maybeOpts : (computeOrOpts as SignalOptions<T>);
-  const counts = new SignalCounts(name);
+export const computed: typeof createComputed = (compute, opts) => {
+  const desc = opts?.desc || 'unlabeled';
+  const counts = new SignalCounts(desc);
 
   const s = createComputed(v => {
     counts.compute++;
 
-    if (name) {
-      currentOrder?.push(name);
+    if (desc) {
+      currentOrder?.push(desc);
     }
 
     return compute(v);
@@ -178,6 +165,10 @@ export function computed<T>(
   const wrapper = {
     get() {
       counts.get++;
+
+      // Get twice to ensure idempotency
+      s.get();
+
       return s.get();
     },
   };
@@ -185,31 +176,17 @@ export function computed<T>(
   COUNTS.set(wrapper, counts);
 
   return wrapper;
-}
+};
 
-export function asyncComputed<T>(name: string, compute: SignalAsyncCompute<T>, opts?: SignalOptions<T>): AsyncSignal<T>;
-export function asyncComputed<T>(
-  name: string,
-  compute: SignalAsyncCompute<T>,
-  opts: SignalOptionsWithInit<T>,
-): AsyncSignal<T>;
-export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts?: SignalOptions<T>): AsyncSignal<T>;
-export function asyncComputed<T>(compute: SignalAsyncCompute<T>, opts: SignalOptionsWithInit<T>): AsyncSignal<T>;
-export function asyncComputed<T>(
-  nameOrCompute: string | SignalAsyncCompute<T>,
-  computeOrOpts?: SignalCompute<T> | Partial<SignalOptionsWithInit<T>>,
-  maybeOpts?: Partial<SignalOptionsWithInit<T>>,
-): AsyncSignal<T> {
-  const name = typeof nameOrCompute === 'string' ? nameOrCompute : 'unlabeled';
-  const compute = typeof nameOrCompute === 'string' ? (computeOrOpts as SignalCompute<T>) : nameOrCompute;
-  const opts = typeof nameOrCompute === 'string' ? maybeOpts : (computeOrOpts as SignalOptions<T>);
-  const counts = new SignalCounts(name);
+export const asyncComputed: typeof createAsyncComputed = (compute, opts) => {
+  const desc = opts?.desc || 'unlabeled';
+  const counts = new SignalCounts(desc);
 
   const s = createAsyncComputed(async v => {
     counts.compute++;
 
-    if (name) {
-      currentOrder?.push(name);
+    if (desc) {
+      currentOrder?.push(desc);
     }
 
     const result = await compute(v);
@@ -229,31 +206,17 @@ export function asyncComputed<T>(
   COUNTS.set(wrapper, counts);
 
   return wrapper;
-}
+};
 
-export function subscription<T>(
-  name: string,
-  subscribe: SignalSubscribe<T>,
-  opts?: SignalOptions<T>,
-): Signal<T | undefined>;
-export function subscription<T>(name: string, subscribe: SignalSubscribe<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: SignalOptions<T>): Signal<T | undefined>;
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
-export function subscription<T>(
-  nameOrSubscribe: string | SignalSubscribe<T>,
-  subscribeOrOpts?: SignalSubscribe<T> | Partial<SignalOptionsWithInit<T>>,
-  maybeOpts?: Partial<SignalOptionsWithInit<T>>,
-): Signal<T> | Signal<T | undefined> {
-  const name = typeof nameOrSubscribe === 'string' ? nameOrSubscribe : 'unlabeled';
-  const subscribe = typeof nameOrSubscribe === 'string' ? (subscribeOrOpts as SignalSubscribe<T>) : nameOrSubscribe;
-  const opts = typeof nameOrSubscribe === 'string' ? maybeOpts : (subscribeOrOpts as SignalOptions<T>);
-  const counts = new SignalCounts(name);
+export const subscription: typeof createSubscription = (subscribe, opts) => {
+  const desc = opts?.desc || 'unlabeled';
+  const counts = new SignalCounts(desc);
 
   const s = createSubscription((get, set) => {
     counts.subscribe++;
 
-    if (name) {
-      currentOrder?.push(name);
+    if (desc) {
+      currentOrder?.push(desc);
     }
 
     const result = subscribe(
@@ -300,24 +263,16 @@ export function subscription<T>(
   COUNTS.set(wrapper, counts);
 
   return wrapper;
-}
+};
 
-export function watcher<T>(effect: SignalWatcherEffect): Watcher;
-export function watcher<T>(name: string, effect: SignalWatcherEffect): Watcher;
-export function watcher<T>(nameOrEffect: string | SignalWatcherEffect, maybeEffect?: SignalWatcherEffect): Watcher {
-  const name = typeof nameOrEffect === 'string' ? nameOrEffect : 'unlabeled';
-  const effect = typeof nameOrEffect === 'string' ? (maybeEffect as SignalWatcherEffect) : nameOrEffect;
+export function watcher<T>(opts?: SignalOptions<T>): Watcher {
+  const desc = opts?.desc || 'unlabeled';
+  const counts = new SignalCounts(desc);
 
-  const counts = new SignalCounts(name);
+  const w = createWatcher();
 
-  const w = createWatcher(() => {
+  w.subscribe(() => {
     counts.effect++;
-
-    if (name) {
-      currentOrder?.push(name);
-    }
-
-    effect();
   });
 
   COUNTS.set(w, counts);

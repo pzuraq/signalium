@@ -1,6 +1,6 @@
 {
-  "name": "signalium",
-  "version": "0.2.7",
+  "name": "@signalium/utils",
+  "version": "0.0.0",
   "type": "module",
   "repository": "https://github.com/pzuraq/signalium",
   "description": "Chain-reactivity at critical mass",
@@ -32,9 +32,6 @@
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@signalium/utils": "0.0.0"
-  },
   "devDependencies": {
     "vite": "^5.4.8",
     "vitest": "^2.1.2"

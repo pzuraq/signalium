@@ -331,33 +331,45 @@ describe('Async Signal functionality', () => {
     });
 
     test('Await can be composed and nested', async () => {
-      const compA = asyncComputed('compA', async () => {
-        await sleep(20);
-        return 1;
-      });
+      const compA = asyncComputed(
+        async () => {
+          await sleep(20);
+          return 1;
+        },
+        { desc: 'compA' },
+      );
 
-      const compB = asyncComputed('compB', async () => {
-        await sleep(20);
-        return 2;
-      });
+      const compB = asyncComputed(
+        async () => {
+          await sleep(20);
+          return 2;
+        },
+        { desc: 'compB' },
+      );
 
-      const compC = computed('compC', () => {
-        const resultA = compA.get();
-        const resultB = compB.get();
+      const compC = computed(
+        () => {
+          const resultA = compA.get();
+          const resultB = compB.get();
 
-        return {
-          awaitA: resultA.await,
-          awaitB: resultB.await,
-        };
-      });
+          return {
+            awaitA: resultA.await,
+            awaitB: resultB.await,
+          };
+        },
+        { desc: 'compC' },
+      );
 
-      const compD = asyncComputed('compD', async () => {
-        const { awaitA, awaitB } = compC.get();
-        const a = awaitA();
-        const b = awaitB();
+      const compD = asyncComputed(
+        async () => {
+          const { awaitA, awaitB } = compC.get();
+          const a = awaitA();
+          const b = awaitB();
 
-        return a + b;
-      });
+          return a + b;
+        },
+        { desc: 'compD' },
+      );
 
       // Pull once to start the computation, trigger the computation
       expect(compD).toHaveValueAndCounts(result(undefined, 'pending', 'initial'), {
@@ -374,17 +386,17 @@ describe('Async Signal functionality', () => {
     });
 
     test('Await works with intermediate state', async () => {
-      const compA = asyncComputed('compA', async () => {
+      const compA = asyncComputed(async () => {
         await sleep(20);
         return 1;
       });
 
-      const compB = asyncComputed('compB', async () => {
+      const compB = asyncComputed(async () => {
         await sleep(40);
         return 2;
       });
 
-      const compC = computed('compC', () => {
+      const compC = computed(() => {
         const resultA = compA.get();
         const resultB = compB.get();
 
@@ -394,7 +406,7 @@ describe('Async Signal functionality', () => {
         };
       });
 
-      const compD = asyncComputed('compD', async () => {
+      const compD = asyncComputed(async () => {
         const { awaitA, awaitB } = compC.get();
         const a = awaitA();
         const b = awaitB();

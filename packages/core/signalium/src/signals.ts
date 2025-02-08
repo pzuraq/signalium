@@ -1,11 +1,9 @@
 import { scheduleDirty, scheduleDisconnect, schedulePull, scheduleWatcher } from './scheduling.js';
-import WeakRef from './weakref.js';
+import { WeakRef } from '@signalium/utils';
 
 let CURRENT_ORD = 0;
 let CURRENT_CONSUMER: ComputedSignal<any> | undefined;
 let CURRENT_IS_WAITING: boolean = false;
-
-let ID = 0;
 
 const enum SignalType {
   Computed,
@@ -41,6 +39,7 @@ export type SignalSubscribe<T> = (get: () => T, set: (value: T) => void) => Sign
 
 export interface SignalOptions<T> {
   equals?: SignalEquals<T>;
+  desc?: string;
 }
 
 export interface SignalOptionsWithInit<T> extends SignalOptions<T> {
@@ -68,8 +67,10 @@ interface Link {
   nextDirty: Link | undefined;
 }
 
+let ID = 0;
+
 export class ComputedSignal<T> {
-  _id = ID++;
+  _desc: string;
   _type: SignalType;
 
   _deps = new Map<ComputedSignal<any>, Link>();
@@ -91,12 +92,12 @@ export class ComputedSignal<T> {
     compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T> | undefined,
     equals?: SignalEquals<T>,
     initValue?: T,
-    context?: unknown,
+    desc?: string,
   ) {
     this._type = type;
     this._compute = compute;
     this._equals = equals ?? ((a, b) => a === b);
-    this._connectedCount = type === SignalType.Watcher ? 1 : 0;
+    this._desc = desc ?? `unknown-signal-${ID++}`;
 
     this._currentValue =
       type !== SignalType.Async
@@ -368,19 +369,21 @@ export class ComputedSignal<T> {
         }
       }
     } finally {
-      const deps = this._deps;
+      if (this._type !== SignalType.Watcher) {
+        const deps = this._deps;
 
-      for (const link of deps.values()) {
-        if (link.consumedAt === this._computedCount) continue;
+        for (const link of deps.values()) {
+          if (link.consumedAt === this._computedCount) continue;
 
-        const dep = link.dep;
+          const dep = link.dep;
 
-        if (wasConnected) {
-          scheduleDisconnect(dep);
+          if (wasConnected) {
+            scheduleDisconnect(dep);
+          }
+
+          deps.delete(dep);
+          dep._subs.delete(link);
         }
-
-        deps.delete(dep);
-        dep._subs.delete(link);
       }
 
       CURRENT_CONSUMER = prevConsumer;
@@ -431,7 +434,6 @@ export class ComputedSignal<T> {
           } else {
             let nextDirty = dirty!.nextDirty;
             while (nextDirty !== undefined && nextDirty!.ord < ord) {
-              // COUNTS.dirtyInsertIterations++;
               dirty = nextDirty;
               nextDirty = dirty.nextDirty;
             }
@@ -579,15 +581,22 @@ export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: Partial<Si
 }
 
 export interface Watcher {
-  disconnect(): void;
+  add(fn: () => unknown, opts?: ConnectionOpts): () => void;
+
+  start(opts?: ConnectionOpts): void;
+  stop(opts?: ConnectionOpts): void;
+
   subscribe(subscriber: () => void): () => void;
 }
 
-export function watcher(fn: () => void): Watcher {
-  const subscribers: (() => void)[] = [];
-  const watcher = new ComputedSignal(SignalType.Watcher, () => {
-    fn();
+export interface ConnectionOpts {
+  immediate?: boolean;
+}
 
+export function watcher(): Watcher {
+  const subscribers: (() => void)[] = [];
+
+  const watcher = new ComputedSignal(SignalType.Watcher, () => {
     untrack(() => {
       for (const subscriber of subscribers) {
         subscriber();
@@ -595,11 +604,64 @@ export function watcher(fn: () => void): Watcher {
     });
   });
 
-  scheduleWatcher(watcher);
-
   return {
-    disconnect() {
-      scheduleDisconnect(watcher);
+    add(fn: () => unknown, opts?: ConnectionOpts) {
+      const signal = computed(fn, { equals: () => false }) as ComputedSignal<unknown>;
+
+      if (watcher._connectedCount > 0) {
+        if (opts?.immediate) {
+          signal._check(true);
+        } else {
+          scheduleWatcher(signal, true);
+        }
+      }
+
+      const deps = watcher._deps;
+
+      const link = {
+        dep: signal,
+        sub: watcher._ref,
+        ord: deps.size,
+        version: 0,
+        consumedAt: 0,
+        nextDirty: undefined,
+      };
+
+      deps.set(signal, link);
+      signal._subs.add(link);
+
+      return () => {
+        watcher._deps.delete(signal);
+
+        if (watcher._connectedCount > 0) {
+          signal._disconnect();
+        }
+      };
+    },
+
+    // TODO: handle multiple starts/stops during async
+    start(opts?: ConnectionOpts) {
+      if (watcher._connectedCount > 0) {
+        return;
+      }
+
+      if (opts?.immediate) {
+        watcher._check(true);
+      } else {
+        scheduleWatcher(watcher, true);
+      }
+    },
+
+    stop(opts?: ConnectionOpts) {
+      if (watcher._connectedCount === 0) {
+        return;
+      }
+
+      if (opts?.immediate) {
+        watcher._disconnect();
+      } else {
+        scheduleDisconnect(watcher);
+      }
     },
 
     subscribe(subscriber: () => void) {

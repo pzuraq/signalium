@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
-import { createComputed, createContext, ROOT_SCOPE, useContext, withContext } from '../context.js';
+import { createContext, useContext, withContext } from '../context.js';
 import { state } from 'signalium';
+import { permute } from './utils/permute.js';
+import { nextTick } from './utils/async.js';
+import { createAsyncComputed } from './utils/instrumented.js';
 
 describe('contexts', () => {
   test('throws when useContext is used outside of a signal', () => {
@@ -9,215 +12,515 @@ describe('contexts', () => {
     }).toThrow('useContext must be used within a signal hook');
   });
 
-  test('contexts are properly scoped', () => {
+  test('async computed maintains context ownership across await boundaries', async () => {
     const ctx = createContext('default');
-    const value = state('test');
 
-    const computed1 = createComputed(() => {
-      return useContext(ctx);
+    const inner = createAsyncComputed(async () => {
+      await Promise.resolve();
+      return 'inner-value';
     });
 
-    expect(computed1()).toBe('default');
+    const outer = createAsyncComputed(async () => {
+      const innerResult = inner();
+      const result = innerResult.await();
+      // Use context after awaiting inner result
+      const contextValue = useContext(ctx);
+      return result + '-' + contextValue;
+    });
 
-    const computed2 = createComputed(() => {
-      return withContext({ [ctx]: 'override' }, () => {
-        return computed1();
+    // Test in parent scope
+    expect(outer).toHaveValueAndCounts(undefined, { compute: 1 });
+
+    // Wait for async computation to complete
+    await nextTick();
+    expect(outer).toHaveValueAndCounts('inner-value-default', { compute: 2 });
+
+    // Test in child scope
+    expect(outer)
+      .withContexts({ [ctx]: 'child' })
+      .toHaveValueAndCounts(undefined, { compute: 3 });
+
+    // Verify parent scope maintains separate computed
+    await nextTick();
+
+    expect(outer)
+      .withContexts({ [ctx]: 'child' })
+      .toHaveValueAndCounts('inner-value-child', { compute: 3 });
+    expect(outer).toHaveValueAndCounts('inner-value-default', { compute: 3 });
+  });
+
+  permute(1, create => {
+    test('computed signals are cached per context scope', () => {
+      const ctx = createContext('default');
+      const value = state(0);
+
+      const computed = create(() => {
+        return useContext(ctx) + value.get();
       });
+
+      // Same scope should reuse computation
+      expect(computed).toHaveValueAndCounts('default0', { compute: 1 });
+      expect(computed).toHaveValueAndCounts('default0', { compute: 1 });
+
+      const result = withContext({ [ctx]: 'other' }, () => {
+        // Different scope should compute again
+        return computed();
+      });
+
+      expect(computed)
+        .withContexts({ [ctx]: 'other' })
+        .toHaveValueAndCounts('other0', { compute: 2 });
+      expect(computed)
+        .withContexts({ [ctx]: 'other' })
+        .toHaveValueAndCounts('other0', { compute: 2 });
+
+      expect(computed).toHaveValueAndCounts('default0', { compute: 2 });
     });
 
-    expect(computed2()).toBe('override');
-    expect(computed1()).toBe('default');
+    test('computed forks when accessing forked context after being shared', async () => {
+      const ctx = createContext('default');
+      const value = state(0);
+
+      const computed = create(() => {
+        // Initially only depends on value, not context
+        const v = value.get();
+        if (v > 0) {
+          // After value changes, depends on context
+          return useContext(ctx);
+        }
+        return 'default';
+      });
+
+      // Initially computed is shared between scopes since it doesn't use context
+      expect(computed)
+        .withContexts({ [ctx]: 'scope1' })
+        .toHaveValueAndCounts('default', { compute: 1 });
+      expect(computed)
+        .withContexts({ [ctx]: 'scope2' })
+        .toHaveValueAndCounts('default', { compute: 1 });
+
+      // Change value to make computed use context
+      value.set(1);
+
+      await nextTick();
+
+      // Now computed should fork and use the different context values
+      expect(computed)
+        .withContexts({ [ctx]: 'scope1' })
+        .toHaveValueAndCounts('scope1', { compute: 3 });
+      expect(computed)
+        .withContexts({ [ctx]: 'scope2' })
+        .toHaveValueAndCounts('scope2', { compute: 3 });
+
+      // Ensure that computed is cached correctly
+      expect(computed)
+        .withContexts({ [ctx]: 'scope1' })
+        .toHaveValueAndCounts('scope1', { compute: 3 });
+      expect(computed)
+        .withContexts({ [ctx]: 'scope2' })
+        .toHaveValueAndCounts('scope2', { compute: 3 });
+    });
+
+    test('computed forks correctly regardless of access order', () => {
+      const ctx = createContext('default');
+      const value = state(0);
+
+      const computed = create(() => {
+        // Initially only depends on value, not context
+        const v = value.get();
+        if (v > 0) {
+          // After value changes, depends on context
+          return useContext(ctx);
+        }
+        return v;
+      });
+
+      // Create two scopes with different context values, but access in reverse order
+      expect(computed)
+        .withContexts({ [ctx]: 'scope1' })
+        .toHaveValueAndCounts(0, { compute: 1 });
+
+      expect(computed)
+        .withContexts({ [ctx]: 'scope2' })
+        .toHaveValueAndCounts(0, { compute: 1 }); // Still shared since no context dependency
+
+      // Change value to make computed use context
+      value.set(1);
+
+      // Now computed should fork and use the different context values
+      // Access in reverse order compared to first test
+      expect(computed)
+        .withContexts({ [ctx]: 'scope2' })
+        .toHaveValueAndCounts('scope2', { compute: 2 });
+
+      expect(computed)
+        .withContexts({ [ctx]: 'scope1' })
+        .toHaveValueAndCounts('scope1', { compute: 3 });
+
+      // Ensure that computed is cached correctly
+      expect(computed)
+        .withContexts({ [ctx]: 'scope1' })
+        .toHaveValueAndCounts('scope1', { compute: 3 });
+
+      expect(computed)
+        .withContexts({ [ctx]: 'scope2' })
+        .toHaveValueAndCounts('scope2', { compute: 3 });
+    });
+
+    test('computed ownership transfers correctly between parent and child scopes', () => {
+      const ctx = createContext('default');
+      const value = state(0);
+
+      const computed = create(() => {
+        // Initially only depends on value, not context
+        const v = value.get();
+        if (v > 0) {
+          // After value changes, depends on context
+          return useContext(ctx) + v;
+        }
+        return v;
+      });
+
+      // Initially access in parent scope
+      expect(computed).toHaveValueAndCounts(0, { compute: 1 });
+
+      // Child scope reuses original computed instance since no context dependency
+      expect(computed)
+        .withContexts({ [ctx]: 'child' })
+        .toHaveValueAndCounts(0, { compute: 1 });
+
+      // Change value to make computed use context
+      value.set(1);
+
+      // Child scope takes ownership of parent instance
+      expect(computed)
+        .withContexts({ [ctx]: 'child' })
+        .toHaveValueAndCounts('child1', { compute: 2 });
+
+      // Parent scope gets its own computed instance
+      expect(computed).toHaveValueAndCounts('default1', { compute: 3 });
+
+      // Third scope gets its own computed instance
+      expect(computed)
+        .withContexts({ [ctx]: 'third' })
+        .toHaveValueAndCounts('third1', { compute: 4 });
+
+      // Ensure computeds are cached correctly
+      expect(computed)
+        .withContexts({ [ctx]: 'child' })
+        .toHaveValueAndCounts('child1', { compute: 4 });
+
+      expect(computed).toHaveValueAndCounts('default1', { compute: 4 });
+
+      // Verify all scopes maintain their separate computeds
+      value.set(2);
+
+      expect(computed)
+        .withContexts({ [ctx]: 'child' })
+        .toHaveValueAndCounts('child2', { compute: 5 });
+
+      expect(computed).toHaveValueAndCounts('default2', { compute: 6 });
+
+      expect(computed)
+        .withContexts({ [ctx]: 'third' })
+        .toHaveValueAndCounts('third2', { compute: 7 });
+    });
   });
 
-  test('computed signals are cached per context scope', () => {
-    const ctx = createContext('default');
-    const value = state(0);
+  permute(2, (create1, create2) => {
+    test('contexts are properly scoped', () => {
+      const ctx = createContext('default');
 
-    let computeCount = 0;
+      const computed1 = create1(() => {
+        return useContext(ctx);
+      });
 
-    const computed = createComputed(() => {
-      computeCount++;
-      return useContext(ctx) + value.get();
+      expect(computed1).toHaveValueAndCounts('default', { compute: 1 });
+
+      const computed2 = create2(() => {
+        return withContext({ [ctx]: 'override' }, () => {
+          return computed1();
+        });
+      });
+
+      expect(computed2).toHaveValueAndCounts('override', { compute: 1 });
+      expect(computed1).toHaveCounts({ compute: 2 });
     });
 
-    // Same scope should reuse computation
-    expect(computeCount).toBe(0);
-    expect(computed()).toBe('default0');
-    expect(computed()).toBe('default0');
-    expect(computeCount).toBe(1);
+    test('context dependencies are tracked correctly', () => {
+      const ctx1 = createContext('default1');
+      const ctx2 = createContext('default2');
 
-    const result = withContext({ [ctx]: 'other' }, () => {
-      // Different scope should compute again
-      return computed();
-    });
+      const computed1 = create1(() => {
+        // Only depends on ctx1
+        return useContext(ctx1);
+      });
 
-    expect(computeCount).toBe(2);
-    expect(result).toBe('other0');
-    expect(computed()).toBe('default0');
-  });
-
-  test('context dependencies are tracked correctly', () => {
-    const ctx1 = createContext('ctx1');
-    const ctx2 = createContext('ctx2');
-    const value = state(0);
-
-    const computed1 = createComputed(() => {
-      // Only depends on ctx1
-      return useContext(ctx1);
-    });
-
-    const result1 = withContext({ [ctx1]: 'override1', [ctx2]: 'override2' }, () => {
-      const computed2 = createComputed(() => {
+      const computed2 = create2(() => {
         // Depends on both contexts
+        return computed1() + useContext(ctx2);
+      });
+
+      expect(computed2).toHaveValueAndCounts('default1default2', { compute: 1 });
+      expect(computed1).toHaveCounts({ compute: 1 });
+
+      expect(computed2)
+        .withContexts({ [ctx1]: 'override1' })
+        .toHaveValueAndCounts('override1default2', { compute: 2 });
+      expect(computed1).toHaveCounts({ compute: 2 });
+
+      expect(computed2)
+        .withContexts({ [ctx2]: 'override2' })
+        .toHaveValueAndCounts('default1override2', { compute: 3 });
+      expect(computed1).toHaveCounts({ compute: 2 });
+
+      expect(computed2)
+        .withContexts({ [ctx1]: 'override1', [ctx2]: 'override2' })
+        .toHaveValueAndCounts('override1override2', { compute: 4 });
+      expect(computed1).toHaveCounts({ compute: 3 });
+
+      // Should reuse cached value since ctx2 didn't change
+      expect(computed1)
+        .withContexts({ [ctx2]: 'override1' })
+        .toHaveValueAndCounts('default1', { compute: 3 });
+    });
+
+    test('context scopes inherit from parent scope when nested in computeds', () => {
+      const ctx1 = createContext('default1');
+      const ctx2 = createContext('default2');
+
+      const computed1 = create1(() => {
         return useContext(ctx1) + useContext(ctx2);
       });
-      return computed2();
-    });
 
-    expect(computed1()).toBe('ctx1');
-    expect(result1).toBe('override1override2');
-
-    // Should reuse cached value since ctx2 didn't change
-    const result2 = withContext({ [ctx2]: 'different' }, () => {
-      return computed1();
-    });
-
-    expect(result2).toBe('ctx1');
-  });
-
-  test('context scopes inherit from parent scope when nested in computeds', () => {
-    const ctx1 = createContext('default1');
-    const ctx2 = createContext('default2');
-
-    const computed = createComputed(() => {
-      return withContext({ [ctx2]: 'override2' }, () => {
-        return useContext(ctx1) + useContext(ctx2);
+      const computed2 = create2(() => {
+        return (
+          useContext(ctx2) +
+          withContext({ [ctx2]: ':inner-override2' }, () => {
+            return computed1();
+          })
+        );
       });
-    });
 
-    const result = withContext({ [ctx1]: 'override1' }, () => {
-      return computed();
-    });
+      expect(computed2).toHaveValueAndCounts('default2default1:inner-override2', { compute: 1 });
+      expect(computed1).toHaveCounts({ compute: 1 });
 
-    expect(result).toBe('override1override2');
+      expect(computed2)
+        .withContexts({ [ctx1]: 'override1' })
+        .toHaveValueAndCounts('default2override1:inner-override2', { compute: 2 });
+      expect(computed1).toHaveCounts({ compute: 2 });
+
+      expect(computed2)
+        .withContexts({ [ctx1]: 'override1', [ctx2]: 'override2' })
+        .toHaveValueAndCounts('override2override1:inner-override2', { compute: 3 });
+      expect(computed1).toHaveCounts({ compute: 3 });
+
+      expect(computed2)
+        .withContexts({ [ctx2]: 'override2' })
+        .toHaveValueAndCounts('override2default1:inner-override2', { compute: 4 });
+      expect(computed1).toHaveCounts({ compute: 4 });
+    });
   });
 
-  test('computed forks when accessing forked context after being shared', () => {
-    const ctx = createContext('default');
-    const value = state(0);
-    let computeCount = 0;
+  permute(3, (create1, create2, create3) => {
+    test('the gauntlet (params + state + context)', async () => {
+      const ctx = createContext('ctxdefault');
+      const value = state('value');
 
-    const computed = createComputed(() => {
-      computeCount++;
-      // Initially only depends on value, not context
-      const v = value.get();
-      if (v > 0) {
-        // After value changes, depends on context
-        return useContext(ctx) + v;
-      }
-      return v;
+      const inner1 = create1((a: number) => {
+        if (a === 3) {
+          return ['inner1', useContext(ctx)];
+        } else if (a === 4) {
+          return ['inner1', value.get()];
+        }
+
+        return ['inner1'];
+      });
+
+      const inner2 = create2((a: number) => {
+        if (a === 3) {
+          return value.get() === 'value' ? ['inner2'] : ['inner2', useContext(ctx)];
+        } else if (a === 4) {
+          return withContext({ [ctx]: 'ctxinneroverride' }, () => {
+            return ['inner2', inner1(3), value.get()];
+          });
+        }
+
+        return ['inner2', inner1(a)];
+      });
+
+      const outer = create3((a: number) => {
+        if (a === 1) {
+          return [inner1(1), inner2(2)];
+        } else if (a === 2) {
+          return [inner1(2), inner2(3)];
+        } else if (a === 3) {
+          return [inner1(3), inner2(4)];
+        } else if (a === 4) {
+          return [useContext(ctx), inner2(4)];
+        } else if (a === 5) {
+          return [inner1(5), value.get()];
+        }
+      });
+
+      // a === 1
+      expect(outer)
+        .withParams(1)
+        .toHaveValueAndCounts([['inner1'], ['inner2', ['inner1']]], { compute: 1 });
+      expect(inner1).toHaveCounts({ compute: 2 });
+      expect(inner2).toHaveCounts({ compute: 1 });
+
+      expect(outer)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .withParams(1)
+        .toHaveValueAndCounts([['inner1'], ['inner2', ['inner1']]], { compute: 1 });
+      expect(inner1).toHaveCounts({ compute: 2 });
+      expect(inner2).toHaveCounts({ compute: 1 });
+
+      // a === 2
+      expect(outer)
+        .withParams(2)
+        .toHaveValueAndCounts([['inner1'], ['inner2']], {
+          compute: 2,
+        });
+      expect(inner1).toHaveCounts({ compute: 2 });
+      expect(inner2).toHaveCounts({ compute: 2 });
+
+      expect(outer)
+        .withParams(2)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .toHaveValueAndCounts([['inner1'], ['inner2']], {
+          compute: 2,
+        });
+      expect(inner1).toHaveCounts({ compute: 2 });
+      expect(inner2).toHaveCounts({ compute: 2 });
+
+      // a === 3
+      expect(outer)
+        .withParams(3)
+        .toHaveValueAndCounts(
+          [
+            ['inner1', 'ctxdefault'],
+            ['inner2', ['inner1', 'ctxinneroverride'], 'value'],
+          ],
+          {
+            compute: 3,
+          },
+        );
+      expect(inner1).toHaveCounts({ compute: 4 });
+      expect(inner2).toHaveCounts({ compute: 3 });
+
+      expect(outer)
+        .withParams(3)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .toHaveValueAndCounts(
+          [
+            ['inner1', 'ctxoverride'],
+            ['inner2', ['inner1', 'ctxinneroverride'], 'value'],
+          ],
+          {
+            compute: 4,
+          },
+        );
+      expect(inner1).toHaveCounts({ compute: 6 });
+      expect(inner2).toHaveCounts({ compute: 4 });
+
+      // a === 4
+      expect(outer)
+        .withParams(4)
+        .toHaveValueAndCounts(['ctxdefault', ['inner2', ['inner1', 'ctxinneroverride'], 'value']], {
+          compute: 5,
+        });
+      expect(inner1).toHaveCounts({ compute: 6 });
+      expect(inner2).toHaveCounts({ compute: 4 });
+
+      expect(outer)
+        .withParams(4)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .toHaveValueAndCounts(['ctxoverride', ['inner2', ['inner1', 'ctxinneroverride'], 'value']], {
+          compute: 6,
+        });
+      expect(inner1).toHaveCounts({ compute: 6 });
+      expect(inner2).toHaveCounts({ compute: 4 });
+
+      // a === 5
+      expect(outer)
+        .withParams(5)
+        .toHaveValueAndCounts([['inner1'], 'value'], {
+          compute: 7,
+        });
+      expect(inner1).toHaveCounts({ compute: 7 });
+      expect(inner2).toHaveCounts({ compute: 4 });
+
+      expect(outer)
+        .withParams(5)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .toHaveValueAndCounts([['inner1'], 'value'], {
+          compute: 8,
+        });
+      expect(inner1).toHaveCounts({ compute: 8 });
+      expect(inner2).toHaveCounts({ compute: 4 });
+
+      value.set('value2');
+      await nextTick();
+
+      // a === 1
+      expect(outer)
+        .withParams(1)
+        .toHaveValue([['inner1'], ['inner2', ['inner1']]]);
+
+      expect(outer)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .withParams(1)
+        .toHaveValue([['inner1'], ['inner2', ['inner1']]]);
+
+      // a === 2
+      expect(outer)
+        .withParams(2)
+        .toHaveValue([['inner1'], ['inner2', 'ctxdefault']]);
+
+      expect(outer)
+        .withParams(2)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .toHaveValue([['inner1'], ['inner2', 'ctxoverride']]);
+
+      // a === 3
+      expect(outer)
+        .withParams(3)
+        .toHaveValue([
+          ['inner1', 'ctxdefault'],
+          ['inner2', ['inner1', 'ctxinneroverride'], 'value2'],
+        ]);
+
+      expect(outer)
+        .withParams(3)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .toHaveValue([
+          ['inner1', 'ctxoverride'],
+          ['inner2', ['inner1', 'ctxinneroverride'], 'value2'],
+        ]);
+
+      // a === 4
+      expect(outer)
+        .withParams(4)
+        .toHaveValue(['ctxdefault', ['inner2', ['inner1', 'ctxinneroverride'], 'value2']]);
+
+      expect(outer)
+        .withParams(4)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .toHaveValue(['ctxoverride', ['inner2', ['inner1', 'ctxinneroverride'], 'value2']]);
+
+      // a === 5
+      expect(outer)
+        .withParams(5)
+        .toHaveValue([['inner1'], 'value2']);
+      expect(outer)
+        .withParams(5)
+        .withContexts({ [ctx]: 'ctxoverride' })
+        .toHaveValue([['inner1'], 'value2']);
+
+      expect(inner1).toHaveCounts({ compute: 10 });
+      expect(inner2).toHaveCounts({ compute: 9 });
     });
-
-    // Create two scopes with different context values
-    const scope1Result = withContext({ [ctx]: 'scope1' }, () => computed());
-    const scope2Result = withContext({ [ctx]: 'scope2' }, () => computed());
-
-    // Initially computed is shared between scopes since it doesn't use context
-    expect(scope1Result).toBe(0);
-    expect(scope2Result).toBe(0);
-    expect(computeCount).toBe(1); // Only computed once since it's shared
-
-    // Change value to make computed use context
-    value.set(1);
-
-    // Now computed should fork and use the different context values
-    const scope1UpdatedResult = withContext({ [ctx]: 'scope1' }, () => computed());
-    const scope2UpdatedResult = withContext({ [ctx]: 'scope2' }, () => computed());
-
-    expect(scope1UpdatedResult).toBe('scope11');
-    expect(scope2UpdatedResult).toBe('scope21');
-    expect(computeCount).toBe(3); // Computed once for each scope after forking
-  });
-
-  test('computed forks correctly regardless of access order', () => {
-    const ctx = createContext('default');
-    const value = state(0);
-    let computeCount = 0;
-
-    const computed = createComputed(() => {
-      computeCount++;
-      // Initially only depends on value, not context
-      const v = value.get();
-      if (v > 0) {
-        // After value changes, depends on context
-        return useContext(ctx) + v;
-      }
-      return v;
-    });
-
-    // Create two scopes with different context values, but access in reverse order
-    const scope1Result = withContext({ [ctx]: 'scope1' }, () => computed());
-    const scope2Result = withContext({ [ctx]: 'scope2' }, () => computed());
-
-    // Initially computed is shared between scopes since it doesn't use context
-    expect(scope1Result).toBe(0);
-    expect(scope2Result).toBe(0);
-    expect(computeCount).toBe(1); // Only computed once since it's shared
-
-    // Change value to make computed use context
-    value.set(1);
-
-    // Now computed should fork and use the different context values
-    // Access in reverse order compared to first test
-    const scope2UpdatedResult = withContext({ [ctx]: 'scope2' }, () => computed());
-    const scope1UpdatedResult = withContext({ [ctx]: 'scope1' }, () => computed());
-
-    expect(scope2UpdatedResult).toBe('scope21');
-    expect(scope1UpdatedResult).toBe('scope11');
-    expect(computeCount).toBe(3); // Computed once for each scope after forking
-  });
-
-  test('computed ownership transfers correctly between parent and child scopes', () => {
-    const ctx = createContext('default');
-    const value = state(0);
-    let computeCount = 0;
-
-    const computed = createComputed(() => {
-      computeCount++;
-      const v = value.get();
-      return useContext(ctx) + v;
-    });
-
-    // Initially access in parent scope
-    const parentResult = computed();
-    expect(parentResult).toBe('default0');
-    expect(computeCount).toBe(1);
-
-    // Child scope takes ownership by using context
-    const childResult = withContext({ [ctx]: 'child' }, () => computed());
-    expect(childResult).toBe('child0');
-    expect(computeCount).toBe(2);
-
-    // Parent scope access creates new computed instance
-    const parentResult2 = computed();
-    expect(parentResult2).toBe('default0');
-    expect(computeCount).toBe(3);
-
-    // Third scope creates its own computed instance
-    const thirdResult = withContext({ [ctx]: 'third' }, () => computed());
-    expect(thirdResult).toBe('third0');
-    expect(computeCount).toBe(4);
-
-    // Verify all scopes maintain their separate computeds
-    value.set(1);
-
-    const updatedChildResult = withContext({ [ctx]: 'child' }, () => computed());
-    const updatedParentResult = computed();
-    const updatedThirdResult = withContext({ [ctx]: 'third' }, () => computed());
-
-    expect(updatedChildResult).toBe('child1');
-    expect(updatedParentResult).toBe('default1');
-    expect(updatedThirdResult).toBe('third1');
-    expect(computeCount).toBe(7); // Each scope recomputed once
   });
 });

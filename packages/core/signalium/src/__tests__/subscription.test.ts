@@ -9,7 +9,9 @@ describe('Subscription Signal functionality', () => {
     test('Subscribes when first accessed when watched', async () => {
       const s = subscription(() => {}, { initValue: 123 });
 
-      const w = watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         s.get();
       });
 
@@ -31,7 +33,9 @@ describe('Subscription Signal functionality', () => {
         s.get();
       });
 
-      const w = watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         c.get();
       });
 
@@ -53,7 +57,9 @@ describe('Subscription Signal functionality', () => {
 
       const s = subscription(() => {}, { initValue: 123 });
 
-      const w = watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         return a.get() ? s.get() : 0;
       });
 
@@ -88,7 +94,9 @@ describe('Subscription Signal functionality', () => {
         return a.get() ? s.get() : 0;
       });
 
-      const w = watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         return c.get();
       });
 
@@ -126,7 +134,9 @@ describe('Subscription Signal functionality', () => {
         return s.get();
       });
 
-      const w = watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         return a.get() ? c.get() : 0;
       });
 
@@ -164,7 +174,9 @@ describe('Subscription Signal functionality', () => {
         return a.get() ? s.get() : 0;
       });
 
-      const w = watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         return a.get() ? c.get() : 0;
       });
 
@@ -202,7 +214,9 @@ describe('Subscription Signal functionality', () => {
         return s.get();
       });
 
-      const w = watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         return a.get() ? c.get() : 0;
       });
 
@@ -241,7 +255,9 @@ describe('Subscription Signal functionality', () => {
         { initValue: 123 },
       );
 
-      watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         expect(s.get()).toBe(456);
       });
 
@@ -266,7 +282,9 @@ describe('Subscription Signal functionality', () => {
 
       let value;
 
-      let w = watcher(() => {
+      let w = watcher();
+      w.start();
+      w.add(() => {
         value = s.get();
       });
 
@@ -277,7 +295,7 @@ describe('Subscription Signal functionality', () => {
         subscribe: 1,
       });
 
-      w.disconnect();
+      w.stop();
 
       await nextTick();
 
@@ -286,7 +304,9 @@ describe('Subscription Signal functionality', () => {
         subscribe: 1,
       });
 
-      w = watcher(() => {
+      w = watcher();
+      w.start();
+      w.add(() => {
         value = s.get();
       });
 
@@ -312,7 +332,9 @@ describe('Subscription Signal functionality', () => {
 
       let value;
 
-      let w = watcher(() => {
+      let w = watcher();
+      w.start();
+      w.add(() => {
         value = c.get();
       });
 
@@ -323,7 +345,7 @@ describe('Subscription Signal functionality', () => {
         subscribe: 1,
       });
 
-      w.disconnect();
+      w.stop();
 
       await nextTick();
 
@@ -332,7 +354,9 @@ describe('Subscription Signal functionality', () => {
         subscribe: 1,
       });
 
-      w = watcher(() => {
+      w = watcher();
+      w.start();
+      w.add(() => {
         value = c.get();
       });
 
@@ -362,7 +386,9 @@ describe('Subscription Signal functionality', () => {
         { initValue: 123 },
       );
 
-      watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         s.get();
       });
 
@@ -400,7 +426,9 @@ describe('Subscription Signal functionality', () => {
         { initValue: 123 },
       );
 
-      const w = watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         s.get();
       });
 
@@ -446,7 +474,9 @@ describe('Subscription Signal functionality', () => {
 
       let value;
 
-      const w = watcher(() => {
+      const w = watcher();
+      w.start();
+      w.add(() => {
         b.get();
         value = s.get();
       });
@@ -505,11 +535,15 @@ describe('Subscription Signal functionality', () => {
 
       let value;
 
-      let w = watcher(() => {
+      let w = watcher();
+      w.start();
+      w.add(() => {
         value = s.get();
       });
 
-      let w2 = watcher(() => {
+      let w2 = watcher();
+      w2.start();
+      w2.add(() => {
         s.get();
       });
 
@@ -521,8 +555,8 @@ describe('Subscription Signal functionality', () => {
         unsubscribe: 0,
       });
 
-      w.disconnect();
-      w2.disconnect();
+      w.stop();
+      w2.stop();
 
       await nextTick();
 
@@ -547,7 +581,9 @@ describe('Subscription Signal functionality', () => {
 
       let value;
 
-      let w = watcher(() => {
+      let w = watcher();
+      w.start();
+      w.add(() => {
         value = s.get();
       });
 
@@ -559,7 +595,9 @@ describe('Subscription Signal functionality', () => {
         unsubscribe: 0,
       });
 
-      let w2 = watcher(() => {
+      let w2 = watcher();
+      w2.start();
+      w2.add(() => {
         s.get();
       });
 
@@ -571,7 +609,7 @@ describe('Subscription Signal functionality', () => {
         unsubscribe: 0,
       });
 
-      w.disconnect();
+      w.stop();
 
       await nextTick();
 
@@ -581,7 +619,7 @@ describe('Subscription Signal functionality', () => {
         unsubscribe: 0,
       });
 
-      w2.disconnect();
+      w2.stop();
 
       await nextTick();
 
@@ -606,7 +644,9 @@ describe('Subscription Signal functionality', () => {
 
       let value;
 
-      let w = watcher(() => {
+      let w = watcher();
+      w.start();
+      w.add(() => {
         value = s.get();
       });
 
@@ -618,8 +658,10 @@ describe('Subscription Signal functionality', () => {
         unsubscribe: 0,
       });
 
-      w.disconnect();
-      let w2 = watcher(() => {
+      w.stop();
+      let w2 = watcher();
+      w2.start();
+      w2.add(() => {
         s.get();
       });
 
@@ -631,7 +673,7 @@ describe('Subscription Signal functionality', () => {
         unsubscribe: 0,
       });
 
-      w2.disconnect();
+      w2.stop();
 
       await nextTick();
 

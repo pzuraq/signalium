@@ -30,11 +30,11 @@
     "build:esm": "tsc",
     "build:cjs": "tsc --module commonjs --outDir dist/cjs --moduleResolution node"
   },
-  "author": "",
+  "author": "Kristen Hewell Garrett <me@pzuraq.com>",
   "license": "ISC",
   "dependencies": {
-    "signalium": "^0.2.6",
-    "hash-it": "^6.0.0"
+    "@signalium/utils": "0.0.0",
+    "signalium": "^0.2.6"
   },
   "devDependencies": {
     "vite": "^5.4.8",

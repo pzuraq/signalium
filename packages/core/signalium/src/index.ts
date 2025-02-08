@@ -13,6 +13,7 @@ export type {
   AsyncPending,
   AsyncReady,
   AsyncResult,
+  Watcher,
 } from './signals.js';
 
 export { state, computed, asyncComputed, subscription, watcher, getCurrentConsumer } from './signals.js';

@@ -208,17 +208,26 @@ describe('Basic Signal functionality', () => {
       const c = state(2);
       const d = state(2);
 
-      const inner = computed('inner', () => {
-        return a.get() + b.get();
-      });
+      const inner = computed(
+        () => {
+          return a.get() + b.get();
+        },
+        { desc: 'inner' },
+      );
 
-      const outer1 = computed('outer1', () => {
-        return inner.get() + c.get();
-      });
+      const outer1 = computed(
+        () => {
+          return inner.get() + c.get();
+        },
+        { desc: 'outer1' },
+      );
 
-      const outer2 = computed('outer2', () => {
-        return inner.get() + d.get();
-      });
+      const outer2 = computed(
+        () => {
+          return inner.get() + d.get();
+        },
+        { desc: 'outer2' },
+      );
 
       expect(() => {
         expect(outer1).toHaveValueAndCounts(5, { compute: 1 });
@@ -250,21 +259,33 @@ describe('Basic Signal functionality', () => {
       const c = state(2);
       const d = state(2);
 
-      const inner1 = computed('inner1', () => {
-        return a.get() + b.get();
-      });
+      const inner1 = computed(
+        () => {
+          return a.get() + b.get();
+        },
+        { desc: 'inner1' },
+      );
 
-      const inner2 = computed('inner2', () => {
-        return c.get();
-      });
+      const inner2 = computed(
+        () => {
+          return c.get();
+        },
+        { desc: 'inner2' },
+      );
 
-      const inner3 = computed('inner3', () => {
-        return d.get();
-      });
+      const inner3 = computed(
+        () => {
+          return d.get();
+        },
+        { desc: 'inner3' },
+      );
 
-      const outer = computed('outer', () => {
-        return inner1.get() + inner2.get() + inner3.get();
-      });
+      const outer = computed(
+        () => {
+          return inner1.get() + inner2.get() + inner3.get();
+        },
+        { desc: 'outer' },
+      );
 
       expect(() => {
         expect(outer).toHaveValueAndCounts(7, { compute: 1 });

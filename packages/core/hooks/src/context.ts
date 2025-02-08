@@ -1,5 +1,4 @@
 import {
-  SignalSubscribe,
   computed,
   asyncComputed,
   subscription,
@@ -9,7 +8,10 @@ import {
   type Signal,
   type SignalOptions,
   type SignalOptionsWithInit,
+  SignalSubscription,
 } from 'signalium';
+import { hashValue } from './utils.js';
+import { getFrameworkScope, useSignalValue } from './config.js';
 
 declare const CONTEXT_KEY: unique symbol;
 
@@ -23,16 +25,17 @@ const CONTEXT_MASKS = new Map<Context<unknown>, bigint>();
 let CONTEXT_MASKS_COUNT = 0;
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const COMPUTED_CONTEXT_MASKS = new Map<Function, bigint>();
+const COMPUTED_CONTEXT_MASKS = new Map<object, bigint>();
 const COMPUTED_OWNERS = new WeakMap<Signal<unknown>, SignalContextScope>();
 
 let CURRENT_MASK: bigint | null = null;
 
 export const createContext = <T>(initialValue: T, description?: string) => {
-  const key = Symbol(description) as Context<T>;
+  const count = CONTEXT_MASKS_COUNT++;
+  const key = Symbol(description ?? `context:${count}`) as Context<T>;
 
   CONTEXT_DEFAULT_VALUES.set(key, initialValue);
-  CONTEXT_MASKS.set(key, BigInt(1) << BigInt(CONTEXT_MASKS_COUNT++));
+  CONTEXT_MASKS.set(key, BigInt(1) << BigInt(count));
 
   return key;
 };
@@ -41,65 +44,7 @@ export type SignalStoreMap = {
   [K in Context<unknown>]: K extends Context<infer T> ? T : never;
 };
 
-const objectToIdMap = new WeakMap<object, string>();
-let nextId = 1;
-
-function getObjectId(obj: object): string {
-  let id = objectToIdMap.get(obj);
-  if (id === undefined) {
-    id = String(nextId++);
-    objectToIdMap.set(obj, id);
-  }
-  return id;
-}
-
-// Handle basic POJOs and arrays recursively
-function isPOJO(obj: object): boolean {
-  return Object.getPrototypeOf(obj) === Object.prototype;
-}
-
-function isPlainArray(arr: unknown): arr is unknown[] {
-  return Array.isArray(arr);
-}
-
-function hashValue(value: unknown): string {
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-
-  switch (typeof value) {
-    case 'number':
-    case 'boolean':
-    case 'string':
-      return String(value);
-    case 'bigint':
-      return value.toString();
-    case 'symbol':
-      return String(value);
-    case 'object': {
-      if (value instanceof Date) {
-        return value.toISOString();
-      }
-      if (isPlainArray(value)) {
-        return `[${value.map(hashValue).join(',')}]`;
-      }
-      if (isPOJO(value)) {
-        const entries = [
-          ...Object.entries(value),
-          ...Object.getOwnPropertySymbols(value).map(sym => [sym, value[sym as keyof typeof value]]),
-        ].sort(([a], [b]) => (String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0));
-
-        return `{${entries.map(([k, v]) => `${String(k)}:${hashValue(v)}`).join(',')}}`;
-      }
-      return getObjectId(value);
-    }
-    case 'function':
-      return getObjectId(value);
-    default:
-      return getObjectId(value as object);
-  }
-}
-
-class SignalContextScope {
+export class SignalContextScope {
   constructor(
     contexts: SignalStoreMap,
     private parent?: SignalContextScope,
@@ -124,6 +69,7 @@ class SignalContextScope {
 
     if (child === undefined) {
       child = new SignalContextScope(contexts, this);
+      this.children.set(key, child);
     }
 
     return child;
@@ -145,12 +91,15 @@ class SignalContextScope {
       : this.signals.get(key);
   }
 
-  private setSignal(key: string, signal: Signal<unknown>, mask: bigint) {
+  private setSignal(key: string, signal: Signal<unknown>, mask: bigint, isPromoting: boolean) {
     if ((this.contextMask & mask) === 0n && this.parent) {
-      this.parent.setSignal(key, signal, mask);
+      this.parent.setSignal(key, signal, mask, isPromoting);
     } else {
       this.signals.set(key, signal);
-      this.parent?.deleteSignal(key);
+
+      if (isPromoting) {
+        this.parent?.deleteSignal(key);
+      }
     }
   }
 
@@ -159,7 +108,28 @@ class SignalContextScope {
     this.parent?.deleteSignal(key);
   }
 
-  private get(
+  run(fn: (...args: any[]) => any, args: any[], key: string, signal: Signal<unknown>, initialized: boolean) {
+    const prevMask = CURRENT_MASK;
+    const fnMask = COMPUTED_CONTEXT_MASKS.get(fn) ?? 0n;
+    const signalMask = COMPUTED_CONTEXT_MASKS.get(signal) ?? 0n;
+
+    try {
+      CURRENT_MASK = signalMask | fnMask;
+
+      return fn(...args);
+    } finally {
+      if (!initialized || signalMask !== CURRENT_MASK) {
+        COMPUTED_CONTEXT_MASKS.set(fn, CURRENT_MASK!);
+        COMPUTED_CONTEXT_MASKS.set(signal, CURRENT_MASK!);
+        getCurrentScope().setSignal(key, signal!, CURRENT_MASK!, initialized);
+        initialized = true;
+      }
+
+      CURRENT_MASK = prevMask;
+    }
+  }
+
+  get(
     makeSignal: (fn: (...args: any[]) => any, opts?: Partial<SignalOptionsWithInit<unknown>>) => Signal<unknown>,
     fn: (...args: any[]) => any,
     args: unknown[],
@@ -170,28 +140,38 @@ class SignalContextScope {
 
     let signal = this.getSignal(key, computedMask);
 
+    // console.log('get', key, computedMask);
+
     if (signal === undefined) {
       let initialized = false;
 
-      signal = makeSignal(() => {
-        const prevMask = CURRENT_MASK;
+      if (makeSignal === subscription) {
+        signal = makeSignal((get, set) => {
+          const sub = this.run(fn, [{ get, set }, ...args], key, signal!, initialized) as
+            | SignalSubscription
+            | undefined;
 
-        try {
-          CURRENT_MASK = COMPUTED_CONTEXT_MASKS.get(fn) ?? 0n;
+          if (sub?.update) {
+            const originalUpdate = sub.update;
 
-          return fn(...args);
-        } finally {
-          const computedMask = COMPUTED_CONTEXT_MASKS.get(fn);
-
-          if (!initialized || computedMask !== CURRENT_MASK) {
-            initialized = true;
-            COMPUTED_CONTEXT_MASKS.set(fn, CURRENT_MASK!);
-            getCurrentScope().setSignal(key, signal!, CURRENT_MASK!);
+            sub.update = (...args) => {
+              return this.run(originalUpdate, [], key, signal!, initialized);
+            };
           }
 
-          CURRENT_MASK = prevMask;
-        }
-      }, opts);
+          initialized = true;
+
+          return sub;
+        }, opts);
+      } else {
+        signal = makeSignal(() => {
+          const result = this.run(fn, args, key, signal!, initialized);
+
+          initialized = true;
+
+          return result;
+        }, opts);
+      }
     }
 
     COMPUTED_OWNERS.set(signal, this);
@@ -204,33 +184,13 @@ class SignalContextScope {
 
     return value;
   }
-
-  getComputedFor<T, Args extends unknown[]>(
-    fn: (...args: Args) => T,
-    args: Args,
-    opts?: Partial<SignalOptionsWithInit<T>>,
-  ): T {
-    return this.get(computed, fn, args, opts as Partial<SignalOptionsWithInit<unknown>>) as T;
-  }
-
-  getAsyncComputedFor<T, Args extends unknown[]>(
-    fn: (...args: Args) => T | Promise<T>,
-    args: Args,
-    opts?: Partial<SignalOptionsWithInit<T>>,
-  ): AsyncResult<T> {
-    return this.get(asyncComputed, fn, args, opts as Partial<SignalOptionsWithInit<unknown>>) as AsyncResult<T>;
-  }
-
-  getSubscriptionFor<T, Args extends unknown[]>(
-    fn: SignalSubscribe<T>,
-    args: Args,
-    opts?: Partial<SignalOptionsWithInit<T>>,
-  ): T {
-    return this.get(subscription, fn, args, opts as Partial<SignalOptionsWithInit<unknown>>) as T;
-  }
 }
 
-export const ROOT_SCOPE = new SignalContextScope({});
+export let ROOT_SCOPE = new SignalContextScope({});
+
+export const clearRootScope = () => {
+  ROOT_SCOPE = new SignalContextScope({});
+};
 
 let OVERRIDE_SCOPE: SignalContextScope | undefined;
 
@@ -241,13 +201,19 @@ const getCurrentScope = (): SignalContextScope => {
 
   const currentConsumer = getCurrentConsumer();
 
-  let currentScope;
-
   if (currentConsumer) {
-    currentScope = COMPUTED_OWNERS.get(currentConsumer);
+    const scope = COMPUTED_OWNERS.get(currentConsumer);
+
+    // if (scope === undefined) {
+    //   throw new Error(
+    //     'Computed signal is not owned by any scope. You must use a signal hook instead of a standard signal when using contexts.',
+    //   );
+    // }
+
+    return scope ?? ROOT_SCOPE;
   }
 
-  return currentScope ?? ROOT_SCOPE;
+  return getFrameworkScope() ?? ROOT_SCOPE;
 };
 
 export const withContext = <T>(contexts: SignalStoreMap, fn: () => T): T => {
@@ -276,16 +242,20 @@ export const useContext = <T>(context: Context<T>): T => {
     );
   }
 
+  // console.log('useContext', context, scope.getContext(context));
+
   return scope.getContext(context) ?? (CONTEXT_DEFAULT_VALUES.get(context) as T);
 };
 
 export function createComputed<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
-  opts?: { initValue?: T },
+  opts?: SignalOptions<T>,
 ): (...args: Args) => T {
   return (...args) => {
-    const scope = getCurrentScope();
-    return scope.getComputedFor(fn, args, opts);
+    return useSignalValue(() => {
+      const scope = getCurrentScope();
+      return scope.get(computed, fn, args, opts as Partial<SignalOptionsWithInit<unknown>>) as T;
+    });
   };
 }
 
@@ -304,17 +274,31 @@ export function createAsyncComputed<T, Args extends unknown[]>(
   opts?: Partial<SignalOptionsWithInit<T>>,
 ): (...args: Args) => AsyncResult<T> | AsyncReady<T> {
   return (...args) => {
-    const scope = getCurrentScope();
-    return scope.getAsyncComputedFor(fn, args, opts);
+    return useSignalValue(() => {
+      const scope = getCurrentScope();
+      return scope.get(asyncComputed, fn, args, opts as Partial<SignalOptionsWithInit<unknown>>) as AsyncResult<T>;
+    });
   };
 }
 
+export interface SubscriptionState<T> {
+  get: () => T;
+  set: (value: T) => void;
+}
+
+export type SignalSubscribe<T, Args extends unknown[]> = (
+  state: SubscriptionState<T>,
+  ...args: Args
+) => SignalSubscription | undefined | void;
+
 export function createSubscription<T, Args extends unknown[]>(
-  fn: SignalSubscribe<T>,
+  fn: SignalSubscribe<T, Args>,
   opts?: Partial<SignalOptionsWithInit<T>>,
 ): (...args: Args) => T {
   return (...args) => {
-    const scope = getCurrentScope();
-    return scope.getSubscriptionFor(fn, args, opts);
+    return useSignalValue(() => {
+      const scope = getCurrentScope();
+      return scope.get(subscription, fn, args, opts as Partial<SignalOptionsWithInit<unknown>>) as T;
+    });
   };
 }

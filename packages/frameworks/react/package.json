@@ -1,0 +1,45 @@
+{
+  "name": "@signalium/react",
+  "version": "0.0.0",
+  "type": "module",
+  "repository": "https://github.com/pzuraq/signalium",
+  "description": "Chain-reactivity at critical mass",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "exports": {
+    ".": {
+      "import": {
+        "development": "./src/index.tsx",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "default": "./dist/cjs/index.js"
+      },
+      "types": {
+        "development": "./src/index.ts",
+        "import": "./dist/esm/index.d.ts",
+        "require": "./dist/cjs/index.d.ts"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "dev": "vitest",
+    "test": "vitest run",
+    "build": "npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc",
+    "build:cjs": "tsc --module commonjs --outDir dist/cjs --moduleResolution node"
+  },
+  "author": "Kristen Hewell Garrett <me@pzuraq.com>",
+  "license": "ISC",
+  "peerDependencies": {
+    "@signalium/hooks": "0.0.0",
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.8",
+    "react": "^19.0.0",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2"
+  }
+}

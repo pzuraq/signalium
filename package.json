@@ -13,6 +13,7 @@
     "release": "npm run build && changeset publish"
   },
   "workspaces": [
+    "./docs",
     "./examples/*",
     "./packages/*",
     "./packages/*/*"
@@ -21,9 +22,11 @@
   "license": "ISC",
   "dependencies": {
     "@changesets/cli": "^2.27.10",
+    "@signalium/react": "workspace:*",
     "eslint": "^9.15.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
+    "signalium": "workspace:*",
     "globals": "^15.13.0",
     "prettier": "^3.4.2",
     "typescript": "^5.7.2",

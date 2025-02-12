@@ -1,4 +1,11 @@
-import { scheduleDirty, scheduleDisconnect, schedulePull, scheduleWatcher } from './scheduling.js';
+import {
+  scheduleConnect,
+  scheduleDirty,
+  scheduleDisconnect,
+  scheduleEffect,
+  schedulePull,
+  scheduleWatcher,
+} from './scheduling.js';
 import { WeakRef } from '@signalium/utils';
 
 let CURRENT_ORD = 0;
@@ -26,8 +33,6 @@ export type SignalCompute<T> = (prev: T | undefined) => T;
 
 export type SignalAsyncCompute<T> = (prev: T | undefined) => T | Promise<T>;
 
-export type SignalWatcherEffect = () => void;
-
 export type SignalEquals<T> = (prev: T, next: T) => boolean;
 
 export type SignalSubscription = {
@@ -35,15 +40,24 @@ export type SignalSubscription = {
   unsubscribe?(): void;
 };
 
-export type SignalSubscribe<T> = (get: () => T, set: (value: T) => void) => SignalSubscription | undefined | void;
+export type SignalSubscribe<T> = (
+  get: () => T | undefined,
+  set: (value: T) => void,
+) => SignalSubscription | undefined | void;
 
 export interface SignalOptions<T> {
-  equals?: SignalEquals<T>;
+  equals?: SignalEquals<T> | false;
   desc?: string;
 }
 
 export interface SignalOptionsWithInit<T> extends SignalOptions<T> {
   initValue: T;
+}
+
+interface InternalSignalOptions<T> extends SignalOptions<T> {
+  equals: SignalEquals<T>;
+  desc: string;
+  subscribers?: ((value: T) => void)[];
 }
 
 const SUBSCRIPTIONS = new WeakMap<ComputedSignal<any>, SignalSubscription | undefined | void>();
@@ -69,8 +83,9 @@ interface Link {
 
 let ID = 0;
 
+const FALSE_EQUALS: SignalEquals<unknown> = () => false;
+
 export class ComputedSignal<T> {
-  _desc: string;
   _type: SignalType;
 
   _deps = new Map<ComputedSignal<any>, Link>();
@@ -82,22 +97,20 @@ export class ComputedSignal<T> {
   _computedCount: number = 0;
   _connectedCount: number = 0;
   _currentValue: T | AsyncResult<T> | undefined;
-  _compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T> | undefined;
+  _compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T>;
 
-  _equals: SignalEquals<T>;
+  _opts: InternalSignalOptions<T>;
   _ref: WeakRef<ComputedSignal<T>> = new WeakRef(this);
 
   constructor(
     type: SignalType,
-    compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T> | undefined,
-    equals?: SignalEquals<T>,
+    compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T>,
+    opts: InternalSignalOptions<T>,
     initValue?: T,
-    desc?: string,
   ) {
     this._type = type;
     this._compute = compute;
-    this._equals = equals ?? ((a, b) => a === b);
-    this._desc = desc ?? `unknown-signal-${ID++}`;
+    this._opts = opts;
 
     this._currentValue =
       type !== SignalType.Async
@@ -176,7 +189,7 @@ export class ComputedSignal<T> {
     return this._currentValue!;
   }
 
-  _check(shouldWatch = false): number {
+  _check(shouldWatch = false, connectCount = 1, immediate = false): number {
     // COUNTS.checks++;
     let state = this._state;
     let connectedCount = this._connectedCount;
@@ -185,7 +198,7 @@ export class ComputedSignal<T> {
     const shouldConnect = shouldWatch && !wasConnected;
 
     if (shouldWatch) {
-      this._connectedCount = connectedCount = connectedCount + 1;
+      this._connectedCount = connectedCount = connectedCount + connectCount;
     }
 
     if (shouldConnect) {
@@ -221,7 +234,7 @@ export class ComputedSignal<T> {
     }
 
     if (state === SignalState.Dirty) {
-      this._run(wasConnected, shouldConnect);
+      this._run(wasConnected, shouldConnect, immediate);
     } else {
       this._resetDirty();
     }
@@ -232,7 +245,7 @@ export class ComputedSignal<T> {
     return this._version;
   }
 
-  _run(wasConnected: boolean, shouldConnect: boolean) {
+  _run(wasConnected: boolean, shouldConnect: boolean, immediate = false) {
     const { _type: type } = this;
 
     const prevConsumer = CURRENT_CONSUMER;
@@ -245,12 +258,13 @@ export class ComputedSignal<T> {
 
       switch (type) {
         case SignalType.Computed: {
-          const prevValue = this._currentValue as T;
+          const version = this._version;
+          const prevValue = this._currentValue as T | undefined;
           const nextValue = (this._compute as SignalCompute<T>)(prevValue);
 
-          if (!this._equals(prevValue!, nextValue)) {
+          if (version === 0 || !this._opts.equals(prevValue!, nextValue)) {
             this._currentValue = nextValue;
-            this._version++;
+            this._version = version + 1;
           }
           break;
         }
@@ -346,11 +360,14 @@ export class ComputedSignal<T> {
             const subscription = (this._compute as SignalSubscribe<T>)(
               () => this._currentValue as T,
               value => {
-                if (this._equals(value, this._currentValue as T)) {
+                const version = this._version;
+
+                if (version !== 0 && this._opts.equals(value, this._currentValue as T)) {
                   return;
                 }
+
                 this._currentValue = value;
-                this._version++;
+                this._version = version + 1;
                 this._dirtyConsumers();
               },
             );
@@ -365,7 +382,21 @@ export class ComputedSignal<T> {
         }
 
         default: {
-          (this._compute as SignalWatcherEffect)!();
+          const version = this._version;
+          const prevValue = this._currentValue as T | undefined;
+          const nextValue = (this._compute as SignalCompute<T>)(prevValue);
+
+          if (version === 0 || !this._opts.equals(prevValue!, nextValue)) {
+            this._currentValue = nextValue;
+            this._version = version + 1;
+
+            if (immediate) {
+              this._runEffects();
+            } else {
+              scheduleEffect(this);
+            }
+          }
+          break;
         }
       }
     } finally {
@@ -478,6 +509,36 @@ export class ComputedSignal<T> {
       dep._disconnect();
     }
   }
+
+  _runEffects() {
+    for (const subscriber of this._opts.subscribers!) {
+      subscriber(this._currentValue as T);
+    }
+  }
+
+  addListener(subscriber: (value: T) => void, opts?: ListenerOptions) {
+    const subscribers = this._opts.subscribers!;
+    const index = subscribers.indexOf(subscriber);
+
+    if (index === -1) {
+      subscribers.push(subscriber);
+
+      if (opts?.immediate) {
+        this._check(true, 1, true);
+      } else {
+        scheduleConnect(this);
+      }
+    }
+
+    return () => {
+      const index = subscribers.indexOf(subscriber);
+
+      if (index !== -1) {
+        subscribers.splice(index, 1);
+        scheduleDisconnect(this);
+      }
+    };
+  }
 }
 
 export interface AsyncBaseResult<T> {
@@ -554,124 +615,67 @@ class StateSignal<T> implements StateSignal<T> {
   }
 }
 
-export function state<T>(initialValue: T, opts?: SignalOptions<T>): StateSignal<T> {
-  return new StateSignal(initialValue, opts?.equals);
+const normalizeOpts = <T>(
+  opts?: SignalOptions<T> & { subscribers?: ((value: T) => void)[] },
+): InternalSignalOptions<T> => {
+  return {
+    equals: opts?.equals === false ? FALSE_EQUALS : (opts?.equals ?? ((a, b) => a === b)),
+    desc: opts?.desc ?? `unknown-signal-${ID++}`,
+  };
+};
+
+export function createState<T>(initialValue: T, opts?: SignalOptions<T>): StateSignal<T> {
+  const equals = opts?.equals === false ? FALSE_EQUALS : (opts?.equals ?? ((a, b) => a === b));
+
+  return new StateSignal(initialValue, equals);
 }
 
-export function computed<T>(compute: (prev: T | undefined) => T, opts?: SignalOptions<T>): Signal<T> {
-  return new ComputedSignal(SignalType.Computed, compute, opts?.equals) as Signal<T>;
+export function createComputed<T>(compute: (prev: T | undefined) => T, opts?: SignalOptions<T>): Signal<T> {
+  return new ComputedSignal(SignalType.Computed, compute, normalizeOpts(opts)) as Signal<T>;
 }
 
-export function asyncComputed<T>(compute: (prev: T | undefined) => Promise<T>, opts?: SignalOptions<T>): AsyncSignal<T>;
-export function asyncComputed<T>(
+export function createAsyncComputed<T>(
+  compute: (prev: T | undefined) => Promise<T>,
+  opts?: SignalOptions<T>,
+): AsyncSignal<T>;
+export function createAsyncComputed<T>(
   compute: (prev: T | undefined) => Promise<T>,
   opts: SignalOptionsWithInit<T>,
 ): AsyncSignal<T>;
-export function asyncComputed<T>(
+export function createAsyncComputed<T>(
   compute: (prev: T | undefined) => Promise<T>,
   opts?: Partial<SignalOptionsWithInit<T>>,
 ): AsyncSignal<T> {
-  return new ComputedSignal(SignalType.Async, compute, opts?.equals, opts?.initValue) as AsyncSignal<T>;
+  return new ComputedSignal(SignalType.Async, compute, normalizeOpts(opts), opts?.initValue) as AsyncSignal<T>;
 }
 
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: SignalOptions<T>): Signal<T | undefined>;
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: Partial<SignalOptionsWithInit<T>>): Signal<T> {
-  return new ComputedSignal(SignalType.Subscription, subscribe, opts?.equals, opts?.initValue) as Signal<T>;
+export function createSubscription<T>(subscribe: SignalSubscribe<T>, opts?: SignalOptions<T>): Signal<T | undefined>;
+export function createSubscription<T>(subscribe: SignalSubscribe<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
+export function createSubscription<T>(
+  subscribe: SignalSubscribe<T>,
+  opts?: Partial<SignalOptionsWithInit<T>>,
+): Signal<T> {
+  return new ComputedSignal(SignalType.Subscription, subscribe, normalizeOpts(opts), opts?.initValue) as Signal<T>;
 }
 
-export interface Watcher {
-  add(fn: () => unknown, opts?: ConnectionOpts): () => void;
-
-  start(opts?: ConnectionOpts): void;
-  stop(opts?: ConnectionOpts): void;
-
-  subscribe(subscriber: () => void): () => void;
-}
-
-export interface ConnectionOpts {
+export interface ListenerOptions {
   immediate?: boolean;
 }
 
-export function watcher(): Watcher {
-  const subscribers: (() => void)[] = [];
+export interface Watcher<T> {
+  addListener(listener: (value: T) => void, opts?: ListenerOptions): () => void;
+}
 
-  const watcher = new ComputedSignal(SignalType.Watcher, () => {
-    untrack(() => {
-      for (const subscriber of subscribers) {
-        subscriber();
-      }
-    });
+export function createWatcher<T>(fn: (prev: T | undefined) => T, opts?: SignalOptions<T>): Watcher<T> {
+  const normalizedOpts = normalizeOpts({
+    equals: FALSE_EQUALS,
+    subscribers: [],
+    ...opts,
   });
 
-  return {
-    add(fn: () => unknown, opts?: ConnectionOpts) {
-      const signal = computed(fn, { equals: () => false }) as ComputedSignal<unknown>;
+  normalizedOpts.subscribers = [];
 
-      if (watcher._connectedCount > 0) {
-        if (opts?.immediate) {
-          signal._check(true);
-        } else {
-          scheduleWatcher(signal, true);
-        }
-      }
-
-      const deps = watcher._deps;
-
-      const link = {
-        dep: signal,
-        sub: watcher._ref,
-        ord: deps.size,
-        version: 0,
-        consumedAt: 0,
-        nextDirty: undefined,
-      };
-
-      deps.set(signal, link);
-      signal._subs.add(link);
-
-      return () => {
-        watcher._deps.delete(signal);
-
-        if (watcher._connectedCount > 0) {
-          signal._disconnect();
-        }
-      };
-    },
-
-    // TODO: handle multiple starts/stops during async
-    start(opts?: ConnectionOpts) {
-      if (watcher._connectedCount > 0) {
-        return;
-      }
-
-      if (opts?.immediate) {
-        watcher._check(true);
-      } else {
-        scheduleWatcher(watcher, true);
-      }
-    },
-
-    stop(opts?: ConnectionOpts) {
-      if (watcher._connectedCount === 0) {
-        return;
-      }
-
-      if (opts?.immediate) {
-        watcher._disconnect();
-      } else {
-        scheduleDisconnect(watcher);
-      }
-    },
-
-    subscribe(subscriber: () => void) {
-      subscribers.push(subscriber);
-
-      return () => {
-        subscribers.splice(subscribers.indexOf(subscriber), 1);
-      };
-    },
-  };
+  return new ComputedSignal(SignalType.Watcher, fn, normalizedOpts);
 }
 
 export function getCurrentConsumer(): ComputedSignal<any> | undefined {
@@ -687,7 +691,6 @@ export function untrack<T = void>(fn: () => T): T {
 
   try {
     CURRENT_CONSUMER = undefined;
-    // LAST_CONSUMED = undefined;
 
     return fn();
   } finally {

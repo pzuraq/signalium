@@ -9,12 +9,32 @@ export type {
   SignalOptions,
   SignalOptionsWithInit,
   SignalSubscription,
-  SignalWatcherEffect,
   AsyncPending,
   AsyncReady,
   AsyncResult,
   Watcher,
 } from './signals.js';
 
-export { state, computed, asyncComputed, subscription, watcher, getCurrentConsumer } from './signals.js';
-export { setRunBatch, setScheduleFlush } from './config.js';
+export {
+  createState,
+  createComputed,
+  createAsyncComputed,
+  createSubscription,
+  createWatcher,
+  getCurrentConsumer,
+} from './signals.js';
+
+export {
+  createContext,
+  useContext,
+  withContext,
+  computed,
+  asyncComputed,
+  subscription,
+  watcher,
+  SignalScope,
+  type Context,
+  type SignalStoreMap,
+} from './hooks.js';
+
+export { setConfig } from './config.js';

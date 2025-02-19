@@ -16,7 +16,7 @@ pre[class*='language-'] {
 .token.rule,
 .token.pseudo-class,
 .token.important {
-  color: var(--color-slate-300);
+  color: var(--color-indigo-300);
 }
 
 .token.module {

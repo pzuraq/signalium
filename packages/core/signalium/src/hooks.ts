@@ -13,8 +13,8 @@ import {
   Watcher,
   ComputedSignal,
 } from './signals.js';
-import { hashValue } from './utils.js';
-import { getFrameworkScope, useSignalValue } from './config.js';
+import { getObjectId, getUnknownSignalFnName, hashValue } from './utils.js';
+import { useSignalValue } from './config.js';
 import { WeakRef } from '@signalium/utils';
 
 declare const CONTEXT_KEY: unique symbol;
@@ -139,41 +139,48 @@ export class SignalScope {
     opts?: Partial<SignalOptionsWithInit<unknown>>,
   ): unknown {
     const computedMask = COMPUTED_CONTEXT_MASKS.get(fn) ?? 0n;
-    const key = hashValue([fn, args]);
+    const fnId = getObjectId(fn);
+    const stringifiedArgs = args.map(arg => hashValue(arg)).join(', ');
+    const fnName = opts?.desc ?? fn.name ?? getUnknownSignalFnName(fn, makeSignal);
+    const key = `${fnId}(${stringifiedArgs})`;
 
     let signal = this.getSignal(key, computedMask);
-
-    // console.log('get', key, computedMask);
 
     if (signal === undefined) {
       let initialized = false;
 
       if (makeSignal === createSubscription) {
-        signal = makeSignal((get, set) => {
-          const sub = this.run(fn, [{ get, set }, ...args], key, signal!, initialized) as
-            | SignalSubscription
-            | undefined;
+        signal = makeSignal(
+          (get, set) => {
+            const sub = this.run(fn, [{ get, set }, ...args], key, signal!, initialized) as
+              | SignalSubscription
+              | undefined;
 
-          if (sub?.update) {
-            const originalUpdate = sub.update;
+            if (sub?.update) {
+              const originalUpdate = sub.update;
 
-            sub.update = (...args) => {
-              return this.run(originalUpdate, [], key, signal!, initialized);
-            };
-          }
+              sub.update = (...args) => {
+                return this.run(originalUpdate, [], key, signal!, initialized);
+              };
+            }
 
-          initialized = true;
+            initialized = true;
 
-          return sub;
-        }, opts);
+            return sub;
+          },
+          { ...opts, id: key, desc: fnName, params: stringifiedArgs },
+        );
       } else {
-        signal = makeSignal(() => {
-          const result = this.run(fn, args, key, signal!, initialized);
+        signal = makeSignal(
+          () => {
+            const result = this.run(fn, args, key, signal!, initialized);
 
-          initialized = true;
+            initialized = true;
 
-          return result;
-        }, opts);
+            return result;
+          },
+          { ...opts, id: key, desc: fnName, params: stringifiedArgs },
+        );
       }
     }
 
@@ -210,7 +217,7 @@ const getCurrentScope = (): SignalScope => {
     return scope ?? ROOT_SCOPE;
   }
 
-  return getFrameworkScope() ?? ROOT_SCOPE;
+  return ROOT_SCOPE;
 };
 
 export const withContext = <T>(contexts: SignalStoreMap, fn: () => T): T => {
@@ -289,7 +296,7 @@ export interface SubscriptionState<T> {
 export type SignalSubscribe<T, Args extends unknown[]> = (
   state: SubscriptionState<T>,
   ...args: Args
-) => SignalSubscription | (() => void) | undefined | void;
+) => SignalSubscription | (() => unknown) | undefined | void;
 
 export function subscription<T, Args extends unknown[]>(
   fn: SignalSubscribe<T, Args>,
@@ -313,6 +320,12 @@ export function subscription<T, Args extends unknown[]>(
 
     return result;
   };
+
+  Object.defineProperty(wrapper, 'name', {
+    value: fn.name,
+    writable: false,
+  });
+
   return (...args) => {
     return useSignalValue(() => {
       const scope = getCurrentScope();
@@ -321,8 +334,11 @@ export function subscription<T, Args extends unknown[]>(
   };
 }
 
-export function watcher<T>(fn: (prev: T | undefined) => T, opts?: SignalOptions<T>): Watcher<T> {
-  const scope = getFrameworkScope() ?? ROOT_SCOPE;
+export function watcher<T>(
+  fn: (prev: T | undefined) => T,
+  opts?: SignalOptions<T> & { scope?: SignalScope },
+): Watcher<T> {
+  const scope = opts?.scope ?? ROOT_SCOPE;
 
   const w = createWatcher(fn, opts);
 

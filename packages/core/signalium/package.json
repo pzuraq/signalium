@@ -21,6 +21,20 @@
         "require": "./dist/cjs/index.d.ts"
       }
     },
+    "./debug": {
+      "import": {
+        "development": "./src/debug.ts",
+        "default": "./dist/esm/debug.js"
+      },
+      "require": {
+        "default": "./dist/cjs/debug.js"
+      },
+      "types": {
+        "development": "./src/debug.ts",
+        "import": "./dist/esm/debug.d.ts",
+        "require": "./dist/cjs/debug.d.ts"
+      }
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

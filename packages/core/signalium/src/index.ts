@@ -38,3 +38,5 @@ export {
 } from './hooks.js';
 
 export { setConfig } from './config.js';
+
+export { hashValue as stringifyArgs } from './utils.js';

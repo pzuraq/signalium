@@ -7,6 +7,8 @@ import {
   scheduleWatcher,
 } from './scheduling.js';
 import { WeakRef } from '@signalium/utils';
+import { TRACER as TRACER, TracerEventType, VisualizerNodeType } from './trace.js';
+import { SignalScope } from './hooks.js';
 
 let CURRENT_ORD = 0;
 let CURRENT_CONSUMER: ComputedSignal<any> | undefined;
@@ -47,7 +49,10 @@ export type SignalSubscribe<T> = (
 
 export interface SignalOptions<T> {
   equals?: SignalEquals<T> | false;
+  id?: string;
   desc?: string;
+  params?: string;
+  scope?: SignalScope;
 }
 
 export interface SignalOptionsWithInit<T> extends SignalOptions<T> {
@@ -56,7 +61,7 @@ export interface SignalOptionsWithInit<T> extends SignalOptions<T> {
 
 interface InternalSignalOptions<T> extends SignalOptions<T> {
   equals: SignalEquals<T>;
-  desc: string;
+  id: string;
   subscribers?: ((value: T) => void)[];
 }
 
@@ -81,9 +86,20 @@ interface Link {
   nextDirty: Link | undefined;
 }
 
-let ID = 0;
-
 const FALSE_EQUALS: SignalEquals<unknown> = () => false;
+
+export function signalTypeToVisualizerType(type: SignalType): VisualizerNodeType {
+  switch (type) {
+    case SignalType.Computed:
+      return VisualizerNodeType.Computed;
+    case SignalType.Subscription:
+      return VisualizerNodeType.Subscription;
+    case SignalType.Async:
+      return VisualizerNodeType.AsyncComputed;
+    case SignalType.Watcher:
+      return VisualizerNodeType.Watcher;
+  }
+}
 
 export class ComputedSignal<T> {
   _type: SignalType;
@@ -159,6 +175,17 @@ export class ComputedSignal<T> {
       const { _deps: deps, _computedCount: computedCount, _connectedCount: connectedCount } = CURRENT_CONSUMER;
       const prevLink = deps.get(this);
 
+      if (prevLink === undefined) {
+        TRACER?.emit({
+          type: TracerEventType.Connected,
+          id: CURRENT_CONSUMER._opts.id,
+          childId: this._opts.id,
+          name: this._opts.desc,
+          params: this._opts.params,
+          nodeType: signalTypeToVisualizerType(this._type),
+        });
+      }
+
       const ord = CURRENT_ORD++;
 
       this._check(!prevLink && connectedCount > 0);
@@ -179,7 +206,6 @@ export class ComputedSignal<T> {
         prevLink.ord = ord;
         prevLink.version = this._version;
         prevLink.consumedAt = computedCount;
-        // prevLink.nextDirty = undefined;
         this._subs.add(prevLink);
       }
     } else {
@@ -190,7 +216,6 @@ export class ComputedSignal<T> {
   }
 
   _check(shouldWatch = false, connectCount = 1, immediate = false): number {
-    // COUNTS.checks++;
     let state = this._state;
     let connectedCount = this._connectedCount;
 
@@ -246,6 +271,11 @@ export class ComputedSignal<T> {
   }
 
   _run(wasConnected: boolean, shouldConnect: boolean, immediate = false) {
+    TRACER?.emit({
+      type: TracerEventType.StartUpdate,
+      id: this._opts.id,
+    });
+
     const { _type: type } = this;
 
     const prevConsumer = CURRENT_CONSUMER;
@@ -266,6 +296,12 @@ export class ComputedSignal<T> {
             this._currentValue = nextValue;
             this._version = version + 1;
           }
+
+          TRACER?.emit({
+            type: TracerEventType.EndUpdate,
+            id: this._opts.id,
+            value: nextValue,
+          });
           break;
         }
 
@@ -323,6 +359,12 @@ export class ComputedSignal<T> {
 
                 this._version++;
                 scheduleDirty(this);
+
+                TRACER?.emit({
+                  type: TracerEventType.EndUpdate,
+                  id: this._opts.id,
+                  value: result,
+                });
               },
               error => {
                 if (currentVersion !== this._version || error === WAITING) {
@@ -350,6 +392,12 @@ export class ComputedSignal<T> {
             value.isError = false;
 
             this._version++;
+
+            TRACER?.emit({
+              type: TracerEventType.EndUpdate,
+              id: this._opts.id,
+              value: nextValue,
+            });
           }
 
           break;
@@ -366,9 +414,20 @@ export class ComputedSignal<T> {
                   return;
                 }
 
+                TRACER?.emit({
+                  type: TracerEventType.StartUpdate,
+                  id: this._opts.id,
+                });
+
                 this._currentValue = value;
                 this._version = version + 1;
                 this._dirtyConsumers();
+
+                TRACER?.emit({
+                  type: TracerEventType.EndUpdate,
+                  id: this._opts.id,
+                  value: this._currentValue,
+                });
               },
             );
             SUBSCRIPTIONS.set(this, subscription);
@@ -377,6 +436,12 @@ export class ComputedSignal<T> {
 
             subscription?.update?.();
           }
+
+          TRACER?.emit({
+            type: TracerEventType.EndUpdate,
+            id: this._opts.id,
+            value: this._currentValue,
+          });
 
           break;
         }
@@ -396,6 +461,12 @@ export class ComputedSignal<T> {
               scheduleEffect(this);
             }
           }
+
+          TRACER?.emit({
+            type: TracerEventType.EndUpdate,
+            id: this._opts.id,
+            value: this._currentValue,
+          });
           break;
         }
       }
@@ -412,6 +483,12 @@ export class ComputedSignal<T> {
             scheduleDisconnect(dep);
           }
 
+          TRACER?.emit({
+            type: TracerEventType.Disconnected,
+            id: this._opts.id,
+            childId: dep._opts.id,
+          });
+
           deps.delete(dep);
           dep._subs.delete(link);
         }
@@ -423,10 +500,8 @@ export class ComputedSignal<T> {
 
   _resetDirty() {
     let dirty = this._dirtyDep;
-    // COUNTS.dirtyResetIterations++;
 
     while (dirty !== undefined) {
-      // COUNTS.dirtyResetIterations++;
       dirty.dep._subs.add(dirty);
 
       let nextDirty = dirty.nextDirty;
@@ -568,16 +643,28 @@ export interface AsyncReady<T> extends AsyncBaseResult<T> {
 
 export type AsyncResult<T> = AsyncPending<T> | AsyncReady<T>;
 
+let STATE_ID = 0;
+
 class StateSignal<T> implements StateSignal<T> {
   private _subs: WeakRef<ComputedSignal<unknown>>[] = [];
+  private _desc: string;
 
   constructor(
     private _value: T,
     private _equals: SignalEquals<T> = (a, b) => a === b,
-  ) {}
+    desc: string = 'state',
+  ) {
+    this._desc = `${desc}${STATE_ID++}`;
+  }
 
   get(): T {
     if (CURRENT_CONSUMER !== undefined) {
+      TRACER?.emit({
+        type: TracerEventType.ConsumeState,
+        id: CURRENT_CONSUMER._opts.id,
+        childId: this._desc,
+        value: this._value,
+      });
       this._subs.push(CURRENT_CONSUMER._ref);
     }
 
@@ -615,19 +702,23 @@ class StateSignal<T> implements StateSignal<T> {
   }
 }
 
+let UNKNOWN_SIGNAL_ID = 0;
+
 const normalizeOpts = <T>(
   opts?: SignalOptions<T> & { subscribers?: ((value: T) => void)[] },
 ): InternalSignalOptions<T> => {
   return {
     equals: opts?.equals === false ? FALSE_EQUALS : (opts?.equals ?? ((a, b) => a === b)),
-    desc: opts?.desc ?? `unknown-signal-${ID++}`,
+    id: opts?.id ?? `unknownSignal${UNKNOWN_SIGNAL_ID++}`,
+    desc: opts?.desc,
+    params: opts?.params,
   };
 };
 
 export function createState<T>(initialValue: T, opts?: SignalOptions<T>): StateSignal<T> {
   const equals = opts?.equals === false ? FALSE_EQUALS : (opts?.equals ?? ((a, b) => a === b));
 
-  return new StateSignal(initialValue, equals);
+  return new StateSignal(initialValue, equals, opts?.desc);
 }
 
 export function createComputed<T>(compute: (prev: T | undefined) => T, opts?: SignalOptions<T>): Signal<T> {

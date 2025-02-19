@@ -69,7 +69,7 @@ export function ThemeSelector(
     <Listbox as="div" value={theme} onChange={setTheme} {...props}>
       <Label className="sr-only">Theme</Label>
       <ListboxButton
-        className="flex h-6 w-6 items-center justify-center rounded-lg ring-1 shadow-md shadow-black/5 ring-black/5 dark:bg-slate-700 dark:ring-white/5 dark:ring-inset"
+        className="flex h-6 w-6 items-center justify-center rounded-lg ring-1 shadow-md shadow-black/5 ring-black/5 dark:bg-indigo-800 dark:ring-white/5 dark:ring-inset"
         aria-label="Theme"
       >
         <LightIcon
@@ -85,7 +85,7 @@ export function ThemeSelector(
           )}
         />
       </ListboxButton>
-      <ListboxOptions className="absolute top-full left-1/2 mt-3 w-36 -translate-x-1/2 space-y-1 rounded-xl bg-white p-3 text-sm font-medium ring-1 shadow-md shadow-black/5 ring-black/5 dark:bg-slate-800 dark:ring-white/5">
+      <ListboxOptions className="absolute top-full left-1/2 mt-3 w-36 -translate-x-1/2 space-y-1 rounded-xl bg-white p-3 text-sm font-medium ring-1 shadow-md shadow-black/5 ring-black/5 dark:bg-indigo-900 dark:ring-white/5">
         {themes.map((theme) => (
           <ListboxOption
             key={theme.value}
@@ -94,17 +94,17 @@ export function ThemeSelector(
               clsx(
                 'flex cursor-pointer items-center rounded-[0.625rem] p-1 select-none',
                 {
-                  'text-sky-500': selected,
+                  'text-purple-300': selected,
                   'text-slate-900 dark:text-white': focus && !selected,
                   'text-slate-700 dark:text-slate-400': !focus && !selected,
-                  'bg-slate-100 dark:bg-slate-900/40': focus,
+                  'bg-indigo-150 dark:bg-indigo-950/40': focus,
                 },
               )
             }
           >
             {({ selected }) => (
               <>
-                <div className="rounded-md bg-white p-1 ring-1 shadow-sm ring-slate-900/5 dark:bg-slate-700 dark:ring-white/5 dark:ring-inset">
+                <div className="rounded-md bg-white p-1 ring-1 shadow-sm ring-slate-900/5 dark:bg-indigo-800 dark:ring-white/5 dark:ring-inset">
                   <theme.icon
                     className={clsx(
                       'h-4 w-4',

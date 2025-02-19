@@ -1,5 +1,6 @@
 import { ComputedSignal } from './signals.js';
 import { scheduleFlush, runBatch } from './config.js';
+import { Tracer, TRACER } from './trace.js';
 
 let PENDING_DIRTIES: ComputedSignal<any>[] = [];
 let PENDING_PULLS: ComputedSignal<any>[] = [];
@@ -7,6 +8,7 @@ let PENDING_WATCHERS: ComputedSignal<any>[] = [];
 let PENDING_CONNECTS = new Map<ComputedSignal<any>, number>();
 let PENDING_DISCONNECTS = new Map<ComputedSignal<any>, number>();
 let PENDING_EFFECTS: ComputedSignal<any>[] = [];
+let PENDING_TRACERS: Tracer[] = [];
 
 const microtask = () => Promise.resolve();
 
@@ -47,6 +49,12 @@ export const scheduleEffect = (signal: ComputedSignal<any>) => {
   scheduleFlush(flushWatchers);
 };
 
+export const scheduleTracer = (tracer: Tracer) => {
+  PENDING_TRACERS.push(tracer);
+  console.log('scheduleTracer');
+  scheduleFlush(flushWatchers);
+};
+
 const flushWatchers = async () => {
   while (PENDING_DIRTIES.length > 0 || PENDING_PULLS.length > 0) {
     for (const dirty of PENDING_DIRTIES) {
@@ -80,9 +88,16 @@ const flushWatchers = async () => {
       signal._runEffects();
     }
 
+    console.log('PENDING_TRACERS', PENDING_TRACERS.length);
+
+    for (const tracer of PENDING_TRACERS) {
+      tracer.flush();
+    }
+
     PENDING_WATCHERS = [];
     PENDING_CONNECTS.clear();
     PENDING_DISCONNECTS.clear();
     PENDING_EFFECTS = [];
+    PENDING_TRACERS = [];
   });
 };

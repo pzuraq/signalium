@@ -4,16 +4,14 @@ import { Icon } from '@/components/Icon'
 
 const styles = {
   note: {
-    container:
-      'bg-sky-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10',
-    title: 'text-sky-900 dark:text-sky-400',
-    body: 'text-sky-800 [--tw-prose-background:var(--color-sky-50)] prose-a:text-sky-900 prose-code:text-sky-900 dark:text-slate-300 dark:prose-code:text-slate-300',
+    container: 'bg-indigo-900/20 ring-1 ring-indigo-400/30',
+    title: 'text-purple-400 mt-0 mb-2',
+    body: 'text-slate-200 [--tw-prose-background:var(--color-sky-50)] prose-code:text-slate-300',
   },
   warning: {
-    container:
-      'bg-amber-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10',
-    title: 'text-amber-900 dark:text-amber-500',
-    body: 'text-amber-800 [--tw-prose-underline:var(--color-amber-400)] [--tw-prose-background:var(--color-amber-50)] prose-a:text-amber-900 prose-code:text-amber-900 dark:text-slate-300 dark:[--tw-prose-underline:var(--color-sky-700)] dark:prose-code:text-slate-300',
+    container: 'bg-indigo-900/20 ring-1 ring-indigo-400/30',
+    title: 'text-amber-500 mt-0 mb-2',
+    body: '[--tw-prose-background:var(--color-amber-50)] prose-a:text-amber-900 text-slate-300 [--tw-prose-underline:var(--color-sky-700)] prose-code:text-slate-200',
   },
 }
 

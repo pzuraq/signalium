@@ -21,11 +21,48 @@
         "require": "./dist/cjs/index.d.ts"
       }
     },
+    "./debug": {
+      "import": {
+        "development": "./src/debug.ts",
+        "default": "./dist/esm/debug.js"
+      },
+      "require": {
+        "default": "./dist/cjs/debug.js"
+      },
+      "types": {
+        "development": "./src/debug.ts",
+        "import": "./dist/esm/debug.d.ts",
+        "require": "./dist/cjs/debug.d.ts"
+      }
+    },
+    "./react": {
+      "import": {
+        "development": "./src/react/index.ts",
+        "default": "./dist/esm/react/index.js"
+      },
+      "require": {
+        "default": "./dist/cjs/react/index.js"
+      },
+      "types": {
+        "development": "./src/react/index.ts",
+        "import": "./dist/esm/react/index.d.ts",
+        "require": "./dist/cjs/react/index.d.ts"
+      }
+    },
     "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "react": ">=18.3.1"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "scripts": {
     "dev": "vitest",
     "test": "vitest run",
+    "check-types": "tsc --noEmit",
     "build": "npm run build:esm && npm run build:cjs",
     "build:esm": "tsc",
     "build:cjs": "tsc --module commonjs --outDir dist/cjs --moduleResolution node"
@@ -33,7 +70,11 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/browser": "^3.0.6",
     "vite": "^5.4.8",
-    "vitest": "^2.1.2"
+    "vitest": "^3.0.6",
+    "vitest-browser-react": "^0.1.1",
+    "playwright": "^1.50.1"
   }
 }

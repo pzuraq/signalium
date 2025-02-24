@@ -1,50 +1,39 @@
-import { scheduleDirty, scheduleDisconnect, schedulePull, scheduleWatcher } from './scheduling.js';
+import {
+  scheduleConnect,
+  scheduleDirty,
+  scheduleDisconnect,
+  scheduleEffect,
+  schedulePull,
+  scheduleWatcher,
+} from './scheduling.js';
 import WeakRef from './weakref.js';
+import { TRACER as TRACER, TracerEventType, VisualizerNodeType } from './trace.js';
+import {
+  AsyncResult,
+  AsyncSignal,
+  AsyncTask,
+  Signal,
+  SignalAsyncCompute,
+  SignalCompute,
+  SignalEquals,
+  SignalOptions,
+  SignalOptionsWithInit,
+  SignalSubscribe,
+  SignalSubscription,
+  Watcher,
+  WatcherListenerOptions,
+} from './types.js';
 
 let CURRENT_ORD = 0;
 let CURRENT_CONSUMER: ComputedSignal<any> | undefined;
 let CURRENT_IS_WAITING: boolean = false;
 
-let ID = 0;
-
+// Should not leave the file so it doesn't become an interop issue
 const enum SignalType {
   Computed,
   Subscription,
   Async,
   Watcher,
-}
-
-export interface Signal<T = unknown> {
-  get(): T;
-}
-
-export interface WriteableSignal<T> extends Signal<T> {
-  set(value: T): void;
-}
-
-export type AsyncSignal<T> = Signal<AsyncResult<T>>;
-
-export type SignalCompute<T> = (prev: T | undefined) => T;
-
-export type SignalAsyncCompute<T> = (prev: T | undefined) => T | Promise<T>;
-
-export type SignalWatcherEffect = () => void;
-
-export type SignalEquals<T> = (prev: T, next: T) => boolean;
-
-export type SignalSubscription = {
-  update?(): void;
-  unsubscribe?(): void;
-};
-
-export type SignalSubscribe<T> = (get: () => T, set: (value: T) => void) => SignalSubscription | undefined | void;
-
-export interface SignalOptions<T> {
-  equals?: SignalEquals<T>;
-}
-
-export interface SignalOptionsWithInit<T> extends SignalOptions<T> {
-  initValue: T;
 }
 
 const SUBSCRIPTIONS = new WeakMap<ComputedSignal<any>, SignalSubscription | undefined | void>();
@@ -68,8 +57,28 @@ interface Link {
   nextDirty: Link | undefined;
 }
 
+const FALSE_EQUALS: SignalEquals<unknown> = () => false;
+
+export function signalTypeToVisualizerType(type: SignalType): VisualizerNodeType {
+  switch (type) {
+    case SignalType.Computed:
+      return VisualizerNodeType.Computed;
+    case SignalType.Subscription:
+      return VisualizerNodeType.Subscription;
+    case SignalType.Async:
+      return VisualizerNodeType.AsyncComputed;
+    case SignalType.Watcher:
+      return VisualizerNodeType.Watcher;
+  }
+}
+
+interface InternalSignalOptions<T> extends SignalOptions<T, unknown[]> {
+  equals: SignalEquals<T>;
+  id: string;
+  subscribers?: ((value: T) => void)[];
+}
+
 export class ComputedSignal<T> {
-  _id = ID++;
   _type: SignalType;
 
   _deps = new Map<ComputedSignal<any>, Link>();
@@ -81,21 +90,20 @@ export class ComputedSignal<T> {
   _computedCount: number = 0;
   _connectedCount: number = 0;
   _currentValue: T | AsyncResult<T> | undefined;
-  _compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T> | undefined;
+  _compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T>;
 
-  _equals: SignalEquals<T>;
+  _opts: InternalSignalOptions<T>;
   _ref: WeakRef<ComputedSignal<T>> = new WeakRef(this);
 
   constructor(
     type: SignalType,
-    compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T> | undefined,
-    equals?: SignalEquals<T>,
+    compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T>,
+    opts: InternalSignalOptions<T>,
     initValue?: T,
   ) {
     this._type = type;
     this._compute = compute;
-    this._equals = equals ?? ((a, b) => a === b);
-    this._connectedCount = type === SignalType.Watcher ? 1 : 0;
+    this._opts = opts;
 
     this._currentValue =
       type !== SignalType.Async
@@ -122,6 +130,11 @@ export class ComputedSignal<T> {
                 );
               }
 
+              TRACER?.emit({
+                type: TracerEventType.StartLoading,
+                id: CURRENT_CONSUMER._opts.id,
+              });
+
               const value = this._currentValue as AsyncResult<T>;
 
               if (value.isPending) {
@@ -144,6 +157,17 @@ export class ComputedSignal<T> {
       const { _deps: deps, _computedCount: computedCount, _connectedCount: connectedCount } = CURRENT_CONSUMER;
       const prevLink = deps.get(this);
 
+      if (prevLink === undefined) {
+        TRACER?.emit({
+          type: TracerEventType.Connected,
+          id: CURRENT_CONSUMER._opts.id,
+          childId: this._opts.id,
+          name: this._opts.desc,
+          params: this._opts.params,
+          nodeType: signalTypeToVisualizerType(this._type),
+        });
+      }
+
       const ord = CURRENT_ORD++;
 
       this._check(!prevLink && connectedCount > 0);
@@ -164,7 +188,6 @@ export class ComputedSignal<T> {
         prevLink.ord = ord;
         prevLink.version = this._version;
         prevLink.consumedAt = computedCount;
-        // prevLink.nextDirty = undefined;
         this._subs.add(prevLink);
       }
     } else {
@@ -174,8 +197,7 @@ export class ComputedSignal<T> {
     return this._currentValue!;
   }
 
-  _check(shouldWatch = false): number {
-    // COUNTS.checks++;
+  _check(shouldWatch = false, connectCount = 1, immediate = false): number {
     let state = this._state;
     let connectedCount = this._connectedCount;
 
@@ -183,7 +205,7 @@ export class ComputedSignal<T> {
     const shouldConnect = shouldWatch && !wasConnected;
 
     if (shouldWatch) {
-      this._connectedCount = connectedCount = connectedCount + 1;
+      this._connectedCount = connectedCount = connectedCount + connectCount;
     }
 
     if (shouldConnect) {
@@ -219,7 +241,7 @@ export class ComputedSignal<T> {
     }
 
     if (state === SignalState.Dirty) {
-      this._run(wasConnected, shouldConnect);
+      this._run(wasConnected, shouldConnect, immediate);
     } else {
       this._resetDirty();
     }
@@ -230,7 +252,12 @@ export class ComputedSignal<T> {
     return this._version;
   }
 
-  _run(wasConnected: boolean, shouldConnect: boolean) {
+  _run(wasConnected: boolean, shouldConnect: boolean, immediate = false) {
+    TRACER?.emit({
+      type: TracerEventType.StartUpdate,
+      id: this._opts.id,
+    });
+
     const { _type: type } = this;
 
     const prevConsumer = CURRENT_CONSUMER;
@@ -243,13 +270,15 @@ export class ComputedSignal<T> {
 
       switch (type) {
         case SignalType.Computed: {
-          const prevValue = this._currentValue as T;
+          const version = this._version;
+          const prevValue = this._currentValue as T | undefined;
           const nextValue = (this._compute as SignalCompute<T>)(prevValue);
 
-          if (!this._equals(prevValue!, nextValue)) {
+          if (version === 0 || !this._opts.equals(prevValue!, nextValue)) {
             this._currentValue = nextValue;
-            this._version++;
+            this._version = version + 1;
           }
+
           break;
         }
 
@@ -292,34 +321,47 @@ export class ComputedSignal<T> {
           } else if (nextValue instanceof Promise) {
             const currentVersion = ++this._version;
 
-            nextValue = nextValue.then(
-              result => {
-                if (currentVersion !== this._version) {
-                  return;
-                }
+            TRACER?.emit({
+              type: TracerEventType.StartLoading,
+              id: this._opts.id,
+            });
 
-                value.result = result;
-                value.isReady = true;
-                value.didResolve = true;
+            nextValue = nextValue
+              .then(
+                result => {
+                  if (currentVersion !== this._version) {
+                    return;
+                  }
 
-                value.isPending = false;
-                value.isSuccess = true;
+                  value.result = result;
+                  value.isReady = true;
+                  value.didResolve = true;
 
-                this._version++;
-                scheduleDirty(this);
-              },
-              error => {
-                if (currentVersion !== this._version || error === WAITING) {
-                  return;
-                }
+                  value.isPending = false;
+                  value.isSuccess = true;
 
-                value.error = error;
-                value.isPending = false;
-                value.isError = true;
-                this._version++;
-                scheduleDirty(this);
-              },
-            );
+                  this._version++;
+                  scheduleDirty(this);
+                },
+                error => {
+                  if (currentVersion !== this._version || error === WAITING) {
+                    return;
+                  }
+
+                  value.error = error;
+                  value.isPending = false;
+                  value.isError = true;
+                  this._version++;
+                  scheduleDirty(this);
+                },
+              )
+              .finally(() => {
+                TRACER?.emit({
+                  type: TracerEventType.EndLoading,
+                  id: this._opts.id,
+                  value: value,
+                });
+              });
 
             ACTIVE_ASYNCS.set(this, nextValue);
 
@@ -334,6 +376,12 @@ export class ComputedSignal<T> {
             value.isError = false;
 
             this._version++;
+
+            TRACER?.emit({
+              type: TracerEventType.EndLoading,
+              id: this._opts.id,
+              value: value,
+            });
           }
 
           break;
@@ -344,12 +392,27 @@ export class ComputedSignal<T> {
             const subscription = (this._compute as SignalSubscribe<T>)(
               () => this._currentValue as T,
               value => {
-                if (this._equals(value, this._currentValue as T)) {
+                const version = this._version;
+
+                if (version !== 0 && this._opts.equals(value, this._currentValue as T)) {
                   return;
                 }
+
+                TRACER?.emit({
+                  type: TracerEventType.StartUpdate,
+                  id: this._opts.id,
+                });
+
                 this._currentValue = value;
-                this._version++;
+                this._version = version + 1;
                 this._dirtyConsumers();
+
+                TRACER?.emit({
+                  type: TracerEventType.EndUpdate,
+                  id: this._opts.id,
+                  value: this._currentValue,
+                  preserveChildren: true,
+                });
               },
             );
             SUBSCRIPTIONS.set(this, subscription);
@@ -363,23 +426,52 @@ export class ComputedSignal<T> {
         }
 
         default: {
-          (this._compute as SignalWatcherEffect)!();
+          const version = this._version;
+          const prevValue = this._currentValue as T | undefined;
+          const nextValue = (this._compute as SignalCompute<T>)(prevValue);
+
+          if (version === 0 || !this._opts.equals(prevValue!, nextValue)) {
+            this._currentValue = nextValue;
+            this._version = version + 1;
+
+            if (immediate) {
+              this._runEffects();
+            } else {
+              scheduleEffect(this);
+            }
+          }
+
+          break;
         }
       }
     } finally {
-      const deps = this._deps;
+      TRACER?.emit({
+        type: TracerEventType.EndUpdate,
+        id: this._opts.id,
+        value: this._currentValue,
+      });
 
-      for (const link of deps.values()) {
-        if (link.consumedAt === this._computedCount) continue;
+      if (this._type !== SignalType.Watcher) {
+        const deps = this._deps;
 
-        const dep = link.dep;
+        for (const link of deps.values()) {
+          if (link.consumedAt === this._computedCount) continue;
 
-        if (wasConnected) {
-          scheduleDisconnect(dep);
+          const dep = link.dep;
+
+          if (wasConnected) {
+            scheduleDisconnect(dep);
+          }
+
+          TRACER?.emit({
+            type: TracerEventType.Disconnected,
+            id: this._opts.id,
+            childId: dep._opts.id,
+          });
+
+          deps.delete(dep);
+          dep._subs.delete(link);
         }
-
-        deps.delete(dep);
-        dep._subs.delete(link);
       }
 
       CURRENT_CONSUMER = prevConsumer;
@@ -388,10 +480,8 @@ export class ComputedSignal<T> {
 
   _resetDirty() {
     let dirty = this._dirtyDep;
-    // COUNTS.dirtyResetIterations++;
 
     while (dirty !== undefined) {
-      // COUNTS.dirtyResetIterations++;
       dirty.dep._subs.add(dirty);
 
       let nextDirty = dirty.nextDirty;
@@ -430,7 +520,6 @@ export class ComputedSignal<T> {
           } else {
             let nextDirty = dirty!.nextDirty;
             while (nextDirty !== undefined && nextDirty!.ord < ord) {
-              // COUNTS.dirtyInsertIterations++;
               dirty = nextDirty;
               nextDirty = dirty.nextDirty;
             }
@@ -475,45 +564,63 @@ export class ComputedSignal<T> {
       dep._disconnect();
     }
   }
+
+  _runEffects() {
+    for (const subscriber of this._opts.subscribers!) {
+      subscriber(this._currentValue as T);
+    }
+  }
+
+  addListener(subscriber: (value: T) => void, opts?: WatcherListenerOptions) {
+    const subscribers = this._opts.subscribers!;
+    const index = subscribers.indexOf(subscriber);
+
+    if (index === -1) {
+      subscribers.push(subscriber);
+
+      if (opts?.immediate) {
+        this._check(true, 1, true);
+      } else {
+        scheduleConnect(this);
+      }
+    }
+
+    return () => {
+      const index = subscribers.indexOf(subscriber);
+
+      if (index !== -1) {
+        subscribers.splice(index, 1);
+        scheduleDisconnect(this);
+      }
+    };
+  }
 }
 
-export interface AsyncBaseResult<T> {
-  invalidate(): void;
-  await(): T;
-}
+let STATE_ID = 0;
 
-export interface AsyncPending<T> extends AsyncBaseResult<T> {
-  result: undefined;
-  error: unknown;
-  isPending: boolean;
-  isReady: false;
-  isError: boolean;
-  isSuccess: boolean;
-  didResolve: boolean;
-}
-
-export interface AsyncReady<T> extends AsyncBaseResult<T> {
-  result: T;
-  error: unknown;
-  isPending: boolean;
-  isReady: true;
-  isError: boolean;
-  isSuccess: boolean;
-  didResolve: boolean;
-}
-
-export type AsyncResult<T> = AsyncPending<T> | AsyncReady<T>;
-
-class StateSignal<T> implements StateSignal<T> {
-  private _subs: WeakRef<ComputedSignal<unknown>>[] = [];
+export class StateSignal<T> implements StateSignal<T> {
+  _subs: WeakRef<ComputedSignal<unknown>>[] = [];
+  _desc: string;
 
   constructor(
     private _value: T,
     private _equals: SignalEquals<T> = (a, b) => a === b,
-  ) {}
+    desc: string = 'state',
+  ) {
+    this._desc = `${desc}${STATE_ID++}`;
+  }
 
   get(): T {
     if (CURRENT_CONSUMER !== undefined) {
+      TRACER?.emit({
+        type: TracerEventType.ConsumeState,
+        id: CURRENT_CONSUMER._opts.id,
+        childId: this._desc,
+        value: this._value,
+        setValue: (value: unknown) => {
+          this.set(value as T);
+        },
+      });
       this._subs.push(CURRENT_CONSUMER._ref);
     }
 
@@ -551,79 +658,132 @@ class StateSignal<T> implements StateSignal<T> {
   }
 }
 
-export function state<T>(initialValue: T, opts?: SignalOptions<T>): StateSignal<T> {
-  return new StateSignal(initialValue, opts?.equals);
-}
+let UNKNOWN_SIGNAL_ID = 0;
 
-export function computed<T>(compute: (prev: T | undefined) => T, opts?: SignalOptions<T>): Signal<T> {
-  return new ComputedSignal(SignalType.Computed, compute, opts?.equals) as Signal<T>;
-}
-
-export function asyncComputed<T>(compute: (prev: T | undefined) => Promise<T>, opts?: SignalOptions<T>): AsyncSignal<T>;
-export function asyncComputed<T>(
-  compute: (prev: T | undefined) => Promise<T>,
-  opts: SignalOptionsWithInit<T>,
-): AsyncSignal<T>;
-export function asyncComputed<T>(
-  compute: (prev: T | undefined) => Promise<T>,
-  opts?: Partial<SignalOptionsWithInit<T>>,
-): AsyncSignal<T> {
-  return new ComputedSignal(SignalType.Async, compute, opts?.equals, opts?.initValue) as AsyncSignal<T>;
-}
-
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: SignalOptions<T>): Signal<T | undefined>;
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts: SignalOptionsWithInit<T>): Signal<T>;
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: Partial<SignalOptionsWithInit<T>>): Signal<T> {
-  return new ComputedSignal(SignalType.Subscription, subscribe, opts?.equals, opts?.initValue) as Signal<T>;
-}
-
-export interface Watcher {
-  disconnect(): void;
-  subscribe(subscriber: () => void): () => void;
-}
-
-export interface WatcherOpts {
-  immediate?: boolean;
-}
-
-export function watcher(fn: () => void, opts?: WatcherOpts): Watcher {
-  const subscribers: (() => void)[] = [];
-
-  let initialized = false;
-
-  const watcher = new ComputedSignal(SignalType.Watcher, () => {
-    fn();
-
-    if (initialized) {
-      untrack(() => {
-        for (const subscriber of subscribers) {
-          subscriber();
-        }
-      });
-    } else {
-      initialized = true;
-    }
-  });
-
-  if (opts?.immediate) {
-    watcher.get();
-  } else {
-    scheduleWatcher(watcher);
-  }
-
+const normalizeOpts = <T>(
+  opts?: SignalOptions<T, unknown[]> & { subscribers?: ((value: T) => void)[] },
+): InternalSignalOptions<T> => {
   return {
-    disconnect() {
-      scheduleDisconnect(watcher);
-    },
+    equals: opts?.equals === false ? FALSE_EQUALS : (opts?.equals ?? ((a, b) => a === b)),
+    id: opts?.id ?? `unknownSignal${UNKNOWN_SIGNAL_ID++}`,
+    desc: opts?.desc,
+    params: opts?.params,
+  };
+};
 
-    subscribe(subscriber: () => void) {
-      subscribers.push(subscriber);
+export function createStateSignal<T>(
+  initialValue: T,
+  opts?: Omit<SignalOptions<T, unknown[]>, 'paramKey'>,
+): StateSignal<T> {
+  const equals = opts?.equals === false ? FALSE_EQUALS : (opts?.equals ?? ((a, b) => a === b));
 
-      return () => {
-        subscribers.splice(subscribers.indexOf(subscriber), 1);
-      };
+  return new StateSignal(initialValue, equals, opts?.desc);
+}
+
+export function createComputedSignal<T>(
+  compute: (prev: T | undefined) => T,
+  opts?: SignalOptions<T, unknown[]>,
+): Signal<T> {
+  return new ComputedSignal(SignalType.Computed, compute, normalizeOpts(opts)) as Signal<T>;
+}
+
+export function createAsyncComputedSignal<T>(
+  compute: (prev: T | undefined) => Promise<T>,
+  opts?: SignalOptions<T, unknown[]>,
+): AsyncSignal<T>;
+export function createAsyncComputedSignal<T>(
+  compute: (prev: T | undefined) => Promise<T>,
+  opts: SignalOptionsWithInit<T, unknown[]>,
+): AsyncSignal<T>;
+export function createAsyncComputedSignal<T>(
+  compute: (prev: T | undefined) => Promise<T>,
+  opts?: Partial<SignalOptionsWithInit<T, unknown[]>>,
+): AsyncSignal<T> {
+  return new ComputedSignal(SignalType.Async, compute, normalizeOpts(opts), opts?.initValue) as AsyncSignal<T>;
+}
+
+export function createSubscriptionSignal<T>(
+  subscribe: SignalSubscribe<T>,
+  opts?: SignalOptions<T, unknown[]>,
+): Signal<T | undefined>;
+export function createSubscriptionSignal<T>(
+  subscribe: SignalSubscribe<T>,
+  opts: SignalOptionsWithInit<T, unknown[]>,
+): Signal<T>;
+export function createSubscriptionSignal<T>(
+  subscribe: SignalSubscribe<T>,
+  opts?: Partial<SignalOptionsWithInit<T, unknown[]>>,
+): Signal<T> {
+  return new ComputedSignal(SignalType.Subscription, subscribe, normalizeOpts(opts), opts?.initValue) as Signal<T>;
+}
+
+export function createAsyncTaskSignal<T, Args extends unknown[]>(
+  fn: (...args: Args) => Promise<T>,
+): Signal<AsyncTask<T, Args>> {
+  let currentPromise: Promise<T> | undefined;
+
+  const task: AsyncTask<T, Args> = {
+    result: undefined,
+    error: undefined,
+    isPending: false,
+    isSuccess: false,
+    isError: false,
+    isReady: false,
+
+    async run(...params) {
+      if (!task.isPending) {
+        currentPromise = run(...params);
+      }
+
+      return currentPromise!;
     },
   };
+
+  const run = async (...params: Args) => {
+    try {
+      task.isPending = true;
+      task.isError = false;
+      task.isSuccess = false;
+
+      signal.set(task);
+
+      const result = await fn(...params);
+
+      task.result = result;
+      task.isSuccess = true;
+      task.isReady = true;
+
+      return result;
+    } catch (error) {
+      task.error = error;
+      task.isError = true;
+
+      throw error;
+    } finally {
+      task.isPending = false;
+      signal.set(task);
+    }
+  };
+
+  const signal = createStateSignal<AsyncTask<T, Args>>(task, { equals: false });
+
+  return signal;
+}
+
+export function createWatcherSignal<T>(fn: (prev: T | undefined) => T, opts?: SignalOptions<T, unknown[]>): Watcher<T> {
+  const normalizedOpts = normalizeOpts({
+    equals: FALSE_EQUALS,
+    subscribers: [],
+    ...opts,
+  });
+
+  normalizedOpts.subscribers = [];
+
+  return new ComputedSignal(SignalType.Watcher, fn, normalizedOpts);
+}
+
+export function getCurrentConsumer(): ComputedSignal<any> | undefined {
+  return CURRENT_CONSUMER;
 }
 
 export function isTracking(): boolean {
@@ -635,7 +795,6 @@ export function untrack<T = void>(fn: () => T): T {
 
   try {
     CURRENT_CONSUMER = undefined;
-    // LAST_CONSUMED = undefined;
 
     return fn();
   } finally {

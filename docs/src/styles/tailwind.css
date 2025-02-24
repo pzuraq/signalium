@@ -1,0 +1,110 @@
+@import 'tailwindcss';
+@import './prism.css';
+
+@config "../../tailwind.config.js";
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --text-*: initial;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5rem;
+  --text-base: 1rem;
+  --text-base--line-height: 2rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2.5rem;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.5rem;
+  --text-4xl: 2.5rem;
+  --text-4xl--line-height: 3rem;
+  --text-5xl: 3rem;
+  --text-5xl--line-height: 3.5rem;
+  --text-6xl: 3.75rem;
+  --text-6xl--line-height: 1;
+  --text-7xl: 4.5rem;
+  --text-7xl--line-height: 1;
+  --text-8xl: 6rem;
+  --text-8xl--line-height: 1;
+  --text-9xl: 8rem;
+  --text-9xl--line-height: 1;
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-lexend);
+  --font-display--font-feature-settings: 'ss01';
+
+  --container-8xl: 88rem;
+
+  --color-primary-50: #f0f3fd;
+  --color-primary-100: #e3e9fc;
+  --color-primary-200: #cdd5f8;
+  --color-primary-300: #aebbf3;
+  --color-primary-400: #8e97eb;
+  --color-primary-500: #7275e2;
+  --color-primary-600: #5d57d4;
+  --color-primary-700: #4f47bb;
+  --color-primary-800: #413c97;
+  --color-primary-900: #383778;
+  --color-primary-950: #232148;
+  --color-primary-1000: #1f1d3d;
+
+  --color-secondary-50: #faf5ff;
+  --color-secondary-100: #f3e8ff;
+  --color-secondary-200: #e9d4ff;
+  --color-secondary-300: #d8b4ff;
+  --color-secondary-400: #bf82fe;
+  --color-secondary-500: #a753f9;
+  --color-secondary-600: #9231ec;
+  --color-secondary-700: #7d20d0;
+  --color-secondary-800: #6a1faa;
+  --color-secondary-900: #571b88;
+  --color-secondary-950: #3a0665;
+
+  --color-tertiary-50: #f0f9ff;
+  --color-tertiary-100: #e1f2fd;
+  --color-tertiary-200: #bce5fb;
+  --color-tertiary-300: #81d2f8;
+  --color-tertiary-400: #40bcf2;
+  --color-tertiary-500: #15a3e2;
+  --color-tertiary-600: #0883c1;
+  --color-tertiary-700: #08699c;
+  --color-tertiary-800: #0b5881;
+  --color-tertiary-900: #0f496b;
+  --color-tertiary-950: #0a2f47;
+
+  --color-divider: color-mix(
+    in oklab,
+    var(--color-primary-900) 80%,
+    transparent
+  );
+}
+
+@layer base {
+  [inert] ::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.loader {
+  @apply border-2 border-yellow-400;
+  border-bottom-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  box-sizing: border-box;
+  animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

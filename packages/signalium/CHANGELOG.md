@@ -1,5 +1,11 @@
 # signalium
 
+## 0.3.0
+
+### Minor Changes
+
+- ca2c0f2: Add docs, tests, and deployment. Finalize public API, add some polish.
+
 ## 0.2.8
 
 ### Patch Changes

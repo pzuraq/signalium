@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.1
+
+### Patch Changes
+
+- Updated dependencies [ca2c0f2]
+  - signalium@0.3.0
+
 ## 2025-01-23
 
 - Update template to Tailwind CSS v4.0

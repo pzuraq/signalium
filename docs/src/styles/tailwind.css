@@ -4,8 +4,6 @@
 @config "../../tailwind.config.js";
 @plugin '@tailwindcss/typography';
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
   --text-*: initial;
   --text-xs: 0.75rem;

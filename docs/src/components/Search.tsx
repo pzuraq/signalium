@@ -168,7 +168,7 @@ function SearchResult({
 
   return (
     <li
-      className="group aria-selected:bg-indigo-150 block cursor-default rounded-lg px-3 py-2 dark:aria-selected:bg-indigo-800/30"
+      className="group aria-selected:bg-indigo-150 block cursor-default rounded-lg px-3 py-2 aria-selected:bg-indigo-800/30"
       aria-labelledby={`${id}-hierarchy ${id}-title`}
       {...autocomplete.getItemProps({
         item: result,
@@ -178,7 +178,7 @@ function SearchResult({
       <div
         id={`${id}-title`}
         aria-hidden="true"
-        className="text-sm text-slate-300 dark:group-aria-selected:text-secondary-400"
+        className="text-sm text-slate-300 group-aria-selected:text-secondary-400"
       >
         <HighlightQuery text={result.title} query={query} />
       </div>
@@ -283,7 +283,7 @@ const SearchInput = forwardRef<
       />
       {autocompleteState.status === 'stalled' && (
         <div className="absolute inset-y-0 right-3 flex items-center">
-          <LoadingIcon className="h-6 w-6 animate-spin stroke-slate-200 text-slate-400 dark:stroke-slate-700 dark:text-slate-500" />
+          <LoadingIcon className="h-6 w-6 animate-spin stroke-slate-700 text-slate-500" />
         </div>
       )}
     </div>
@@ -448,7 +448,7 @@ export function Search() {
           Search docs
         </span>
         {modifierKey && (
-          <kbd className="ml-auto hidden font-medium text-slate-400 md:block dark:text-slate-500">
+          <kbd className="ml-auto hidden font-medium text-slate-500 md:block">
             <kbd className="font-sans">{modifierKey}</kbd>
             <kbd className="font-sans">K</kbd>
           </kbd>

@@ -1,5 +1,11 @@
 # signalium
 
+## 0.3.1
+
+### Patch Changes
+
+- aaa102b: Fix useContext outside of signals
+
 ## 0.3.0
 
 ### Minor Changes

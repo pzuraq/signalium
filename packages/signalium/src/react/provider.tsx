@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { SignalScope, SignalStoreMap } from '../hooks.js';
 import { ScopeContext } from './context.js';
 
-export function ScopeProvider({
+export function ContextProvider({
   children,
   contexts,
   inherit = true,

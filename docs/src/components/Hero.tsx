@@ -16,7 +16,11 @@ export function Hero() {
               Reactivity. <br className="hidden md:block" /> Beyond React.
             </p>
             <p className="mt-1 text-base leading-snug tracking-tight text-secondary-300 md:text-2xl">
-              Functional, performant, signal-based hooks
+              Signalium is a complete, batteries-included state-management
+              system for React apps, with support for async, subscription
+              management, and more out-of-the-box. Say goodbye to dependency
+              lists, performance issues, and the overall complexity of Hooks -
+              without rewriting your entire app.
             </p>
           </div>
           <div className="relative z-10 order-2 flex items-center justify-center max-md:min-h-screen md:order-0">
@@ -34,29 +38,17 @@ export function Hero() {
               <p className="inline bg-linear-to-r from-pink-200 via-purple-300/80 to-violet-200 bg-clip-text font-display text-[28px] tracking-tight text-transparent max-md:hidden md:text-5xl">
                 Reactivity. <br className="hidden md:block" /> Beyond React.
               </p>
-              <p className="mt-3 text-lg leading-snug tracking-tight text-secondary-300 max-md:hidden md:text-2xl">
-                Functional, performant, signal-based hooks
+              <p className="mt-3 mb-3 text-lg leading-snug tracking-tight text-secondary-300 max-md:hidden md:text-xl">
+                Signalium is a complete, framework-agnostic replacement for
+                React Hooks that works everywhere: Single-page apps, native
+                clients, server apps, background threads, and more.
               </p>
-              <div className="max-w-xl py-8 text-left md:py-8">
-                <p className="pb-4 md:pb-6">
-                  In 2018, React revolutionized the frontend world with Hooks,
-                  fundamentally shifting how we approached functional
-                  reactivity.
-                </p>
-
-                <p className="pb-4 md:pb-6">
-                  However, time has revealed some significant problems. Endless
-                  dependency lists, performance issues, and complex side-effects
-                  plague applications at scale, with even the most disciplined
-                  developers struggling to avoid common pitfalls.
-                </p>
-
-                <p className="pb-4 md:pb-6">What if there was an easier way?</p>
-                <p>
-                  With <strong>Signalium</strong>, you get the ergonomics of
-                  Hooks without the complexity. And it works everywhere.
-                </p>
-              </div>
+              <p className="mt-3 mb-8 text-lg leading-snug tracking-tight text-secondary-300 max-md:hidden md:text-xl">
+                Say goodbye to endless dependency lists, performance issues, and
+                complex side-effects. With out of the box support for async,
+                contexts, managed-effects, and more, Signalium builds on the
+                best of Hooks, and leaves behind the rest.
+              </p>
               <div className="flex justify-center gap-4 lg:justify-start">
                 <Button href="/introduction">Get started</Button>
                 <Button

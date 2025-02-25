@@ -21,7 +21,7 @@ import {
   WriteableSignal,
 } from './types.js';
 import { getObjectId, getUnknownSignalFnName, hashValue } from './utils.js';
-import { useSignalValue } from './config.js';
+import { getFrameworkScope, useSignalValue } from './config.js';
 import WeakRef from './weakref.js';
 
 declare const CONTEXT_KEY: unique symbol;
@@ -242,7 +242,7 @@ const getCurrentScope = (): SignalScope => {
     return scope ?? ROOT_SCOPE;
   }
 
-  return ROOT_SCOPE;
+  return getFrameworkScope() ?? ROOT_SCOPE;
 };
 
 export const withContext = <T>(contexts: SignalStoreMap, fn: () => T): T => {
@@ -266,8 +266,12 @@ export const useContext = <T>(context: Context<T>): T => {
   }
 
   if (scope === undefined) {
+    scope = getFrameworkScope();
+  }
+
+  if (scope === undefined) {
     throw new Error(
-      'useContext must be used within a signal hook or withContext. If you are using a standard signal, use createComputed, createAsyncComputed, or createSubscription to create a signal hook instead.',
+      'useContext must be used within a signal hook, a withContext, or within a framework-specific context provider.',
     );
   }
 

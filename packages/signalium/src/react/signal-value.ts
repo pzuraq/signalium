@@ -1,7 +1,6 @@
 import { useContext, useEffect, useRef, useState } from 'react';
 import { ScopeContext } from './context.js';
 import { watcher } from '../hooks.js';
-import { setConfig } from '../config.js';
 
 export function useSignalValue<T>(key: string, fn: () => T): T {
   const [, setVersion] = useState(0);
@@ -47,10 +46,4 @@ export function useSignalValue<T>(key: string, fn: () => T): T {
   useEffect(() => ref.current.unsub, []);
 
   return ref.current.value!;
-}
-
-export function setupReact() {
-  setConfig({
-    useSignalValue,
-  });
 }

@@ -1,5 +1,11 @@
 # signalium
 
+## 0.3.4
+
+### Patch Changes
+
+- 5b5d6ea: Expose all types
+
 ## 0.3.3
 
 ### Patch Changes

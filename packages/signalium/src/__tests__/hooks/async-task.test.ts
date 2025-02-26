@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { asyncComputed, asyncTask, computed } from '../utils/instrumented-hooks.js';
+import { asyncTask, computed } from '../utils/instrumented-hooks.js';
 import { nextTick } from '../utils/async.js';
 
 describe('async tasks', () => {

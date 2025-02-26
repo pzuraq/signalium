@@ -124,7 +124,7 @@ expect.extend({
   },
 });
 
-export const createStateSignal = <T>(initialValue: T, opts?: SignalOptions<T>): WriteableSignal<T> => {
+export const createStateSignal = <T>(initialValue: T, opts?: SignalOptions<T, []>): WriteableSignal<T> => {
   const desc = opts?.desc || 'unlabeled';
   const s = _createStateSignal(initialValue, opts);
 
@@ -211,35 +211,45 @@ export const createSubscriptionSignal: typeof _createSubscriptionSignal = (subsc
   const desc = opts?.desc || 'unlabeled';
   const counts = new SignalCounts(desc);
 
-  const s = _createSubscriptionSignal((get, set) => {
+  const s = _createSubscriptionSignal(({ get, set }) => {
     counts.subscribe++;
 
     if (desc) {
       currentOrder?.push(desc);
     }
 
-    const result = subscribe(
-      () => {
+    const result = subscribe({
+      get: () => {
         counts.internalGet++;
         return get();
       },
-      v => {
+      set: v => {
         counts.internalSet++;
         set(v);
       },
-    );
+    });
 
-    const subscriptionWrapper: SignalSubscription = {
-      unsubscribe() {
+    let subscriptionWrapper: SignalSubscription | (() => unknown) | undefined;
+
+    if (typeof result === 'function') {
+      subscriptionWrapper = () => {
+        counts.unsubscribe++;
+        result();
+      };
+    } else {
+      subscriptionWrapper = {};
+
+      subscriptionWrapper.unsubscribe = () => {
         counts.unsubscribe++;
         result?.unsubscribe?.();
-      },
+      };
 
-      update() {
+      subscriptionWrapper.update = () => {
+        counts.compute++;
         counts.update++;
         result?.update?.();
-      },
-    };
+      };
+    }
 
     return subscriptionWrapper;
   }, opts);
@@ -256,7 +266,7 @@ export const createSubscriptionSignal: typeof _createSubscriptionSignal = (subsc
   return wrapper;
 };
 
-export function createWatcherSignal<T>(fn: () => T, opts?: SignalOptions<T>): Watcher<T> {
+export function createWatcherSignal<T>(fn: () => T, opts?: SignalOptions<T, []>): Watcher<T> {
   const desc = opts?.desc || 'unlabeled';
   const counts = new SignalCounts(desc);
 

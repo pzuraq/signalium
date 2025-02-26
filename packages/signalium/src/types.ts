@@ -21,10 +21,15 @@ export type SignalSubscription = {
   unsubscribe?(): void;
 };
 
-export type SignalSubscribe<T> = (
-  get: () => T | undefined,
-  set: (value: T) => void,
-) => SignalSubscription | undefined | void;
+export interface SubscriptionState<T> {
+  get: () => T;
+  set: (value: T) => void;
+}
+
+export type SignalSubscribe<T, Args extends unknown[]> = (
+  state: SubscriptionState<T>,
+  ...args: Args
+) => SignalSubscription | (() => unknown) | undefined | void;
 
 export interface SignalOptions<T, Args extends unknown[]> {
   equals?: SignalEquals<T> | false;

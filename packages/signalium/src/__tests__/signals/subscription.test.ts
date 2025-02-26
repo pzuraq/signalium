@@ -291,7 +291,7 @@ describe('Subscription Signal functionality', () => {
 
     test('Can set value during initial subscribe and value is used', async () => {
       const s = createSubscriptionSignal(
-        (get, set) => {
+        ({ get, set }) => {
           set(456);
         },
         { initValue: 123 },
@@ -318,7 +318,7 @@ describe('Subscription Signal functionality', () => {
 
     test('Can set value during resubscribe and value is used', async () => {
       const s = createSubscriptionSignal(
-        (get, set) => {
+        ({ get, set }) => {
           set(get()! + 1);
         },
         { initValue: 123 },
@@ -367,7 +367,7 @@ describe('Subscription Signal functionality', () => {
 
     test('Can set value during resubscribe and cached parents are dirtied', async () => {
       const s = createSubscriptionSignal(
-        (get, set) => {
+        ({ get, set }) => {
           set((get() ?? 0) + 1);
         },
         { initValue: 123 },
@@ -433,7 +433,7 @@ describe('Subscription Signal functionality', () => {
   describe('unsubscribe', async () => {
     test('It unsubscribes when all watchers are disconnected', async () => {
       const s = createSubscriptionSignal(
-        (get, set) => {
+        ({ get, set }) => {
           return {
             unsubscribe() {
               // ...
@@ -483,7 +483,7 @@ describe('Subscription Signal functionality', () => {
 
     test('It unsubscribes when all watchers are disconnected at different times', async () => {
       const s = createSubscriptionSignal(
-        (get, set) => {
+        ({ get, set }) => {
           return {
             unsubscribe() {
               // ...
@@ -558,7 +558,7 @@ describe('Subscription Signal functionality', () => {
 
     test('It stays subscribed when all watchers are disconnected and new ones are connected in the same flush', async () => {
       const s = createSubscriptionSignal(
-        (get, set) => {
+        ({ get, set }) => {
           return {
             unsubscribe() {
               // ...

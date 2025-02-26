@@ -26,12 +26,12 @@ const createMethods = [
       fn: (...args: Args) => T,
       opts?: Partial<SignalOptionsWithInit<T, Args>>,
     ): (...args: Args) => T {
-      return subscription(({ set }, ...args) => {
-        set(fn(...args));
+      return subscription((state, ...args) => {
+        state.set(fn(...args));
 
         return {
           update: () => {
-            set(fn(...args));
+            state.set(fn(...args));
           },
         };
       }, opts);

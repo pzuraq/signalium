@@ -1,20 +1,4 @@
-export type {
-  Signal,
-  AsyncSignal,
-  WriteableSignal,
-  SignalCompute,
-  SignalAsyncCompute,
-  SignalSubscribe,
-  SignalEquals,
-  SignalOptions,
-  SignalOptionsWithInit,
-  SignalSubscription,
-  AsyncPending,
-  AsyncReady,
-  AsyncResult,
-  Watcher,
-  SubscriptionState,
-} from './types.js';
+export type * from './types.js';
 
 export {
   createStateSignal,

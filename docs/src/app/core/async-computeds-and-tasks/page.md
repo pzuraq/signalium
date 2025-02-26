@@ -215,9 +215,41 @@ export interface AsyncTask<T, Args extends unknown[] = unknown[]> {
 }
 ```
 
-These mirror the properties on async computed results and their behaviors, allowing you to read the state of a given task \_declaratively.
+These mirror the properties on async computed results and their behaviors, allowing you to read the state of a given task _declaratively_.
 
 Like with computeds, async tasks are _deduped_ based on the arguments that are passed to them. If you pass the same arguments, you will get the same task instance, which will also return the same state of the request. Unlike computeds however, no part of async tasks reruns automatically based on mutable state. They are write-only.
+
+### Task build vs. run params
+
+Tasks can have two different sets of parameters: _Build time_ parameters and _runtime_ parameters. Build time parameters are provided when the task is created, and runtime parameters are provided when you call `task.run`.
+
+```ts
+import { asyncTask } from 'signalium';
+
+const useSetStorageValue = asyncTask((key: string, value: string) => {
+  return chrome.storage.local.set({ [key]: value });
+});
+
+// providing build parameters
+const setUserId = useSetStorageValue('USER_ID');
+
+// providing run parameters
+sendFriendRequest.run('user_1');
+```
+
+When you define your task, you don't need to specify which parameters are build params and which are run params. You just provide a function that receives some number of parameters, and then you can provide any number of those when you build the task and the remainder must be passed during to `run`.
+
+```ts
+// You can provide 0 params at build
+const runTimeOnlyTask = useSetStorageValue();
+runTimeOnlyTask.run('USER_ID', 'user_1');
+
+// Or you can provide all of them, or any number in between
+const buildTimeOnlyTask = useSetStorageValue('USER_ID', 'user_1');
+buildTimeOnlyTask.run();
+```
+
+This argument splitting is typesafe, and the types will be figured out automatically based on the first types you provide.
 
 ### Anti-pattern: Running tasks reactively
 

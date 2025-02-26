@@ -66,7 +66,7 @@ export interface AsyncReady<T> extends AsyncBaseResult<T> {
 
 export type AsyncResult<T> = AsyncPending<T> | AsyncReady<T>;
 
-export interface AsyncTask<T, Args extends unknown[] = unknown[]> {
+export interface AsyncTask<T, RunArgs extends unknown[] = unknown[]> {
   result: T | undefined;
   error: unknown;
   isPending: boolean;
@@ -74,7 +74,7 @@ export interface AsyncTask<T, Args extends unknown[] = unknown[]> {
   isError: boolean;
   isReady: boolean;
 
-  run(...args: Args): Promise<T>;
+  run(...args: RunArgs): Promise<T>;
 }
 
 export interface WatcherListenerOptions {

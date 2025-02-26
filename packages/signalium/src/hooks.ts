@@ -184,7 +184,7 @@ export class SignalScope {
             if (sub?.update) {
               const originalUpdate = sub.update;
 
-              sub.update = (...args) => {
+              sub.update = () => {
                 return this.run(originalUpdate, [], key, signal!, initialized);
               };
             }
@@ -197,8 +197,8 @@ export class SignalScope {
         );
       } else {
         signal = makeSignal(
-          () => {
-            const result = this.run(fn, args, key, signal!, initialized);
+          (...runArgs) => {
+            const result = this.run(fn, [...args, ...runArgs], key, signal!, initialized);
 
             initialized = true;
 
@@ -400,7 +400,9 @@ export function subscription<T, Args extends unknown[]>(
 export const asyncTask = <T, Args extends unknown[]>(
   fn: (...args: Args) => Promise<T>,
   opts?: Partial<SignalOptionsWithInit<T, Args>>,
-): ((...args: Args) => AsyncTask<T>) => {
+): (<BuildArgs extends unknown[], RunArgs extends Args extends [...BuildArgs, ...infer _Rest] ? _Rest : Args>(
+  ...args: Args extends [...BuildArgs, ...infer _Rest] ? BuildArgs : Args
+) => AsyncTask<T, RunArgs>) => {
   return (...args) => {
     const params = getParamsKey(args, opts);
     const key = getComputedKey(fn, params);

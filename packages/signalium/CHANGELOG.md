@@ -1,5 +1,11 @@
 # signalium
 
+## 0.3.2
+
+### Patch Changes
+
+- 17509b6: Add runtime task parameters
+
 ## 0.3.1
 
 ### Patch Changes

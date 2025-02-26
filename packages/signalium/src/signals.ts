@@ -20,6 +20,7 @@ import {
   SignalOptionsWithInit,
   SignalSubscribe,
   SignalSubscription,
+  SubscriptionState,
   Watcher,
   WatcherListenerOptions,
 } from './types.js';
@@ -36,7 +37,7 @@ const enum SignalType {
   Watcher,
 }
 
-const SUBSCRIPTIONS = new WeakMap<ComputedSignal<any>, SignalSubscription | undefined | void>();
+const SUBSCRIPTIONS = new WeakMap<ComputedSignal<any>, SignalSubscription | (() => unknown) | undefined | void>();
 const ACTIVE_ASYNCS = new WeakMap<ComputedSignal<any>, Promise<unknown>>();
 
 const enum SignalState {
@@ -90,14 +91,14 @@ export class ComputedSignal<T> {
   _computedCount: number = 0;
   _connectedCount: number = 0;
   _currentValue: T | AsyncResult<T> | undefined;
-  _compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T>;
+  _compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T, []>;
 
   _opts: InternalSignalOptions<T>;
   _ref: WeakRef<ComputedSignal<T>> = new WeakRef(this);
 
   constructor(
     type: SignalType,
-    compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T>,
+    compute: SignalCompute<T> | SignalAsyncCompute<T> | SignalSubscribe<T, []>,
     opts: InternalSignalOptions<T>,
     initValue?: T,
   ) {
@@ -389,37 +390,18 @@ export class ComputedSignal<T> {
 
         case SignalType.Subscription: {
           if (shouldConnect) {
-            const subscription = (this._compute as SignalSubscribe<T>)(
-              () => this._currentValue as T,
-              value => {
-                const version = this._version;
-
-                if (version !== 0 && this._opts.equals(value, this._currentValue as T)) {
-                  return;
-                }
-
-                TRACER?.emit({
-                  type: TracerEventType.StartUpdate,
-                  id: this._opts.id,
-                });
-
-                this._currentValue = value;
-                this._version = version + 1;
-                this._dirtyConsumers();
-
-                TRACER?.emit({
-                  type: TracerEventType.EndUpdate,
-                  id: this._opts.id,
-                  value: this._currentValue,
-                  preserveChildren: true,
-                });
-              },
-            );
+            const subscription = (this._compute as SignalSubscribe<T, []>)(createSubscriptionState(this));
             SUBSCRIPTIONS.set(this, subscription);
           } else {
             const subscription = SUBSCRIPTIONS.get(this);
 
-            subscription?.update?.();
+            if (typeof subscription === 'function') {
+              subscription();
+              const nextSubscription = (this._compute as SignalSubscribe<T, []>)(createSubscriptionState(this));
+              SUBSCRIPTIONS.set(this, nextSubscription);
+            } else if (subscription !== undefined) {
+              subscription.update?.();
+            }
           }
 
           break;
@@ -552,7 +534,10 @@ export class ComputedSignal<T> {
     if (this._type === SignalType.Subscription) {
       const subscription = SUBSCRIPTIONS.get(this);
 
-      if (subscription !== undefined) {
+      if (typeof subscription === 'function') {
+        subscription();
+        SUBSCRIPTIONS.delete(this);
+      } else if (subscription !== undefined) {
         subscription.unsubscribe?.();
         SUBSCRIPTIONS.delete(this);
       }
@@ -594,6 +579,35 @@ export class ComputedSignal<T> {
       }
     };
   }
+}
+
+function createSubscriptionState<T>(signal: ComputedSignal<T>): SubscriptionState<T> {
+  return {
+    get: () => signal._currentValue as T,
+    set: value => {
+      const version = signal._version;
+
+      if (version !== 0 && signal._opts.equals(value, signal._currentValue as T)) {
+        return;
+      }
+
+      TRACER?.emit({
+        type: TracerEventType.StartUpdate,
+        id: signal._opts.id,
+      });
+
+      signal._currentValue = value;
+      signal._version = version + 1;
+      signal._dirtyConsumers();
+
+      TRACER?.emit({
+        type: TracerEventType.EndUpdate,
+        id: signal._opts.id,
+        value: signal._currentValue,
+        preserveChildren: true,
+      });
+    },
+  };
 }
 
 let STATE_ID = 0;
@@ -703,15 +717,15 @@ export function createAsyncComputedSignal<T>(
 }
 
 export function createSubscriptionSignal<T>(
-  subscribe: SignalSubscribe<T>,
+  subscribe: SignalSubscribe<T, []>,
   opts?: SignalOptions<T, unknown[]>,
 ): Signal<T | undefined>;
 export function createSubscriptionSignal<T>(
-  subscribe: SignalSubscribe<T>,
+  subscribe: SignalSubscribe<T, []>,
   opts: SignalOptionsWithInit<T, unknown[]>,
 ): Signal<T>;
 export function createSubscriptionSignal<T>(
-  subscribe: SignalSubscribe<T>,
+  subscribe: SignalSubscribe<T, []>,
   opts?: Partial<SignalOptionsWithInit<T, unknown[]>>,
 ): Signal<T> {
   return new ComputedSignal(SignalType.Subscription, subscribe, normalizeOpts(opts), opts?.initValue) as Signal<T>;

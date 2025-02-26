@@ -13,6 +13,7 @@ export type {
   AsyncReady,
   AsyncResult,
   Watcher,
+  SubscriptionState,
 } from './types.js';
 
 export {
@@ -32,6 +33,7 @@ export {
   withContext,
   computed,
   asyncComputed,
+  asyncTask,
   subscription,
   watcher,
   SignalScope,

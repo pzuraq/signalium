@@ -19,6 +19,8 @@ import {
   SignalSubscription,
   Watcher,
   WriteableSignal,
+  SignalSubscribe,
+  SubscriptionState,
 } from './types.js';
 import { getObjectId, getUnknownSignalFnName, hashValue } from './utils.js';
 import { getFrameworkScope, useSignalValue } from './config.js';
@@ -172,40 +174,33 @@ export class SignalScope {
     let signal = this.getSignal(key, computedMask);
 
     if (signal === undefined) {
+      const optsWithMeta = { ...opts, id: key, desc: fnName, params };
       let initialized = false;
 
       if (makeSignal === createSubscriptionSignal) {
-        signal = makeSignal(
-          (get, set) => {
-            const sub = this.run(fn, [{ get, set }, ...args], key, signal!, initialized) as
-              | SignalSubscription
-              | undefined;
+        signal = makeSignal(state => {
+          const sub = this.run(fn, [state, ...args], key, signal!, initialized);
 
-            if (sub?.update) {
-              const originalUpdate = sub.update;
+          if (typeof sub === 'object' && sub !== null && sub?.update) {
+            const originalUpdate = sub.update;
 
-              sub.update = () => {
-                return this.run(originalUpdate, [], key, signal!, initialized);
-              };
-            }
+            sub.update = () => {
+              return this.run(originalUpdate, [], key, signal!, initialized);
+            };
+          }
 
-            initialized = true;
+          initialized = true;
 
-            return sub;
-          },
-          { ...opts, id: key, desc: fnName, params },
-        );
+          return sub;
+        }, optsWithMeta);
       } else {
-        signal = makeSignal(
-          (...runArgs) => {
-            const result = this.run(fn, [...args, ...runArgs], key, signal!, initialized);
+        signal = makeSignal((...runArgs) => {
+          const result = this.run(fn, [...args, ...runArgs], key, signal!, initialized);
 
-            initialized = true;
+          initialized = true;
 
-            return result;
-          },
-          { ...opts, id: key, desc: fnName, params },
-        );
+          return result;
+        }, optsWithMeta);
       }
     }
 
@@ -341,44 +336,10 @@ export function asyncComputed<T, Args extends unknown[]>(
   };
 }
 
-export interface SubscriptionState<T> {
-  get: () => T;
-  set: (value: T) => void;
-}
-
-export type SignalSubscribe<T, Args extends unknown[]> = (
-  state: SubscriptionState<T>,
-  ...args: Args
-) => SignalSubscription | (() => unknown) | undefined | void;
-
 export function subscription<T, Args extends unknown[]>(
   fn: SignalSubscribe<T, Args>,
   opts?: Partial<SignalOptionsWithInit<T, Args>>,
 ): (...args: Args) => T {
-  const wrapper = (state: SubscriptionState<T>, ...args: Args) => {
-    let result = fn(state, ...args);
-
-    if (typeof result === 'function') {
-      return {
-        update() {
-          (result as () => void)();
-          result = fn(state, ...args);
-        },
-
-        unsubscribe() {
-          (result as () => void)();
-        },
-      };
-    }
-
-    return result;
-  };
-
-  Object.defineProperty(wrapper, 'name', {
-    value: fn.name,
-    writable: false,
-  });
-
   return (...args) => {
     const params = getParamsKey(args, opts);
     const key = getComputedKey(fn, params);
@@ -387,7 +348,7 @@ export function subscription<T, Args extends unknown[]>(
       const scope = getCurrentScope();
       return scope.get(
         createSubscriptionSignal,
-        wrapper,
+        fn,
         key,
         params,
         args,

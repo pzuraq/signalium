@@ -7,8 +7,7 @@ import {
   watcher,
   SignalSubscribe,
   withContext,
-  clearRootScope,
-} from '../../hooks.js';
+} from '../../index.js';
 import { SignalOptionsWithInit, SignalSubscription, Watcher } from '../../types.js';
 
 class SignalHookCounts {

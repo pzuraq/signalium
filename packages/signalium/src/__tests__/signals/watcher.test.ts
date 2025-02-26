@@ -172,7 +172,7 @@ describe('Watcher functionality', () => {
     test('watches subscription values', async () => {
       let value = createStateSignal(1);
 
-      const s = createSubscriptionSignal((get, set) => {
+      const s = createSubscriptionSignal(({ get, set }) => {
         set(value.get());
 
         return {
@@ -214,7 +214,7 @@ describe('Watcher functionality', () => {
     test('immediate option works', async () => {
       let value = createStateSignal(1);
 
-      const s = createSubscriptionSignal((get, set) => {
+      const s = createSubscriptionSignal(({ get, set }) => {
         set(value.get());
 
         return {

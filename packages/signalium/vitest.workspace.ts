@@ -14,6 +14,7 @@ export default defineWorkspace([
   {
     plugins: [react()],
     test: {
+      include: ['src/**/*.test.ts'],
       browser: {
         enabled: true,
         provider: 'playwright',

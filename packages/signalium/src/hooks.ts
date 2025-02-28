@@ -16,11 +16,9 @@ import {
   type Signal,
   type SignalOptions,
   type SignalOptionsWithInit,
-  SignalSubscription,
   Watcher,
   WriteableSignal,
   SignalSubscribe,
-  SubscriptionState,
 } from './types.js';
 import { getObjectId, getUnknownSignalFnName, hashValue } from './utils.js';
 import { getFrameworkScope, useSignalValue } from './config.js';

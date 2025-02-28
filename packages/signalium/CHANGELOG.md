@@ -1,5 +1,11 @@
 # signalium
 
+## 0.3.5
+
+### Patch Changes
+
+- 1a28be9: Fix top-level bundling in legacy
+
 ## 0.3.4
 
 ### Patch Changes

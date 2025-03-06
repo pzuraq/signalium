@@ -1,21 +1,20 @@
-import { scheduleTracer } from './scheduling.js';
-import { ComputedSignal } from './signals.js';
-import { Signal, Watcher } from './types.js';
+import { scheduleTracer } from './internals/scheduling.js';
+import { DerivedSignal, SignalId } from './internals/derived.js';
+import { Signal } from './types.js';
 
 export let TRACER: TracerProxy | undefined;
-
-export enum VisualizerNodeType {
-  State,
-  Computed,
-  AsyncComputed,
-  Subscription,
-  Watcher,
-}
 
 export interface VisualizerLink {
   connected: boolean;
   version: number;
   node: VisualizerNode;
+}
+
+export interface TracerMeta {
+  id: string | number;
+  desc: string;
+  params: string;
+  tracer?: Tracer;
 }
 
 export enum TracerEventType {
@@ -32,46 +31,46 @@ export enum TracerEventType {
 
 type StartUpdateEvent = {
   type: TracerEventType.StartUpdate;
-  id: string;
+  id: string | number;
 };
 
 type EndUpdateEvent = {
   type: TracerEventType.EndUpdate;
-  id: string;
+  id: string | number;
   value: unknown;
   preserveChildren?: boolean;
 };
 
 type StartLoadingEvent = {
   type: TracerEventType.StartLoading;
-  id: string;
+  id: string | number;
 };
 
 type EndLoadingEvent = {
   type: TracerEventType.EndLoading;
-  id: string;
+  id: string | number;
   value: unknown;
 };
 
 type ConnectedEvent = {
   type: TracerEventType.Connected;
-  id: string;
-  childId: string;
-  nodeType: VisualizerNodeType;
+  id: string | number;
+  childId: string | number;
+  nodeType: SignalType;
   name?: string;
   params?: string;
 };
 
 type DisconnectedEvent = {
   type: TracerEventType.Disconnected;
-  id: string;
-  childId: string;
+  id: string | number;
+  childId: string | number;
 };
 
 type ConsumeStateEvent = {
   type: TracerEventType.ConsumeState;
-  id: string;
-  childId: string;
+  id: string | number;
+  childId: string | number;
   value: unknown;
   setValue: (value: unknown) => void;
 };
@@ -84,6 +83,12 @@ type TracerEvent =
   | ConnectedEvent
   | DisconnectedEvent
   | ConsumeStateEvent;
+
+export enum SignalType {
+  State = 'state',
+  Reactive = 'reactive',
+  Watcher = 'watcher',
+}
 
 export class VisualizerNode {
   private subscribers: (() => void)[] = [];
@@ -102,8 +107,8 @@ export class VisualizerNode {
   constructor(
     private tracer: Tracer,
     public depth: number,
-    public type: VisualizerNodeType,
-    public id: string,
+    public type: SignalType,
+    public id: string | number,
     public value: unknown,
     public name?: string,
     public params?: string,
@@ -125,7 +130,7 @@ export class VisualizerNode {
   }
 
   setValue(value: unknown) {
-    if (this.type !== VisualizerNodeType.State) {
+    if (this.type !== SignalType.State) {
       throw new Error('setValue is only allowed on state nodes');
     }
 
@@ -168,7 +173,7 @@ export class VisualizerNode {
     return shouldSkip;
   }
 
-  disconnectChild(childId: string) {
+  disconnectChild(childId: string | number) {
     const childLink = this.children.find(link => link.node.id === childId);
 
     if (!childLink) {
@@ -208,7 +213,7 @@ export class VisualizerNode {
     this.notify();
   }
 
-  consumeState(id: string, value: unknown, setValue: (value: unknown) => void) {
+  consumeState(id: string | number, value: unknown, setValue: (value: unknown) => void) {
     const existing = this.stateChildren.find(child => child.id === id);
 
     if (existing) {
@@ -219,7 +224,7 @@ export class VisualizerNode {
       const node = new VisualizerNode(
         this.tracer,
         this.depth + 1,
-        VisualizerNodeType.State,
+        SignalType.State,
         id,
         value,
         undefined,
@@ -281,7 +286,7 @@ class TraceFlush {
 }
 
 export class Tracer {
-  private nodeMap = new Map<string, VisualizerNode>();
+  private nodeMap = new Map<string | number, VisualizerNode>();
 
   delay = 200;
   maxDepth = 0;
@@ -289,7 +294,7 @@ export class Tracer {
   private initialized = false;
 
   constructor(
-    id: string,
+    id: string | number,
     immediate = false,
     public showParams = true,
     public showValue = true,
@@ -298,7 +303,7 @@ export class Tracer {
     // If it's immediate, we should run the first flush immediately, skipping animations
     this.initialized = !immediate;
 
-    const node = new VisualizerNode(this, 0, VisualizerNodeType.Watcher, id, '');
+    const node = new VisualizerNode(this, 0, SignalType.Watcher, id, '');
 
     this.rootNode = node;
     this.nodeMap.set(id, node);
@@ -313,14 +318,14 @@ export class Tracer {
     if (event.type === TracerEventType.Connected || event.type === TracerEventType.ConsumeState) {
       const node = this.nodeMap.get(event.id);
 
-      if (!node) {
+      if (!node || (event.type === TracerEventType.Connected && !event.name)) {
         return;
       }
 
       if (!this.nodeMap.has(event.childId)) {
         const name = event.type === TracerEventType.Connected ? event.name : undefined;
         const params = event.type === TracerEventType.Connected ? event.params : undefined;
-        const nodeType = event.type === TracerEventType.Connected ? event.nodeType : VisualizerNodeType.State;
+        const nodeType = event.type === TracerEventType.Connected ? event.nodeType : SignalType.State;
 
         this.nodeMap.set(
           event.childId,
@@ -402,7 +407,7 @@ class TracerProxy {
     this.tracers.forEach(tracer => tracer.emit(event));
   }
 
-  createTracer(id: string, immediate = false): Tracer {
+  createTracer(id: string | number, immediate = false): Tracer {
     const tracer = new Tracer(id, immediate);
 
     this.tracers.push(tracer);
@@ -427,12 +432,12 @@ export function setTracing(enabled: boolean) {
   }
 }
 
-export function createTracer(_signal: Signal<unknown> | Watcher<unknown>, immediate = false) {
-  const signal = _signal as ComputedSignal<unknown>;
-  return createTracerFromId(signal._opts.id, immediate);
+export function createTracer(_signal: Signal<unknown>, immediate = false) {
+  const signal = _signal as unknown as DerivedSignal<unknown, unknown[]>;
+  return createTracerFromId(signal.tracerMeta!.id, immediate);
 }
 
-export function createTracerFromId(id: string, immediate = false) {
+export function createTracerFromId(id: string | number, immediate = false) {
   if (!TRACER) {
     throw new Error('Tracing is not enabled');
   }

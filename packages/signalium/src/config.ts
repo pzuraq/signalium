@@ -1,5 +1,8 @@
-import { SignalScope } from './hooks.js';
-import { getCurrentConsumer } from './signals.js';
+import { DerivedSignal } from './internals/derived.js';
+import { SignalScope } from './internals/contexts.js';
+import { ReactiveValue } from './types.js';
+import { StateSignal } from './internals/state.js';
+import { CURRENT_CONSUMER } from './internals/get.js';
 
 export type FlushCallback = () => void;
 
@@ -10,7 +13,8 @@ interface SignalHooksConfig {
   scheduleFlush: FlushFn;
   runBatch: BatchFn;
   getFrameworkScope: () => SignalScope | undefined;
-  useSignalValue: <T>(key: string, fn: () => T) => T;
+  useStateSignal: <T>(signal: StateSignal<T>) => T;
+  useDerivedSignal: <T>(signal: DerivedSignal<T, unknown[]>) => ReactiveValue<T>;
 }
 
 export let scheduleFlush: FlushFn = flushWatchers => {
@@ -23,20 +27,26 @@ export let runBatch: BatchFn = fn => fn();
 
 export let getFrameworkScope: () => SignalScope | undefined = () => undefined;
 
-let useFrameworkSignalValue: <T>(key: string, fn: () => T) => T = (key, fn) => fn();
+let useFrameworkStateSignal: <T>(signal: StateSignal<T>) => T = signal => signal.get();
+let useFrameworkDerivedSignal: <T>(signal: DerivedSignal<T, unknown[]>) => ReactiveValue<T> = signal => signal.get();
 
-export function useSignalValue<T>(key: string, fn: () => T): T {
-  if (getCurrentConsumer()) {
-    return fn();
+export function useDerivedSignal<T>(signal: DerivedSignal<T, any[]>): ReactiveValue<T> {
+  if (CURRENT_CONSUMER !== undefined) {
+    return signal.get();
   } else {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useFrameworkSignalValue(key, fn);
+    return useFrameworkDerivedSignal(signal);
   }
+}
+
+export function useStateSignal<T>(signal: StateSignal<T>): T {
+  return useFrameworkStateSignal(signal);
 }
 
 export function setConfig(cfg: Partial<SignalHooksConfig>) {
   scheduleFlush = cfg.scheduleFlush ?? scheduleFlush;
   runBatch = cfg.runBatch ?? runBatch;
   getFrameworkScope = cfg.getFrameworkScope ?? getFrameworkScope;
-  useFrameworkSignalValue = cfg.useSignalValue ?? useFrameworkSignalValue;
+  useFrameworkStateSignal = cfg.useStateSignal ?? useFrameworkStateSignal;
+  useFrameworkDerivedSignal = cfg.useDerivedSignal ?? useFrameworkDerivedSignal;
 }

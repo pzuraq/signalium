@@ -1,22 +1,24 @@
 import { describe } from 'vitest';
-import { asyncComputed, computed, subscription, wrapHook } from './instrumented-hooks.js';
+import { ReactiveBuilderFunction, reactive, subscription } from './instrumented-hooks.js';
 import { SignalOptionsWithInit } from '../../types.js';
 
 const createMethods = [
   {
     name: 'createComputed',
-    create: computed,
+    create: reactive,
   },
   {
     name: 'createAsyncComputed',
     create: <T, Args extends unknown[]>(
       fn: (...args: Args) => T | Promise<T>,
-      opts?: Partial<SignalOptionsWithInit<T, Args>>,
-    ) => {
-      const computed = asyncComputed(fn, opts);
+      opts?: Partial<SignalOptionsWithInit<Promise<T>, Args>>,
+    ): ReactiveBuilderFunction<T, Args> => {
+      const computed = reactive(async (...args: Args) => {
+        return fn(...args);
+      }, opts);
 
-      return wrapHook(computed, (...args: Args) => {
-        return computed(...args).result;
+      return reactive((...args: Args) => {
+        return computed(...args).value as T;
       });
     },
   },
@@ -25,15 +27,24 @@ const createMethods = [
     create: function _createSubscription<T, Args extends unknown[]>(
       fn: (...args: Args) => T,
       opts?: Partial<SignalOptionsWithInit<T, Args>>,
-    ): (...args: Args) => T {
-      return subscription((state, ...args) => {
-        state.set(fn(...args));
-
-        return {
-          update: () => {
+    ): ReactiveBuilderFunction<T, Args> {
+      const computed = reactive((...args: Args) => {
+        return subscription(
+          state => {
             state.set(fn(...args));
+
+            return {
+              update: () => {
+                state.set(fn(...args));
+              },
+            };
           },
-        };
+          opts as Partial<SignalOptionsWithInit<T, unknown[]>>,
+        );
+      });
+
+      return reactive((...args: Args) => {
+        return computed(...args).value as T;
       }, opts);
     },
   },

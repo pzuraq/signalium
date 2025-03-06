@@ -17,7 +17,7 @@
     "./docs",
     "./packages/*"
   ],
-  "author": "",
+  "author": "Kristen Hewell Garrett <me@pzuraq.com>",
   "license": "ISC",
   "packageManager": "npm@8.5.0",
   "dependencies": {

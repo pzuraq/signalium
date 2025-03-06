@@ -5,10 +5,10 @@ export {
   removeTracer,
   VisualizerNode,
   type VisualizerLink,
-  VisualizerNodeType,
   TracerEventType,
   Tracer,
   TRACER,
+  SignalType,
 } from './trace.js';
 
-export { scheduleTracer } from './scheduling.js';
+export { scheduleTracer } from './internals/scheduling.js';

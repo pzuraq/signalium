@@ -4,10 +4,10 @@ import {
   SignalScope,
   watcher,
   subscription,
-  computed,
-  asyncComputed,
+  reactive,
   state,
-  AsyncResult,
+  ReactivePromise,
+  isReactivePromise,
 } from 'signalium';
 import {
   createTracerFromId,
@@ -15,15 +15,16 @@ import {
   setTracing,
   Tracer,
   VisualizerNode,
-  VisualizerNodeType,
+  SignalType,
 } from 'signalium/debug';
 import { setupReact } from 'signalium/react';
 import clsx from 'clsx';
 import { transform } from '@babel/standalone';
 import { dedent } from '@/lib/string';
 import { CodeFence } from './Fence';
-import { createHookWatcher, computedHook, useState } from '@/lib/hooks-tracer';
+import { createHookWatcher, reactiveHook, useState } from '@/lib/hooks-tracer';
 import { addDescOptions, addHooksWrapper } from './visualizer/babel';
+import { signaliumAsyncTransform } from 'signalium/transform';
 
 const item = {
   visible: { opacity: 1, y: 0 },
@@ -51,6 +52,7 @@ function useTimedBool(memo: unknown[], timeout = 300) {
     setTimeout(() => {
       setBool(false);
     }, timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, memo);
 
   return bool;
@@ -65,12 +67,8 @@ function useNodeClass(
 
   const loading = node.loading;
   const updating = node.updating || forceUpdating;
-  const success =
-    node.type === VisualizerNodeType.AsyncComputed &&
-    (node.value as AsyncResult<unknown>)?.isSuccess;
-  const error =
-    node.type === VisualizerNodeType.AsyncComputed &&
-    (node.value as AsyncResult<unknown>)?.isError;
+  const success = isReactivePromise(node.value) && node.value.isResolved;
+  const error = isReactivePromise(node.value) && node.value.isRejected;
 
   if (loading) {
     return classes.loading;
@@ -94,19 +92,19 @@ export const VisualizerNodeComponent = ({ node }: { node: VisualizerNode }) => {
     () => node.version,
   );
 
+  const isPromise = isReactivePromise(node.value);
   const params = node.params;
-  const value =
-    node.type === VisualizerNodeType.AsyncComputed
-      ? (node.value as AsyncResult<unknown>)?.result
-      : node.value;
+  const value = isPromise
+    ? (node.value as ReactivePromise<unknown>).value
+    : node.value;
 
   const nodeClass = useNodeClass(
     node,
     {
       loading: 'border-yellow-400/20 bg-yellow-400/10 text-yellow-500',
       updating: 'border-secondary-200/40 bg-secondary-400/40',
-      success: 'border-green-400/20 bg-green-400/10 text-green-500',
-      error: 'border-red-400/20 bg-red-400/10 text-red-500',
+      success: 'border-primary-400/30 bg-primary-400/10 text-primary-300',
+      error: 'border-primary-400/30 bg-primary-400/10 text-primary-300',
       inactive: 'border-primary-400/30 bg-primary-400/10 text-primary-300',
     },
     [params, value],
@@ -141,40 +139,29 @@ export const VisualizerNodeComponent = ({ node }: { node: VisualizerNode }) => {
         className={clsx(
           'relative mb-2 flex min-w-0 flex-row items-center justify-between overflow-hidden rounded-3xl border px-4 py-2 text-xs font-medium transition-colors duration-300',
           nodeClass,
-          node.type === VisualizerNodeType.State && 'border-dashed',
+          node.type === SignalType.State && 'border-dashed',
         )}
       >
         <div className="flex-grow">
           <span className="block min-w-fit whitespace-nowrap lg:pr-4">
             {node.name ?? node.id}
-            {node.type !== VisualizerNodeType.State && node.showParams && (
+            {node.type !== SignalType.State && node.showParams && (
               <>({node.params})</>
             )}
           </span>
 
           {node.showValue && (
             <>
-              {node.type !== VisualizerNodeType.AsyncComputed && (
-                <div className="relative py-1.5">
-                  <span className="whitespace-nowraps absolute top-0 left-0 w-full overflow-hidden text-[0.85em] leading-[1.25] text-ellipsis">
-                    val:&nbsp;{String(node.value)}
-                  </span>
-                </div>
-              )}
-
-              {node.type === VisualizerNodeType.AsyncComputed && (
-                <div className="relative py-1.5">
-                  <span className="whitespace-nowraps absolute top-0 left-0 w-full overflow-hidden text-[0.85em] leading-[1.25] text-ellipsis">
-                    result:&nbsp;
-                    {String((node.value as AsyncResult<unknown>)?.result)}
-                  </span>
-                </div>
-              )}
+              <div className="relative py-1.5">
+                <span className="whitespace-nowraps absolute top-0 left-0 w-full overflow-hidden text-[0.85em] leading-[1.25] text-ellipsis">
+                  val:&nbsp;{String(value)}
+                </span>
+              </div>
             </>
           )}
         </div>
 
-        {node.type === VisualizerNodeType.State &&
+        {node.type === SignalType.State &&
           node.interactive &&
           typeof node.value === 'number' && (
             <div className="flex flex-row gap-1">
@@ -193,7 +180,7 @@ export const VisualizerNodeComponent = ({ node }: { node: VisualizerNode }) => {
             </div>
           )}
 
-        {node.type === VisualizerNodeType.AsyncComputed && (
+        {isPromise && (
           <span
             className={clsx(
               'loader h-4 w-4',
@@ -225,17 +212,11 @@ const createSignalWatcher: createWatcher = (tracer, fn, id, desc, scope) => {
     id,
     desc,
     scope,
+    equals: false,
+    tracer,
   });
 
-  const originalCheck = (w as any)._check;
-
-  (w as any)._check = function (...args: any[]) {
-    const result = originalCheck.call(this, ...args);
-    sleep(0).then(() => scheduleTracer(tracer));
-    return result;
-  };
-
-  const unsub = w.addListener(() => {}, { immediate: true });
+  const unsub = w.addListener(() => {});
 
   return {
     unsub,
@@ -269,12 +250,16 @@ export function RootVisualizerNode({
 }) {
   useSyncExternalStore(
     (onStoreChange) => {
-      const unsubTracer = tracer.addListener(() => {
-        onStoreChange();
+      let unsubTracer: () => void;
+
+      sleep(0).then(() => {
+        unsubTracer = tracer.addListener(() => {
+          onStoreChange();
+        });
       });
 
       return () => {
-        unsubTracer();
+        unsubTracer?.();
       };
     },
     () => tracer.rootNode.version,
@@ -434,25 +419,24 @@ const WatcherRunner = ({
   const watcherRef = useRef<WatcherProxy | undefined>(undefined);
 
   if (watcherRef.current === undefined) {
-    const scope = new SignalScope({});
+    const scope = new SignalScope([]);
 
     const compiled = transform(source, {
       presets: ['react'],
-      plugins: [addDescOptions, addHooksWrapper],
+      plugins: [addDescOptions, addHooksWrapper, signaliumAsyncTransform()],
     })
       .code!.replace('export default function', 'return function')
       .replace(/export const (\w+) =/, 'return')
       .replace(/import .* from .*;?/, '');
 
     let output = new Function(
-      '{ state, subscription, computed, asyncComputed, hook, useRef, useState, useEffect, React, sleep }',
+      '{ state, subscription, reactive, hook, useRef, useState, useEffect, React, sleep }',
       compiled,
     )({
       state,
       subscription,
-      computed,
-      asyncComputed,
-      hook: computedHook,
+      reactive,
+      hook: reactiveHook,
       useRef,
       useState,
       useEffect,
@@ -510,10 +494,18 @@ export function HooksVisualizer({
   showGradients?: boolean;
   source: string;
 }) {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
   const [shouldInitialize, setShouldInitialize] = useState(initialized);
 
   const [tracerId] = useState(`Output-${WATCHER_ID++}`);
   const tracerRef = useRef<Tracer | undefined>(undefined);
+
+  if (!hasMounted) return null;
 
   if (tracerRef.current === undefined) {
     const tracer = createTracerFromId(tracerId, shouldInitialize);

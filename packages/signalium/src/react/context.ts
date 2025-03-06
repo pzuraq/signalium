@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { SignalScope } from '../hooks.js';
+import { SignalScope } from '../internals/contexts.js';
 
 export const ScopeContext = createContext<SignalScope | undefined>(undefined);
 

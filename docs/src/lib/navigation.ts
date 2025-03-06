@@ -75,8 +75,7 @@ export const navigation: GroupNavigationItem[] = [
     title: 'Introduction',
     type: 'group',
     items: [
-      { type: 'link', title: 'Getting started', href: '/' },
-      { type: 'link', title: 'A Brief Manifesto', href: '/introduction' },
+      { type: 'link', title: 'Getting started', href: '/#getting-started' },
     ],
   },
   {
@@ -85,13 +84,13 @@ export const navigation: GroupNavigationItem[] = [
     items: [
       {
         type: 'link',
-        title: 'Computeds and State',
-        href: '/core/computeds-and-state',
+        title: 'Reactive Functions and State',
+        href: '/core/reactive-functions-and-state',
       },
       {
         type: 'link',
-        title: 'Async Computeds and Tasks',
-        href: '/core/async-computeds-and-tasks',
+        title: 'Reactive Promises',
+        href: '/core/reactive-promises',
       },
       {
         type: 'link',
@@ -114,6 +113,11 @@ export const navigation: GroupNavigationItem[] = [
         title: 'Usage with React',
         href: '/guides/react',
       },
+      {
+        type: 'link',
+        title: 'A Signals Deep Dive',
+        href: '/signals-deep-dive',
+      },
     ],
   },
   {
@@ -125,16 +129,15 @@ export const navigation: GroupNavigationItem[] = [
         title: 'signalium',
         items: [
           { type: 'link', title: 'state()', href: '/api#state' },
-          { type: 'link', title: 'computed()', href: '/api#computed' },
           {
             type: 'link',
-            title: 'asyncComputed()',
-            href: '/api#asyncComputed',
+            title: 'reactive()',
+            href: '/api#reactive',
           },
           {
             type: 'link',
-            title: 'asyncTask()',
-            href: '/api#asyncTask',
+            title: 'task()',
+            href: '/api#task',
           },
           {
             type: 'link',
@@ -142,63 +145,74 @@ export const navigation: GroupNavigationItem[] = [
             href: '/api#subscription',
           },
           { type: 'link', title: 'watcher()', href: '/api#watcher' },
+          {
+            type: 'link',
+            title: 'callback()',
+            href: '/api#callback',
+          },
+          {
+            type: 'link',
+            title: 'createContext()',
+            href: '/api#createContext',
+          },
+          {
+            type: 'link',
+            title: 'useContext()',
+            href: '/api#use-context',
+          },
+          {
+            type: 'link',
+            title: 'withContexts()',
+            href: '/api#with-contexts',
+          },
+          {
+            type: 'link',
+            title: 'isReactivePromise()',
+            href: '/api#is-reactive-promise',
+          },
+          {
+            type: 'link',
+            title: 'isReactiveTask()',
+            href: '/api#is-reactive-task',
+          },
+          {
+            type: 'link',
+            title: 'isReactiveSubscription()',
+            href: '/api#is-reactive-subscription',
+          },
+          {
+            type: 'link',
+            title: 'hashValue()',
+            href: '/api#hash-value',
+          },
+          {
+            type: 'link',
+            title: 'registerCustomHash()',
+            href: '/api#register-custom-hash',
+          },
         ],
       },
-
-      // {
-      //   type: 'group',
-      //   title: 'signalium/primitives',
-      //   items: [
-      //     {
-      //       type: 'link',
-      //       title: 'createStateSignal()',
-      //       href: '/api#createStateSignal',
-      //     },
-      //     {
-      //       type: 'link',
-      //       title: 'createComputedSignal()',
-      //       href: '/api#createComputedSignal',
-      //     },
-      //     {
-      //       type: 'link',
-      //       title: 'createAsyncComputedSignal()',
-      //       href: '/api#createAsyncComputedSignal',
-      //     },
-      //     {
-      //       type: 'link',
-      //       title: 'createSubscriptionSignal()',
-      //       href: '/api#createSubscriptionSignal',
-      //     },
-      //     {
-      //       type: 'link',
-      //       title: 'createWatcher()',
-      //       href: '/api#createWatcher',
-      //     },
-      //   ],
-      // },
-
-      // {
-      //   type: 'group',
-      //   title: 'signalium/config',
-      //   items: [
-      //     {
-      //       type: 'link',
-      //       title: 'setConfig()',
-      //       href: '/api#setConfig',
-      //     },
-      //   ],
-      // },
+      {
+        type: 'group',
+        title: 'signalium/react',
+        items: [
+          {
+            type: 'link',
+            title: 'useStateSignal()',
+            href: '/api#use-state-signal',
+          },
+          {
+            type: 'link',
+            title: 'ContextProvider',
+            href: '/api#context-provider',
+          },
+          {
+            type: 'link',
+            title: 'setupReact()',
+            href: '/api#setup-react',
+          },
+        ],
+      },
     ],
   },
-  // {
-  //   title: 'Addenda',
-  //   type: 'group',
-  //   items: [
-  //     {
-  //       type: 'link',
-  //       title: 'Contributing',
-  //       href: '/contributing',
-  //     },
-  //   ],
-  // },
 ];

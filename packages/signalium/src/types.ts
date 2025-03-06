@@ -1,4 +1,4 @@
-import type { SignalScope } from './hooks.js';
+import { SignalScope } from './signals/contexts.js';
 
 export interface Signal<T = unknown> {
   get(): T;
@@ -78,8 +78,9 @@ export interface AsyncTask<T, RunArgs extends unknown[] = unknown[]> {
   isSuccess: boolean;
   isError: boolean;
   isReady: boolean;
-
+  didResolve: boolean;
   run(...args: RunArgs): Promise<T>;
+  await(): T;
 }
 
 export interface WatcherListenerOptions {

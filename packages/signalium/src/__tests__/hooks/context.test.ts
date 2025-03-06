@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createContext, useContext, withContext } from '../../hooks.js';
-import { state } from '../../index.js';
+import { createContext, useContext, withContexts, state } from '../../index.js';
 import { permute } from '../utils/permute.js';
 import { nextTick } from '../utils/async.js';
 import { asyncComputed } from '../utils/instrumented-hooks.js';
@@ -37,16 +36,12 @@ describe('contexts', () => {
     expect(outer).toHaveValueAndCounts('inner-value-default', { compute: 2 });
 
     // Test in child scope
-    expect(outer)
-      .withContexts({ [ctx]: 'child' })
-      .toHaveValueAndCounts(undefined, { compute: 3 });
+    expect(outer).withContexts([ctx, 'child']).toHaveValueAndCounts(undefined, { compute: 3 });
 
     // Verify parent scope maintains separate computed
     await nextTick();
 
-    expect(outer)
-      .withContexts({ [ctx]: 'child' })
-      .toHaveValueAndCounts('inner-value-child', { compute: 3 });
+    expect(outer).withContexts([ctx, 'child']).toHaveValueAndCounts('inner-value-child', { compute: 3 });
     expect(outer).toHaveValueAndCounts('inner-value-default', { compute: 3 });
   });
 
@@ -63,17 +58,13 @@ describe('contexts', () => {
       expect(computed).toHaveValueAndCounts('default0', { compute: 1 });
       expect(computed).toHaveValueAndCounts('default0', { compute: 1 });
 
-      const result = withContext({ [ctx]: 'other' }, () => {
+      const result = withContexts([[ctx, 'other']], () => {
         // Different scope should compute again
         return computed();
       });
 
-      expect(computed)
-        .withContexts({ [ctx]: 'other' })
-        .toHaveValueAndCounts('other0', { compute: 2 });
-      expect(computed)
-        .withContexts({ [ctx]: 'other' })
-        .toHaveValueAndCounts('other0', { compute: 2 });
+      expect(computed).withContexts([ctx, 'other']).toHaveValueAndCounts('other0', { compute: 2 });
+      expect(computed).withContexts([ctx, 'other']).toHaveValueAndCounts('other0', { compute: 2 });
 
       expect(computed).toHaveValueAndCounts('default0', { compute: 2 });
     });
@@ -93,12 +84,8 @@ describe('contexts', () => {
       });
 
       // Initially computed is shared between scopes since it doesn't use context
-      expect(computed)
-        .withContexts({ [ctx]: 'scope1' })
-        .toHaveValueAndCounts('default', { compute: 1 });
-      expect(computed)
-        .withContexts({ [ctx]: 'scope2' })
-        .toHaveValueAndCounts('default', { compute: 1 });
+      expect(computed).withContexts([ctx, 'scope1']).toHaveValueAndCounts('default', { compute: 1 });
+      expect(computed).withContexts([ctx, 'scope2']).toHaveValueAndCounts('default', { compute: 1 });
 
       // Change value to make computed use context
       value.set(1);
@@ -106,20 +93,12 @@ describe('contexts', () => {
       await nextTick();
 
       // Now computed should fork and use the different context values
-      expect(computed)
-        .withContexts({ [ctx]: 'scope1' })
-        .toHaveValueAndCounts('scope1', { compute: 3 });
-      expect(computed)
-        .withContexts({ [ctx]: 'scope2' })
-        .toHaveValueAndCounts('scope2', { compute: 3 });
+      expect(computed).withContexts([ctx, 'scope1']).toHaveValueAndCounts('scope1', { compute: 3 });
+      expect(computed).withContexts([ctx, 'scope2']).toHaveValueAndCounts('scope2', { compute: 3 });
 
       // Ensure that computed is cached correctly
-      expect(computed)
-        .withContexts({ [ctx]: 'scope1' })
-        .toHaveValueAndCounts('scope1', { compute: 3 });
-      expect(computed)
-        .withContexts({ [ctx]: 'scope2' })
-        .toHaveValueAndCounts('scope2', { compute: 3 });
+      expect(computed).withContexts([ctx, 'scope1']).toHaveValueAndCounts('scope1', { compute: 3 });
+      expect(computed).withContexts([ctx, 'scope2']).toHaveValueAndCounts('scope2', { compute: 3 });
     });
 
     test('computed forks correctly regardless of access order', () => {
@@ -137,35 +116,23 @@ describe('contexts', () => {
       });
 
       // Create two scopes with different context values, but access in reverse order
-      expect(computed)
-        .withContexts({ [ctx]: 'scope1' })
-        .toHaveValueAndCounts(0, { compute: 1 });
+      expect(computed).withContexts([ctx, 'scope1']).toHaveValueAndCounts(0, { compute: 1 });
 
-      expect(computed)
-        .withContexts({ [ctx]: 'scope2' })
-        .toHaveValueAndCounts(0, { compute: 1 }); // Still shared since no context dependency
+      expect(computed).withContexts([ctx, 'scope2']).toHaveValueAndCounts(0, { compute: 1 }); // Still shared since no context dependency
 
       // Change value to make computed use context
       value.set(1);
 
       // Now computed should fork and use the different context values
       // Access in reverse order compared to first test
-      expect(computed)
-        .withContexts({ [ctx]: 'scope2' })
-        .toHaveValueAndCounts('scope2', { compute: 2 });
+      expect(computed).withContexts([ctx, 'scope2']).toHaveValueAndCounts('scope2', { compute: 2 });
 
-      expect(computed)
-        .withContexts({ [ctx]: 'scope1' })
-        .toHaveValueAndCounts('scope1', { compute: 3 });
+      expect(computed).withContexts([ctx, 'scope1']).toHaveValueAndCounts('scope1', { compute: 3 });
 
       // Ensure that computed is cached correctly
-      expect(computed)
-        .withContexts({ [ctx]: 'scope1' })
-        .toHaveValueAndCounts('scope1', { compute: 3 });
+      expect(computed).withContexts([ctx, 'scope1']).toHaveValueAndCounts('scope1', { compute: 3 });
 
-      expect(computed)
-        .withContexts({ [ctx]: 'scope2' })
-        .toHaveValueAndCounts('scope2', { compute: 3 });
+      expect(computed).withContexts([ctx, 'scope2']).toHaveValueAndCounts('scope2', { compute: 3 });
     });
 
     test('computed ownership transfers correctly between parent and child scopes', () => {
@@ -186,45 +153,33 @@ describe('contexts', () => {
       expect(computed).toHaveValueAndCounts(0, { compute: 1 });
 
       // Child scope reuses original computed instance since no context dependency
-      expect(computed)
-        .withContexts({ [ctx]: 'child' })
-        .toHaveValueAndCounts(0, { compute: 1 });
+      expect(computed).withContexts([ctx, 'child']).toHaveValueAndCounts(0, { compute: 1 });
 
       // Change value to make computed use context
       value.set(1);
 
       // Child scope takes ownership of parent instance
-      expect(computed)
-        .withContexts({ [ctx]: 'child' })
-        .toHaveValueAndCounts('child1', { compute: 2 });
+      expect(computed).withContexts([ctx, 'child']).toHaveValueAndCounts('child1', { compute: 2 });
 
       // Parent scope gets its own computed instance
       expect(computed).toHaveValueAndCounts('default1', { compute: 3 });
 
       // Third scope gets its own computed instance
-      expect(computed)
-        .withContexts({ [ctx]: 'third' })
-        .toHaveValueAndCounts('third1', { compute: 4 });
+      expect(computed).withContexts([ctx, 'third']).toHaveValueAndCounts('third1', { compute: 4 });
 
       // Ensure computeds are cached correctly
-      expect(computed)
-        .withContexts({ [ctx]: 'child' })
-        .toHaveValueAndCounts('child1', { compute: 4 });
+      expect(computed).withContexts([ctx, 'child']).toHaveValueAndCounts('child1', { compute: 4 });
 
       expect(computed).toHaveValueAndCounts('default1', { compute: 4 });
 
       // Verify all scopes maintain their separate computeds
       value.set(2);
 
-      expect(computed)
-        .withContexts({ [ctx]: 'child' })
-        .toHaveValueAndCounts('child2', { compute: 5 });
+      expect(computed).withContexts([ctx, 'child']).toHaveValueAndCounts('child2', { compute: 5 });
 
       expect(computed).toHaveValueAndCounts('default2', { compute: 6 });
 
-      expect(computed)
-        .withContexts({ [ctx]: 'third' })
-        .toHaveValueAndCounts('third2', { compute: 7 });
+      expect(computed).withContexts([ctx, 'third']).toHaveValueAndCounts('third2', { compute: 7 });
     });
   });
 
@@ -239,7 +194,7 @@ describe('contexts', () => {
       expect(computed1).toHaveValueAndCounts('default', { compute: 1 });
 
       const computed2 = create2(() => {
-        return withContext({ [ctx]: 'override' }, () => {
+        return withContexts([[ctx, 'override']], () => {
           return computed1();
         });
       });
@@ -265,25 +220,19 @@ describe('contexts', () => {
       expect(computed2).toHaveValueAndCounts('default1default2', { compute: 1 });
       expect(computed1).toHaveCounts({ compute: 1 });
 
-      expect(computed2)
-        .withContexts({ [ctx1]: 'override1' })
-        .toHaveValueAndCounts('override1default2', { compute: 2 });
+      expect(computed2).withContexts([ctx1, 'override1']).toHaveValueAndCounts('override1default2', { compute: 2 });
+      expect(computed1).toHaveCounts({ compute: 2 });
+
+      expect(computed2).withContexts([ctx2, 'override2']).toHaveValueAndCounts('default1override2', { compute: 3 });
       expect(computed1).toHaveCounts({ compute: 2 });
 
       expect(computed2)
-        .withContexts({ [ctx2]: 'override2' })
-        .toHaveValueAndCounts('default1override2', { compute: 3 });
-      expect(computed1).toHaveCounts({ compute: 2 });
-
-      expect(computed2)
-        .withContexts({ [ctx1]: 'override1', [ctx2]: 'override2' })
+        .withContexts([ctx1, 'override1'], [ctx2, 'override2'])
         .toHaveValueAndCounts('override1override2', { compute: 4 });
       expect(computed1).toHaveCounts({ compute: 3 });
 
       // Should reuse cached value since ctx2 didn't change
-      expect(computed1)
-        .withContexts({ [ctx2]: 'override1' })
-        .toHaveValueAndCounts('default1', { compute: 3 });
+      expect(computed1).withContexts([ctx2, 'override1']).toHaveValueAndCounts('default1', { compute: 3 });
     });
 
     test('context scopes inherit from parent scope when nested in computeds', () => {
@@ -297,7 +246,7 @@ describe('contexts', () => {
       const computed2 = create2(() => {
         return (
           useContext(ctx2) +
-          withContext({ [ctx2]: ':inner-override2' }, () => {
+          withContexts([[ctx2, ':inner-override2']], () => {
             return computed1();
           })
         );
@@ -307,17 +256,17 @@ describe('contexts', () => {
       expect(computed1).toHaveCounts({ compute: 1 });
 
       expect(computed2)
-        .withContexts({ [ctx1]: 'override1' })
+        .withContexts([ctx1, 'override1'])
         .toHaveValueAndCounts('default2override1:inner-override2', { compute: 2 });
       expect(computed1).toHaveCounts({ compute: 2 });
 
       expect(computed2)
-        .withContexts({ [ctx1]: 'override1', [ctx2]: 'override2' })
+        .withContexts([ctx1, 'override1'], [ctx2, 'override2'])
         .toHaveValueAndCounts('override2override1:inner-override2', { compute: 3 });
       expect(computed1).toHaveCounts({ compute: 3 });
 
       expect(computed2)
-        .withContexts({ [ctx2]: 'override2' })
+        .withContexts([ctx2, 'override2'])
         .toHaveValueAndCounts('override2default1:inner-override2', { compute: 4 });
       expect(computed1).toHaveCounts({ compute: 4 });
     });
@@ -342,7 +291,7 @@ describe('contexts', () => {
         if (a === 3) {
           return value.get() === 'value' ? ['inner2'] : ['inner2', useContext(ctx)];
         } else if (a === 4) {
-          return withContext({ [ctx]: 'ctxinneroverride' }, () => {
+          return withContexts([[ctx, 'ctxinneroverride']], () => {
             return ['inner2', inner1(3), value.get()];
           });
         }
@@ -372,7 +321,7 @@ describe('contexts', () => {
       expect(inner2).toHaveCounts({ compute: 1 });
 
       expect(outer)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .withParams(1)
         .toHaveValueAndCounts([['inner1'], ['inner2', ['inner1']]], { compute: 1 });
       expect(inner1).toHaveCounts({ compute: 2 });
@@ -389,7 +338,7 @@ describe('contexts', () => {
 
       expect(outer)
         .withParams(2)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .toHaveValueAndCounts([['inner1'], ['inner2']], {
           compute: 2,
         });
@@ -413,7 +362,7 @@ describe('contexts', () => {
 
       expect(outer)
         .withParams(3)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .toHaveValueAndCounts(
           [
             ['inner1', 'ctxoverride'],
@@ -437,7 +386,7 @@ describe('contexts', () => {
 
       expect(outer)
         .withParams(4)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .toHaveValueAndCounts(['ctxoverride', ['inner2', ['inner1', 'ctxinneroverride'], 'value']], {
           compute: 6,
         });
@@ -455,7 +404,7 @@ describe('contexts', () => {
 
       expect(outer)
         .withParams(5)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .toHaveValueAndCounts([['inner1'], 'value'], {
           compute: 8,
         });
@@ -471,7 +420,7 @@ describe('contexts', () => {
         .toHaveHookValue([['inner1'], ['inner2', ['inner1']]]);
 
       expect(outer)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .withParams(1)
         .toHaveHookValue([['inner1'], ['inner2', ['inner1']]]);
 
@@ -482,7 +431,7 @@ describe('contexts', () => {
 
       expect(outer)
         .withParams(2)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .toHaveHookValue([['inner1'], ['inner2', 'ctxoverride']]);
 
       // a === 3
@@ -495,7 +444,7 @@ describe('contexts', () => {
 
       expect(outer)
         .withParams(3)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .toHaveHookValue([
           ['inner1', 'ctxoverride'],
           ['inner2', ['inner1', 'ctxinneroverride'], 'value2'],
@@ -508,7 +457,7 @@ describe('contexts', () => {
 
       expect(outer)
         .withParams(4)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .toHaveHookValue(['ctxoverride', ['inner2', ['inner1', 'ctxinneroverride'], 'value2']]);
 
       // a === 5
@@ -517,7 +466,7 @@ describe('contexts', () => {
         .toHaveHookValue([['inner1'], 'value2']);
       expect(outer)
         .withParams(5)
-        .withContexts({ [ctx]: 'ctxoverride' })
+        .withContexts([ctx, 'ctxoverride'])
         .toHaveHookValue([['inner1'], 'value2']);
 
       expect(inner1).toHaveCounts({ compute: 10 });

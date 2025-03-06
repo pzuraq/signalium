@@ -1,30 +1,11 @@
 export type * from './types.js';
 
-export {
-  createStateSignal,
-  createComputedSignal,
-  createAsyncComputedSignal,
-  createSubscriptionSignal,
-  createWatcherSignal,
-  createAsyncTaskSignal,
-  getCurrentConsumer,
-} from './signals.js';
+// export { createComputedSignal } from './signals/base.js';
 
-export {
-  state,
-  createContext,
-  useContext,
-  withContext,
-  computed,
-  asyncComputed,
-  asyncTask,
-  subscription,
-  watcher,
-  SignalScope,
-  type Context,
-  type SignalStoreMap,
-} from './hooks.js';
+export { state, computed, asyncComputed, asyncTask, subscription, watcher } from './hooks.js';
+
+export { createContext, useContext, withContexts, SignalScope } from './signals/contexts.js';
 
 export { setConfig } from './config.js';
 
-export { hashValue as stringifyArgs } from './utils.js';
+export { stringifyValue as stringifyArgs } from './utils.js';

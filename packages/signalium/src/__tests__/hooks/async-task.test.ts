@@ -126,8 +126,12 @@ describe('async tasks', () => {
       return a + b;
     });
 
-    const computed1 = computed(() => getC(1, 2));
-    const computed2 = computed(() => getC(2, 2));
+    const computed1 = computed(() => {
+      return getC(1, 2);
+    });
+    const computed2 = computed(() => {
+      return getC(2, 2);
+    });
 
     const task1 = computed1();
     const task2 = computed2();

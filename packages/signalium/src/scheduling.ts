@@ -1,13 +1,16 @@
-import { ComputedSignal } from './signals.js';
 import { scheduleFlush as _scheduleFlush, runBatch } from './config.js';
+import { ComputedSignal } from './signals/base.js';
+import { dirtySignalConsumers } from './signals/dirty.js';
+import { checkSignal, disconnectSignal } from './signals/get.js';
+import { runEffects } from './signals/watcher.js';
 import { Tracer } from './trace.js';
 
-let PENDING_DIRTIES: ComputedSignal<any>[] = [];
-let PENDING_PULLS: ComputedSignal<any>[] = [];
-let PENDING_WATCHERS: ComputedSignal<any>[] = [];
-let PENDING_CONNECTS = new Map<ComputedSignal<any>, number>();
-let PENDING_DISCONNECTS = new Map<ComputedSignal<any>, number>();
-let PENDING_EFFECTS: ComputedSignal<any>[] = [];
+let PENDING_DIRTIES: ComputedSignal<any, any>[] = [];
+let PENDING_PULLS: ComputedSignal<any, any>[] = [];
+let PENDING_WATCHERS: ComputedSignal<any, any>[] = [];
+let PENDING_CONNECTS = new Map<ComputedSignal<any, any>, number>();
+let PENDING_DISCONNECTS = new Map<ComputedSignal<any, any>, number>();
+let PENDING_EFFECTS: ComputedSignal<any, any>[] = [];
 let PENDING_TRACERS: Tracer[] = [];
 
 const microtask = () => Promise.resolve();
@@ -25,23 +28,23 @@ const scheduleFlush = (fn: () => void) => {
   _scheduleFlush(flushWatchers);
 };
 
-export const scheduleWatcher = (watcher: ComputedSignal<any>) => {
+export const scheduleWatcher = (watcher: ComputedSignal<any, any>) => {
   PENDING_WATCHERS.push(watcher);
 
   scheduleFlush(flushWatchers);
 };
 
-export const scheduleDirty = (signal: ComputedSignal<any>) => {
+export const scheduleDirty = (signal: ComputedSignal<any, any>) => {
   PENDING_DIRTIES.push(signal);
   scheduleFlush(flushWatchers);
 };
 
-export const schedulePull = (signal: ComputedSignal<any>) => {
+export const schedulePull = (signal: ComputedSignal<any, any>) => {
   PENDING_PULLS.push(signal);
   scheduleFlush(flushWatchers);
 };
 
-export const scheduleConnect = (connect: ComputedSignal<any>) => {
+export const scheduleConnect = (connect: ComputedSignal<any, any>) => {
   const current = PENDING_CONNECTS.get(connect) ?? 0;
 
   PENDING_CONNECTS.set(connect, current + 1);
@@ -49,7 +52,7 @@ export const scheduleConnect = (connect: ComputedSignal<any>) => {
   scheduleFlush(flushWatchers);
 };
 
-export const scheduleDisconnect = (disconnect: ComputedSignal<any>) => {
+export const scheduleDisconnect = (disconnect: ComputedSignal<any, any>) => {
   const current = PENDING_DISCONNECTS.get(disconnect) ?? 0;
 
   PENDING_DISCONNECTS.set(disconnect, current + 1);
@@ -57,7 +60,7 @@ export const scheduleDisconnect = (disconnect: ComputedSignal<any>) => {
   scheduleFlush(flushWatchers);
 };
 
-export const scheduleEffect = (signal: ComputedSignal<any>) => {
+export const scheduleEffect = (signal: ComputedSignal<any, any>) => {
   PENDING_EFFECTS.push(signal);
   scheduleFlush(flushWatchers);
 };
@@ -74,11 +77,11 @@ const flushWatchers = async () => {
   // the microtask queue until they are all settled
   while (PENDING_DIRTIES.length > 0 || PENDING_PULLS.length > 0) {
     for (const dirty of PENDING_DIRTIES) {
-      dirty._dirtyConsumers();
+      dirtySignalConsumers(dirty);
     }
 
     for (const pull of PENDING_PULLS) {
-      pull._check();
+      checkSignal(pull);
     }
 
     PENDING_DIRTIES = [];
@@ -93,19 +96,19 @@ const flushWatchers = async () => {
 
   runBatch(() => {
     for (const watcher of PENDING_WATCHERS) {
-      watcher._check();
+      checkSignal(watcher);
     }
 
     for (const [signal, count] of PENDING_CONNECTS) {
-      signal._check(true, count);
+      checkSignal(signal, true, count);
     }
 
     for (const [signal, count] of PENDING_DISCONNECTS) {
-      signal._disconnect(count);
+      disconnectSignal(signal, count);
     }
 
     for (const signal of PENDING_EFFECTS) {
-      signal._runEffects();
+      runEffects(signal as any);
     }
 
     for (const tracer of PENDING_TRACERS) {
@@ -127,4 +130,15 @@ export const settled = async () => {
   while (currentFlush) {
     await currentFlush.promise;
   }
+};
+
+export const batch = (fn: () => void) => {
+  let resolve: () => void;
+  const promise = new Promise<void>(r => (resolve = r));
+
+  currentFlush = { promise, resolve: resolve! };
+
+  fn();
+  flushWatchers();
+  // flushDisconnects();
 };

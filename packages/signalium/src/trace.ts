@@ -1,5 +1,5 @@
 import { scheduleTracer } from './scheduling.js';
-import { ComputedSignal } from './signals.js';
+import { ComputedSignal, SignalId } from './signals/base.js';
 import { Signal, Watcher } from './types.js';
 
 export let TRACER: TracerProxy | undefined;
@@ -18,6 +18,11 @@ export interface VisualizerLink {
   node: VisualizerNode;
 }
 
+export interface TracerMeta {
+  desc: string;
+  params: string;
+}
+
 export enum TracerEventType {
   StartUpdate = 'StartUpdate',
   EndUpdate = 'EndUpdate',
@@ -32,31 +37,31 @@ export enum TracerEventType {
 
 type StartUpdateEvent = {
   type: TracerEventType.StartUpdate;
-  id: string;
+  id: SignalId;
 };
 
 type EndUpdateEvent = {
   type: TracerEventType.EndUpdate;
-  id: string;
+  id: SignalId;
   value: unknown;
   preserveChildren?: boolean;
 };
 
 type StartLoadingEvent = {
   type: TracerEventType.StartLoading;
-  id: string;
+  id: SignalId;
 };
 
 type EndLoadingEvent = {
   type: TracerEventType.EndLoading;
-  id: string;
+  id: SignalId;
   value: unknown;
 };
 
 type ConnectedEvent = {
   type: TracerEventType.Connected;
-  id: string;
-  childId: string;
+  id: SignalId;
+  childId: SignalId;
   nodeType: VisualizerNodeType;
   name?: string;
   params?: string;
@@ -64,14 +69,14 @@ type ConnectedEvent = {
 
 type DisconnectedEvent = {
   type: TracerEventType.Disconnected;
-  id: string;
-  childId: string;
+  id: SignalId;
+  childId: SignalId;
 };
 
 type ConsumeStateEvent = {
   type: TracerEventType.ConsumeState;
-  id: string;
-  childId: string;
+  id: SignalId;
+  childId: SignalId;
   value: unknown;
   setValue: (value: unknown) => void;
 };
@@ -103,7 +108,7 @@ export class VisualizerNode {
     private tracer: Tracer,
     public depth: number,
     public type: VisualizerNodeType,
-    public id: string,
+    public id: SignalId,
     public value: unknown,
     public name?: string,
     public params?: string,
@@ -168,7 +173,7 @@ export class VisualizerNode {
     return shouldSkip;
   }
 
-  disconnectChild(childId: string) {
+  disconnectChild(childId: SignalId) {
     const childLink = this.children.find(link => link.node.id === childId);
 
     if (!childLink) {
@@ -208,7 +213,7 @@ export class VisualizerNode {
     this.notify();
   }
 
-  consumeState(id: string, value: unknown, setValue: (value: unknown) => void) {
+  consumeState(id: SignalId, value: unknown, setValue: (value: unknown) => void) {
     const existing = this.stateChildren.find(child => child.id === id);
 
     if (existing) {
@@ -281,7 +286,7 @@ class TraceFlush {
 }
 
 export class Tracer {
-  private nodeMap = new Map<string, VisualizerNode>();
+  private nodeMap = new Map<SignalId, VisualizerNode>();
 
   delay = 200;
   maxDepth = 0;
@@ -289,7 +294,7 @@ export class Tracer {
   private initialized = false;
 
   constructor(
-    id: string,
+    id: SignalId,
     immediate = false,
     public showParams = true,
     public showValue = true,
@@ -402,7 +407,7 @@ class TracerProxy {
     this.tracers.forEach(tracer => tracer.emit(event));
   }
 
-  createTracer(id: string, immediate = false): Tracer {
+  createTracer(id: SignalId, immediate = false): Tracer {
     const tracer = new Tracer(id, immediate);
 
     this.tracers.push(tracer);
@@ -428,11 +433,11 @@ export function setTracing(enabled: boolean) {
 }
 
 export function createTracer(_signal: Signal<unknown> | Watcher<unknown>, immediate = false) {
-  const signal = _signal as ComputedSignal<unknown>;
-  return createTracerFromId(signal._opts.id, immediate);
+  const signal = _signal as unknown as ComputedSignal<unknown, unknown[]>;
+  return createTracerFromId(signal.id, immediate);
 }
 
-export function createTracerFromId(id: string, immediate = false) {
+export function createTracerFromId(id: SignalId, immediate = false) {
   if (!TRACER) {
     throw new Error('Tracing is not enabled');
   }

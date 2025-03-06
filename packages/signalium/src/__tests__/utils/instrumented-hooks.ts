@@ -6,9 +6,10 @@ import {
   subscription as _subscription,
   watcher,
   SignalSubscribe,
-  withContext,
+  withContexts,
 } from '../../index.js';
 import { SignalOptionsWithInit, SignalSubscription, Watcher } from '../../types.js';
+import { Context } from '../../signals/contexts.js';
 
 class SignalHookCounts {
   name: string;
@@ -37,13 +38,17 @@ const countsKeys = Object.keys(new SignalHookCounts('')).filter(k => k !== 'name
 let currentOrder: string[] | undefined = [];
 const COUNTS = new WeakMap<object, SignalHookCounts>();
 
+type ContextPair<T extends unknown[]> = {
+  [K in keyof T]: [Context<T[K]>, NoInfer<T[K]>];
+};
+
 interface CustomMatchers<R = unknown> {
   toHaveHookValue: (v: any) => Assertion<R>;
   toHaveCounts: (counts: Partial<SignalHookCounts>) => Assertion<R>;
   toHaveValueAndCounts: (v: any, counts: Partial<SignalHookCounts>) => Assertion<R>;
   toHaveComputedOrder: (order: string[]) => Assertion<R>;
   withParams: R extends (...args: infer P) => any ? (...args: P) => Assertion<R> : (...args: any[]) => Assertion<R>;
-  withContexts: (contexts: Record<symbol, any>) => Assertion<R>;
+  withContexts: <C extends unknown[]>(...contexts: ContextPair<C>) => Assertion<R>;
 }
 
 declare module 'vitest' {
@@ -56,7 +61,7 @@ declare module 'vitest' {
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 const NEXT_ARGS = new WeakMap<Function, any[]>();
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const NEXT_CONTEXTS = new WeakMap<Function, Record<symbol, any>>();
+const NEXT_CONTEXTS = new WeakMap<Function, [Context<unknown>, unknown][]>();
 
 let w: Watcher<unknown> | undefined;
 
@@ -80,7 +85,7 @@ function toHaveHookValue(
 
   let w = watcher(() => {
     if (contexts) {
-      return withContext(contexts, () => {
+      return withContexts(contexts, () => {
         return hook(...args);
       });
     } else {
@@ -153,7 +158,7 @@ expect.extend({
   },
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-  withContexts(fn: Function, contexts: Record<symbol, any>) {
+  withContexts(fn: Function, ...contexts: [Context<unknown>, unknown][]) {
     NEXT_CONTEXTS.set(fn, contexts);
 
     return {

@@ -1,0 +1,37 @@
+{
+  "name": "@signalium/extensions",
+  "description": "Extensions for Signalium",
+  "version": "0.0.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pzuraq/signalium.git"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.0.12",
+    "debug": "^4.4.0",
+    "signalium": "0.3.5",
+    "tailwindcss": "^4.0.12"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "2.0.0-beta.29",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3",
+    "@tsconfig/svelte": "^5.0.4",
+    "@types/chrome": "^0.0.289",
+    "@types/debug": "^4.1.12",
+    "eslint": "^9.15.0",
+    "prettier": "^3.4.2",
+    "svelte": "^5.16.2",
+    "svelte-check": "^4.1.1",
+    "tailwindcss": "^4.0.12",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
+  }
+}

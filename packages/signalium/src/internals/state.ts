@@ -1,6 +1,6 @@
 import { TRACER as TRACER, TracerEventType } from '../trace.js';
 import { SignalEquals, SignalOptions } from '../types.js';
-import { ComputedSignal } from './base.js';
+import { DerivedSignal } from './base.js';
 import { CURRENT_CONSUMER } from './consumer.js';
 import { incrementStateClock } from './clock.js';
 import { dirtySignal } from './dirty.js';
@@ -8,9 +8,9 @@ import { dirtySignal } from './dirty.js';
 let STATE_ID = 0;
 
 export class StateSignal<T> implements StateSignal<T> {
-  private _value: T;
-  private _equals: SignalEquals<T>;
-  _subs: WeakRef<ComputedSignal<unknown, unknown[]>>[] = [];
+  _value: T;
+  _equals: SignalEquals<T>;
+  _subs: WeakRef<DerivedSignal<unknown, unknown[]>>[] = [];
   _desc: string;
   _id: number;
 
@@ -25,7 +25,7 @@ export class StateSignal<T> implements StateSignal<T> {
     if (CURRENT_CONSUMER !== undefined) {
       TRACER?.emit({
         type: TracerEventType.ConsumeState,
-        id: CURRENT_CONSUMER.id,
+        id: CURRENT_CONSUMER.tracerMeta!.id,
         childId: this._id,
         value: this._value,
         setValue: (value: unknown) => {
@@ -38,10 +38,16 @@ export class StateSignal<T> implements StateSignal<T> {
     return this._value!;
   }
 
+  update(fn: (value: T) => T) {
+    this.set(fn(this._value));
+  }
+
   set(value: T) {
     if (this._equals(value, this._value)) {
       return;
     }
+
+    // console.log('set', this._id, value, this._value, new Error().stack);
 
     incrementStateClock();
 

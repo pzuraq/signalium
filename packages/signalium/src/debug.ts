@@ -11,4 +11,4 @@ export {
   TRACER,
 } from './trace.js';
 
-export { scheduleTracer } from './scheduling.js';
+export { scheduleTracer } from './internals/scheduling.js';

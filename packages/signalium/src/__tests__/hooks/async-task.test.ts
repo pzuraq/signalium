@@ -121,7 +121,7 @@ describe('async tasks', () => {
     expect(getC).toHaveCounts({ compute: 2 });
   });
 
-  test('Separate tasks notify separately', async () => {
+  test('Tasks do not notify when the result is not used in a computed', async () => {
     const getC = asyncTask(async (a: number, b: number) => {
       return a + b;
     });
@@ -163,7 +163,7 @@ describe('async tasks', () => {
     expect(task2.isPending).toBe(false);
     expect(task2.result).toBe(undefined);
     expect(getC).toHaveCounts({ compute: 1 });
-    expect(computed1).toHaveCounts({ compute: 2 });
+    expect(computed1).toHaveCounts({ compute: 1 });
     expect(computed2).toHaveCounts({ compute: 1 });
 
     computed1();
@@ -179,7 +179,7 @@ describe('async tasks', () => {
     computed1();
     computed2();
 
-    expect(computed1).toHaveCounts({ compute: 3 });
+    expect(computed1).toHaveCounts({ compute: 1 });
     expect(computed2).toHaveCounts({ compute: 1 });
 
     const result2 = task2.run();
@@ -192,8 +192,8 @@ describe('async tasks', () => {
     computed1();
     computed2();
 
-    expect(computed1).toHaveCounts({ compute: 3 });
-    expect(computed2).toHaveCounts({ compute: 2 });
+    expect(computed1).toHaveCounts({ compute: 1 });
+    expect(computed2).toHaveCounts({ compute: 1 });
 
     expect(await result2).toBe(4);
     expect(task1.isPending).toBe(false);
@@ -205,8 +205,8 @@ describe('async tasks', () => {
     computed1();
     computed2();
 
-    expect(computed1).toHaveCounts({ compute: 3 });
-    expect(computed2).toHaveCounts({ compute: 3 });
+    expect(computed1).toHaveCounts({ compute: 1 });
+    expect(computed2).toHaveCounts({ compute: 1 });
   });
 
   test('Basic async task works with run args', async () => {

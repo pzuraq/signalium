@@ -1,19 +1,27 @@
-import { scheduleDisconnect } from '../scheduling.js';
+import { scheduleDisconnect } from './scheduling.js';
 import { TRACER as TRACER, TracerEventType } from '../trace.js';
 import { AsyncResult, AsyncTask } from '../types.js';
-import { ComputedSignal, Link, SignalType } from './base.js';
+import {
+  DerivedSignal,
+  Link,
+  SignalType,
+  ComputedSignal,
+  TypeToSignal,
+  AsyncComputedSignal,
+  AsyncTaskSignal,
+  SubscriptionSignal,
+} from './base.js';
 import { STATE_CLOCK } from './clock.js';
 import { CURRENT_CONSUMER, setCurrentConsumer } from './consumer.js';
-import { FN_CONTEXT_MASKS, getCurrentScope } from './contexts.js';
-import { runAsyncComputed } from './async.js';
 import { runSubscription } from './subscription.js';
 import { runWatcher } from './watcher.js';
+import { AsyncValueImpl } from './async.old.js';
 
 let CURRENT_ORD = 0;
 
-export function getSignal<T, Args extends unknown[]>(
-  signal: ComputedSignal<T, Args>,
-): T | AsyncResult<T> | AsyncTask<T, Args> {
+export function getValue<T, Args extends unknown[]>(
+  signal: DerivedSignal<T, Args>,
+): T | AsyncResult<T> | AsyncTask<T, unknown[]> {
   if (CURRENT_CONSUMER !== undefined) {
     const { deps, connectedCount } = CURRENT_CONSUMER;
     const prevLink = deps.get(signal);
@@ -21,10 +29,10 @@ export function getSignal<T, Args extends unknown[]>(
     if (prevLink === undefined) {
       TRACER?.emit({
         type: TracerEventType.Connected,
-        id: CURRENT_CONSUMER.id,
-        childId: signal.id,
-        name: signal.tracerMeta?.desc,
-        params: signal.tracerMeta?.params,
+        id: CURRENT_CONSUMER.tracerMeta!.id,
+        childId: signal.tracerMeta!.id,
+        name: signal.tracerMeta!.desc,
+        params: signal.tracerMeta!.params,
         nodeType: signal.type,
       });
     }
@@ -51,8 +59,6 @@ export function getSignal<T, Args extends unknown[]>(
       prevLink.consumedAt = STATE_CLOCK;
       signal.subs.add(prevLink);
     }
-
-    CURRENT_CONSUMER.contextMask |= signal.contextMask;
   } else {
     checkSignal(signal);
   }
@@ -61,7 +67,7 @@ export function getSignal<T, Args extends unknown[]>(
 }
 
 export function checkSignal(
-  signal: ComputedSignal<any, any>,
+  signal: DerivedSignal<any, any>,
   shouldWatch = false,
   connectCount = 1,
   immediate = false,
@@ -126,22 +132,19 @@ export function checkSignal(
 }
 
 function runSignal<T, Args extends unknown[]>(
-  signal: ComputedSignal<T, Args>,
+  signal: DerivedSignal<T, Args>,
   wasConnected: boolean,
   shouldConnect: boolean,
   immediate = false,
 ) {
   TRACER?.emit({
     type: TracerEventType.StartUpdate,
-    id: signal.id,
+    id: signal.tracerMeta!.id,
   });
 
   const { type, compute } = signal;
 
   const prevConsumer = CURRENT_CONSUMER;
-
-  const fnMask = FN_CONTEXT_MASKS.get(compute) ?? 0n;
-  const currentMask = signal.contextMask;
 
   const initialized = signal.updatedAt !== -1;
 
@@ -150,11 +153,11 @@ function runSignal<T, Args extends unknown[]>(
 
     switch (type) {
       case SignalType.Computed: {
-        const prevValue = signal.currentValue as T | undefined;
+        const prevValue = signal.currentValue;
         const nextValue = compute(...signal.args);
 
         if (!initialized || !signal.equals(prevValue!, nextValue)) {
-          signal.currentValue = nextValue as T;
+          signal.currentValue = nextValue;
           signal.updatedAt = STATE_CLOCK;
         }
 
@@ -162,7 +165,7 @@ function runSignal<T, Args extends unknown[]>(
       }
 
       case SignalType.AsyncComputed: {
-        runAsyncComputed(signal);
+        (signal.currentValue as AsyncValueImpl<T, Args, unknown[], unknown[]>).run();
         break;
       }
 
@@ -172,7 +175,6 @@ function runSignal<T, Args extends unknown[]>(
       }
 
       case SignalType.AsyncTask: {
-        // const value: AsyncResult<T> = signal.currentValue as AsyncResult<T>;
         break;
       }
 
@@ -184,11 +186,11 @@ function runSignal<T, Args extends unknown[]>(
   } finally {
     TRACER?.emit({
       type: TracerEventType.EndUpdate,
-      id: signal.id,
+      id: signal.tracerMeta!.id,
       value: signal.currentValue,
     });
 
-    const { contextMask, deps } = signal;
+    const { deps } = signal;
 
     for (const link of deps.values()) {
       if (link.consumedAt === STATE_CLOCK) continue;
@@ -201,25 +203,19 @@ function runSignal<T, Args extends unknown[]>(
 
       TRACER?.emit({
         type: TracerEventType.Disconnected,
-        id: signal.id,
-        childId: dep.id,
+        id: signal.tracerMeta!.id,
+        childId: dep.tracerMeta!.id,
       });
 
       deps.delete(dep);
       dep.subs.delete(link);
     }
 
-    if (!initialized || (contextMask | fnMask) !== currentMask) {
-      signal.updatedAt = STATE_CLOCK;
-      FN_CONTEXT_MASKS.set(compute, contextMask);
-      getCurrentScope().setSignal(signal, contextMask, initialized);
-    }
-
     setCurrentConsumer(prevConsumer);
   }
 }
 
-export function disconnectSignal(signal: ComputedSignal<any, any>, count = 1) {
+export function disconnectSignal(signal: DerivedSignal<any, any>, count = 1) {
   signal.connectedCount -= count;
 
   if (signal.connectedCount > 0) {

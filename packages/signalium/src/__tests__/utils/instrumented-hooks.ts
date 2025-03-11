@@ -9,7 +9,7 @@ import {
   withContexts,
 } from '../../index.js';
 import { SignalOptionsWithInit, SignalSubscription, Watcher } from '../../types.js';
-import { Context } from '../../signals/contexts.js';
+import { Context } from '../../internals/contexts.js';
 
 class SignalHookCounts {
   name: string;

@@ -8,12 +8,12 @@ import {
   WriteableSignal,
   SignalSubscribe,
 } from './types.js';
-import { hashValue } from './utils.js';
+import { hashValue } from './internals/utils.js';
 import { useSignalValue } from './config.js';
-import { createComputedSignal, SignalType } from './signals/base.js';
-import { getCurrentScope, ROOT_SCOPE, SignalScope } from './signals/contexts.js';
-import { addListener } from './signals/watcher.js';
-import { createStateSignal } from './signals/state.js';
+import { createDerivedSignal, SignalType } from './internals/base.js';
+import { getCurrentScope, ROOT_SCOPE, SignalScope } from './internals/contexts.js';
+import { addListener } from './internals/watcher.js';
+import { createStateSignal } from './internals/state.js';
 
 export const state = <T>(value: T, opts?: Partial<SignalOptions<T, unknown[]>>): WriteableSignal<T> => {
   const signal = createStateSignal(value, opts);
@@ -131,7 +131,7 @@ export function watcher<T>(fn: () => T, opts?: SignalOptions<T, unknown[]> & { s
 
   const key = hashValue(fn);
 
-  const w = createComputedSignal(SignalType.Watcher, key, fn, [], scope, opts);
+  const w = createDerivedSignal(SignalType.Watcher, fn, [], key, scope, opts);
 
   return {
     addListener: (listener, opts) => {

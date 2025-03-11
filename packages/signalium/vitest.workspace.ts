@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react';
 export default defineWorkspace([
   {
     test: {
-      include: ['src/__tests__/hooks/**.test.ts'],
+      include: ['src/__tests__/**/*.test.ts'],
       name: 'unit',
       environment: 'node',
     },

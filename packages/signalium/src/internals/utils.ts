@@ -1,4 +1,4 @@
-import { SignalType } from './signals/base.js';
+import { SignalType } from './base.js';
 
 const objectToIdMap = new WeakMap<object, string>();
 let nextId = 1;

@@ -1,5 +1,5 @@
-import { SignalScope } from './hooks.js';
-import { CURRENT_CONSUMER } from './signals/consumer.js';
+import { CURRENT_CONSUMER } from './internals/consumer.js';
+import { SignalScope } from './internals/contexts.js';
 
 export type FlushCallback = () => void;
 

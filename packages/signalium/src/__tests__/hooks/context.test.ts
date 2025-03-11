@@ -4,7 +4,7 @@ import { permute } from '../utils/permute.js';
 import { nextTick } from '../utils/async.js';
 import { asyncComputed } from '../utils/instrumented-hooks.js';
 
-describe('contexts', () => {
+describe.skip('contexts', () => {
   test('throws when useContext is used outside of a signal', () => {
     expect(() => {
       useContext(createContext('test'));

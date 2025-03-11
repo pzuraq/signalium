@@ -1,13 +1,15 @@
-import { scheduleWatcher } from '../scheduling.js';
-import { ComputedSignal, Link, SignalType } from './base.js';
+import { schedulePull, scheduleWatcher } from './scheduling.js';
+import { DerivedSignal, Link, SignalType } from './base.js';
 
-export function dirtySignal(signal: ComputedSignal<any, any>) {
+export function dirtySignal(signal: DerivedSignal<any, any>) {
   if (signal.type === SignalType.Subscription) {
     if (signal.connectedCount > 0) {
-      scheduleWatcher(signal);
+      schedulePull(signal);
     }
 
     // else do nothing, only schedule if connected
+  } else if (signal.type === SignalType.AsyncComputed) {
+    schedulePull(signal);
   } else if (signal.type === SignalType.Watcher) {
     scheduleWatcher(signal);
   } else {
@@ -15,7 +17,7 @@ export function dirtySignal(signal: ComputedSignal<any, any>) {
   }
 }
 
-export function dirtySignalConsumers(signal: ComputedSignal<any, any>, force = false) {
+export function dirtySignalConsumers(signal: DerivedSignal<any, any>, force = false) {
   for (const link of signal.subs.values()) {
     const sub = link.sub.deref();
 

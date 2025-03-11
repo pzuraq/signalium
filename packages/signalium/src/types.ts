@@ -1,4 +1,4 @@
-import { SignalScope } from './signals/contexts.js';
+import { SignalScope } from './internals/contexts.js';
 
 export interface Signal<T = unknown> {
   get(): T;
@@ -35,7 +35,6 @@ export interface SignalOptions<T, Args extends unknown[]> {
   equals?: SignalEquals<T> | false;
   id?: string;
   desc?: string;
-  params?: string;
   scope?: SignalScope;
   paramKey?: (...args: Args) => string;
 }

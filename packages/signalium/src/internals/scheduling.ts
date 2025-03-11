@@ -1,16 +1,16 @@
-import { scheduleFlush as _scheduleFlush, runBatch } from './config.js';
-import { ComputedSignal } from './signals/base.js';
-import { dirtySignalConsumers } from './signals/dirty.js';
-import { checkSignal, disconnectSignal } from './signals/get.js';
-import { runEffects } from './signals/watcher.js';
-import { Tracer } from './trace.js';
+import { scheduleFlush as _scheduleFlush, runBatch } from '../config.js';
+import { DerivedSignal } from './base.js';
+import { dirtySignalConsumers } from './dirty.js';
+import { checkSignal, disconnectSignal } from './get.js';
+import { runEffects } from './watcher.js';
+import { Tracer } from '../trace.js';
 
-let PENDING_DIRTIES: ComputedSignal<any, any>[] = [];
-let PENDING_PULLS: ComputedSignal<any, any>[] = [];
-let PENDING_WATCHERS: ComputedSignal<any, any>[] = [];
-let PENDING_CONNECTS = new Map<ComputedSignal<any, any>, number>();
-let PENDING_DISCONNECTS = new Map<ComputedSignal<any, any>, number>();
-let PENDING_EFFECTS: ComputedSignal<any, any>[] = [];
+let PENDING_DIRTIES: DerivedSignal<any, any>[] = [];
+let PENDING_PULLS: DerivedSignal<any, any>[] = [];
+let PENDING_WATCHERS: DerivedSignal<any, any>[] = [];
+let PENDING_CONNECTS = new Map<DerivedSignal<any, any>, number>();
+let PENDING_DISCONNECTS = new Map<DerivedSignal<any, any>, number>();
+let PENDING_EFFECTS: DerivedSignal<any, any>[] = [];
 let PENDING_TRACERS: Tracer[] = [];
 
 const microtask = () => Promise.resolve();
@@ -28,23 +28,23 @@ const scheduleFlush = (fn: () => void) => {
   _scheduleFlush(flushWatchers);
 };
 
-export const scheduleWatcher = (watcher: ComputedSignal<any, any>) => {
+export const scheduleWatcher = (watcher: DerivedSignal<any, any>) => {
   PENDING_WATCHERS.push(watcher);
 
   scheduleFlush(flushWatchers);
 };
 
-export const scheduleDirty = (signal: ComputedSignal<any, any>) => {
+export const scheduleDirty = (signal: DerivedSignal<any, any>) => {
   PENDING_DIRTIES.push(signal);
   scheduleFlush(flushWatchers);
 };
 
-export const schedulePull = (signal: ComputedSignal<any, any>) => {
+export const schedulePull = (signal: DerivedSignal<any, any>) => {
   PENDING_PULLS.push(signal);
   scheduleFlush(flushWatchers);
 };
 
-export const scheduleConnect = (connect: ComputedSignal<any, any>) => {
+export const scheduleConnect = (connect: DerivedSignal<any, any>) => {
   const current = PENDING_CONNECTS.get(connect) ?? 0;
 
   PENDING_CONNECTS.set(connect, current + 1);
@@ -52,7 +52,7 @@ export const scheduleConnect = (connect: ComputedSignal<any, any>) => {
   scheduleFlush(flushWatchers);
 };
 
-export const scheduleDisconnect = (disconnect: ComputedSignal<any, any>) => {
+export const scheduleDisconnect = (disconnect: DerivedSignal<any, any>) => {
   const current = PENDING_DISCONNECTS.get(disconnect) ?? 0;
 
   PENDING_DISCONNECTS.set(disconnect, current + 1);
@@ -60,7 +60,7 @@ export const scheduleDisconnect = (disconnect: ComputedSignal<any, any>) => {
   scheduleFlush(flushWatchers);
 };
 
-export const scheduleEffect = (signal: ComputedSignal<any, any>) => {
+export const scheduleEffect = (signal: DerivedSignal<any, any>) => {
   PENDING_EFFECTS.push(signal);
   scheduleFlush(flushWatchers);
 };

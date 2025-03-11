@@ -1,16 +1,8 @@
-import { scheduleTracer } from './scheduling.js';
-import { ComputedSignal, SignalId } from './signals/base.js';
+import { scheduleTracer } from './internals/scheduling.js';
+import { DerivedSignal, SignalId, SignalType } from './internals/base.js';
 import { Signal, Watcher } from './types.js';
 
 export let TRACER: TracerProxy | undefined;
-
-export enum VisualizerNodeType {
-  State,
-  Computed,
-  AsyncComputed,
-  Subscription,
-  Watcher,
-}
 
 export interface VisualizerLink {
   connected: boolean;
@@ -19,6 +11,7 @@ export interface VisualizerLink {
 }
 
 export interface TracerMeta {
+  id: SignalId;
   desc: string;
   params: string;
 }
@@ -62,7 +55,7 @@ type ConnectedEvent = {
   type: TracerEventType.Connected;
   id: SignalId;
   childId: SignalId;
-  nodeType: VisualizerNodeType;
+  nodeType: SignalType;
   name?: string;
   params?: string;
 };
@@ -107,7 +100,7 @@ export class VisualizerNode {
   constructor(
     private tracer: Tracer,
     public depth: number,
-    public type: VisualizerNodeType,
+    public type: SignalType,
     public id: SignalId,
     public value: unknown,
     public name?: string,
@@ -130,7 +123,7 @@ export class VisualizerNode {
   }
 
   setValue(value: unknown) {
-    if (this.type !== VisualizerNodeType.State) {
+    if (this.type !== SignalType.State) {
       throw new Error('setValue is only allowed on state nodes');
     }
 
@@ -224,7 +217,7 @@ export class VisualizerNode {
       const node = new VisualizerNode(
         this.tracer,
         this.depth + 1,
-        VisualizerNodeType.State,
+        SignalType.State,
         id,
         value,
         undefined,
@@ -303,7 +296,7 @@ export class Tracer {
     // If it's immediate, we should run the first flush immediately, skipping animations
     this.initialized = !immediate;
 
-    const node = new VisualizerNode(this, 0, VisualizerNodeType.Watcher, id, '');
+    const node = new VisualizerNode(this, 0, SignalType.Watcher, id, '');
 
     this.rootNode = node;
     this.nodeMap.set(id, node);
@@ -325,7 +318,7 @@ export class Tracer {
       if (!this.nodeMap.has(event.childId)) {
         const name = event.type === TracerEventType.Connected ? event.name : undefined;
         const params = event.type === TracerEventType.Connected ? event.params : undefined;
-        const nodeType = event.type === TracerEventType.Connected ? event.nodeType : VisualizerNodeType.State;
+        const nodeType = event.type === TracerEventType.Connected ? event.nodeType : SignalType.State;
 
         this.nodeMap.set(
           event.childId,
@@ -433,8 +426,8 @@ export function setTracing(enabled: boolean) {
 }
 
 export function createTracer(_signal: Signal<unknown> | Watcher<unknown>, immediate = false) {
-  const signal = _signal as unknown as ComputedSignal<unknown, unknown[]>;
-  return createTracerFromId(signal.id, immediate);
+  const signal = _signal as unknown as DerivedSignal<unknown, unknown[]>;
+  return createTracerFromId(signal.tracerMeta!.id, immediate);
 }
 
 export function createTracerFromId(id: SignalId, immediate = false) {

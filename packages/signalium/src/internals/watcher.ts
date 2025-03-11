@@ -1,4 +1,4 @@
-import { scheduleConnect, scheduleDisconnect, scheduleEffect } from '../scheduling.js';
+import { scheduleConnect, scheduleDisconnect, scheduleEffect } from './scheduling.js';
 import { WatcherListenerOptions } from '../types.js';
 import { WatcherSignal } from './base.js';
 import { incrementStateClock, STATE_CLOCK } from './clock.js';

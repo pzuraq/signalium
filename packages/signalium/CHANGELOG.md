@@ -1,5 +1,11 @@
 # signalium
 
+## 0.3.6
+
+### Patch Changes
+
+- 6248ad2: Fix Signals in tasks
+
 ## 0.3.5
 
 ### Patch Changes

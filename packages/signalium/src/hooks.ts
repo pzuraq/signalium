@@ -38,7 +38,7 @@ const CONTEXT_MASKS = new Map<Context<unknown>, bigint>();
 let CONTEXT_MASKS_COUNT = 0;
 
 const COMPUTED_CONTEXT_MASKS = new Map<object, bigint>();
-const COMPUTED_OWNERS = new WeakMap<ComputedSignal<unknown>, SignalScope>();
+export const COMPUTED_OWNERS = new WeakMap<ComputedSignal<unknown>, SignalScope>();
 
 let CURRENT_MASK: bigint | null = null;
 
@@ -223,6 +223,14 @@ export const clearRootScope = () => {
 };
 
 let OVERRIDE_SCOPE: SignalScope | undefined;
+
+export const getOverrideScope = () => {
+  return OVERRIDE_SCOPE;
+};
+
+export const setOverrideScope = (scope: SignalScope | undefined) => {
+  OVERRIDE_SCOPE = scope;
+};
 
 const getCurrentScope = (): SignalScope => {
   if (OVERRIDE_SCOPE !== undefined) {

@@ -24,6 +24,7 @@ import {
   Watcher,
   WatcherListenerOptions,
 } from './types.js';
+import { COMPUTED_OWNERS, getOverrideScope, setOverrideScope } from './hooks.js';
 
 let CURRENT_ORD = 0;
 let CURRENT_CONSUMER: ComputedSignal<any> | undefined;
@@ -746,7 +747,13 @@ export function createAsyncTaskSignal<T, Args extends unknown[]>(
 
     async run(...params) {
       if (!task.isPending) {
-        currentPromise = run(...params);
+        const prevOverrideScope = getOverrideScope();
+        try {
+          setOverrideScope(COMPUTED_OWNERS.get(signal as unknown as ComputedSignal<unknown>)!);
+          currentPromise = run(...params);
+        } finally {
+          setOverrideScope(prevOverrideScope);
+        }
       }
 
       return currentPromise!;

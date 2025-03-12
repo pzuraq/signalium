@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import React, { useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useContext, useRef, useState, useSyncExternalStore } from 'react';
 import { ScopeContext } from './context.js';
 import { watcher } from '../hooks.js';
 
@@ -9,13 +9,12 @@ import { watcher } from '../hooks.js';
 // should be checked on every major React version upgrade.
 const REACT_INTERNALS =
   (React as any).__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED ||
-  (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE ||
-  (React as any).__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+  (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
 
 const ReactCurrentDispatcher = REACT_INTERNALS.ReactCurrentDispatcher || REACT_INTERNALS;
 
 const getReactCurrentDispatcher = () => {
-  return ReactCurrentDispatcher.current || ReactCurrentDispatcher.H;
+  return ReactCurrentDispatcher?.current || ReactCurrentDispatcher?.A || null;
 };
 
 function isRendering() {
@@ -31,10 +30,12 @@ export function useSignalValue<T>(key: string, fn: () => T): T {
   const scope = useContext(ScopeContext);
   const ref = useRef<{
     value: T | undefined;
+    sub: (() => () => void) | undefined;
     unsub: (() => void) | undefined;
     key: string | undefined;
   }>({
     value: undefined,
+    sub: undefined,
     unsub: undefined,
     key: undefined,
   });
@@ -46,29 +47,44 @@ export function useSignalValue<T>(key: string, fn: () => T): T {
 
     const w = watcher(fn, { scope });
 
-    let initialized = false;
+    ref.current.sub = () => {
+      if (ref.current.unsub) {
+        return ref.current.unsub;
+      }
 
-    ref.current.unsub = w.addListener(
-      value => {
-        ref.current.value = value;
+      let initialized = false;
 
-        // Trigger an update to the component
-        if (initialized) {
-          setVersion(v => v + 1);
-        }
+      const unsub = w.addListener(
+        value => {
+          ref.current.value = value;
 
-        initialized = true;
-      },
-      {
-        immediate: true,
-      },
-    );
+          // Trigger an update to the component
+          if (initialized) {
+            setVersion(v => v + 1);
+          }
+
+          initialized = true;
+        },
+        {
+          immediate: true,
+        },
+      );
+
+      ref.current.unsub = () => {
+        ref.current.unsub = undefined;
+        unsub();
+      };
+
+      return ref.current.unsub!;
+    };
+
+    ref.current.sub!();
 
     ref.current.key = key;
   }
 
   useSyncExternalStore(
-    () => ref.current.unsub!,
+    ref.current.sub!,
     () => ref.current.value!,
     () => ref.current.value!,
   );

@@ -22,15 +22,18 @@ chrome.runtime.onMessageExternal.addListener(function (message: SignaliumMessage
   try {
     const newState: SignaliumMessage = {
       type: 'STATE_UPDATE_FROM_PAGE',
-      timestamp: message.timestamp,
+      source: message.source,
+      payload: message.payload,
     };
 
-    signaliumState.update((state) => {
-      console.log('devtools: updating signaliumState', state);
-      return {
-        log: [...state.log, newState],
-      };
-    });
+    console.log('devtools: newState', newState);
+
+    // signaliumState.update((state) => {
+    //   console.log('devtools: updating signaliumState', state);
+    //   return {
+    //     log: [...state.log, newState],
+    //   };
+    // });
   } catch (error) {
     log('Error updating signaliumState', error);
   }

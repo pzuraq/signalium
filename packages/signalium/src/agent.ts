@@ -3,7 +3,7 @@ import { createTracerFromId, TracerEvent } from './trace.js';
 
 let agentEnabled = false;
 
-type DispatchType = 'local' | 'remote';
+type DispatchType = 'local' | 'extension' | 'postMessage';
 
 type DispatchEvent = {
   timestamp: number;
@@ -39,27 +39,27 @@ export class SignaliumAgent {
     // this.dispatch(dispatchEvent);
   }
 
-  dispatchAll(type: DispatchType = 'local') {
+  dispatchAll(type: DispatchType = 'extension') {
     this.events.forEach((event) => this.dispatch(event, type));
     this.events = [];
   }
 
   private dispatch(event: DispatchEvent, type: DispatchType = 'local') {
     switch (type) {
-      case 'remote':
-        console.log('window.postMessage', event);
+      case 'postMessage':
+        window.postMessage({
+          source: 'signalium-agent',
+          type: 'SIGNALIUM_TRACE_EVENT',
+          payload: {
+            timestamp: event.timestamp,
+            id: event.event.id,
+            type: event.event.type,
+          },
+        }, '*');
+      case 'extension':
         // we might have to use JSON.stringify in the future to send more
         // complex objects
         if (chrome && chrome.runtime) {
-          // window.postMessage({
-          //   source: 'signalium-agent',
-          //   type: 'SIGNALIUM_TRACE_EVENT',
-          //   payload: {
-          //     timestamp: event.timestamp,
-          //     id: event.event.id,
-          //     type: event.event.type,
-          //   },
-          // }, '*');
           chrome.runtime.sendMessage('mmenepnfidokdocacodmhmnohianaama', {
             source: 'signalium-agent',
             type: 'SIGNALIUM_TRACE_EVENT',
@@ -73,7 +73,6 @@ export class SignaliumAgent {
         break;
       case 'local':
       default:
-        // debugger;
         console.log('dispatching event', event);
         break;
     }

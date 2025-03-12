@@ -391,7 +391,7 @@ export class Tracer {
     this.currentFlush = new TraceFlush(this, this.eventQueue, this.currentFlush);
     this.eventQueue = [];
 
-    signaliumAgentInstance?.dispatchAll('remote');
+    signaliumAgentInstance?.dispatchAll();
   }
 
   addListener(listener: () => void) {

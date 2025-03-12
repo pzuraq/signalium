@@ -8,16 +8,11 @@
 
   try {
     signaliumState.subscribe(event => {
-      console.log('event', event);
-      events.push(event);
+      // events.push(event);
     });
   } catch (error) {
     console.error('Error subscribing to signaliumState', error);
   }
-
-  $effect(() => {
-    console.log('events', events);
-  });
 </script>
 
 {#if isAvailable}

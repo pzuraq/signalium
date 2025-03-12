@@ -16,8 +16,7 @@ function App() {
       <h1>Signalium</h1>
       <div className="card">
         <button onClick={() => {
-          // console.log('count', count.get());
-          count.set(1);
+          count.set(count.get() + 1);
         }}>
           count is {count.get()}
         </button>

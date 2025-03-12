@@ -1,5 +1,11 @@
 # signalium
 
+## 0.3.7
+
+### Patch Changes
+
+- 4880c2c: Fix React integration with useSyncExternalStore
+
 ## 0.3.6
 
 ### Patch Changes

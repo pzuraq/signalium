@@ -1,11 +1,10 @@
 import { setTracing } from 'signalium/debug';
-import { computed, enableTracing } from 'signalium';
+import { computed } from 'signalium';
 import { setupReact, useStateSignal } from 'signalium/react';
 import './App.css'
 
 setTracing(true);
 setupReact();
-enableTracing();
 
 function App() {
   const count = useStateSignal(0);
@@ -17,8 +16,8 @@ function App() {
       <h1>Signalium</h1>
       <div className="card">
         <button onClick={() => {
-          count.set(count.get() + 1);
-          console.log('count', count.get());
+          // console.log('count', count.get());
+          count.set(1);
         }}>
           count is {count.get()}
         </button>

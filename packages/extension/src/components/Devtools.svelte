@@ -1,17 +1,23 @@
 <script lang="ts">
-  import { signaliumState } from '../storage.ts';
-  import { isSignaliumAvailable } from '../utils.ts';
+  import { signaliumState } from '../storage.js';
+  import { isSignaliumAvailable } from '../utils.js';
+  import type { SignaliumMessage } from '../types/index.js';
 
-  const events = $state([]);
-  const isAvailable = $state(isSignaliumAvailable());
+  const events = $state<SignaliumMessage[]>([]);
+  const isAvailable = $state(true);
 
   try {
     signaliumState.subscribe(event => {
+      console.log('event', event);
       events.push(event);
     });
   } catch (error) {
     console.error('Error subscribing to signaliumState', error);
   }
+
+  $effect(() => {
+    console.log('events', events);
+  });
 </script>
 
 {#if isAvailable}
@@ -20,7 +26,8 @@
     <div class="flex flex-col gap-4">
       {#each events as event}
         <div class="flex flex-row gap-4">
-          <p>{event.state}</p>
+          <p>{event.payload.id}</p>
+          <p>{event.payload.type}</p>
           <p>{event.timestamp}</p>
         </div>
       {/each}

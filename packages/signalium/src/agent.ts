@@ -1,4 +1,5 @@
-import { TracerEvent } from './trace.js';
+import { Tracer } from "./trace.js";
+import { createTracerFromId, TracerEvent } from './trace.js';
 
 let agentEnabled = false;
 
@@ -19,52 +20,60 @@ export function disableTracing() {
 
 export class SignaliumAgent {
   private events: DispatchEvent[] = [];
+  private tracer: Tracer;
 
   constructor() {
     this.events = [];
+    this.tracer = createTracerFromId('signalium-agent');
   }
 
   recordEvent(event: TracerEvent) {
-    if (!agentEnabled) {
-      return;
-    }
-
     const dispatchEvent: DispatchEvent = {
       timestamp: Date.now(),
       event,
     };
 
-    // 1. Store event in local list
     this.events.push(dispatchEvent);
 
-    debugger;
-    this.dispatch(dispatchEvent);
+    this.tracer.flush();
+    // this.dispatch(dispatchEvent);
   }
 
   dispatchAll(type: DispatchType = 'local') {
-    if (!agentEnabled) {
-      return;
-    }
-
     this.events.forEach((event) => this.dispatch(event, type));
     this.events = [];
   }
 
   private dispatch(event: DispatchEvent, type: DispatchType = 'local') {
-    if (!agentEnabled) {
-      return;
-    }
-
     switch (type) {
       case 'remote':
-        window.postMessage({
-          type: 'SIGNALIUM_TRACE_EVENT',
-          payload: event,
-        }, '*');
+        console.log('window.postMessage', event);
+        // we might have to use JSON.stringify in the future to send more
+        // complex objects
+        if (chrome && chrome.runtime) {
+          // window.postMessage({
+          //   source: 'signalium-agent',
+          //   type: 'SIGNALIUM_TRACE_EVENT',
+          //   payload: {
+          //     timestamp: event.timestamp,
+          //     id: event.event.id,
+          //     type: event.event.type,
+          //   },
+          // }, '*');
+          chrome.runtime.sendMessage('mmenepnfidokdocacodmhmnohianaama', {
+            source: 'signalium-agent',
+            type: 'SIGNALIUM_TRACE_EVENT',
+            payload: {
+              timestamp: event.timestamp,
+              id: event.event.id,
+              type: event.event.type,
+            },
+          })
+        }
         break;
       case 'local':
       default:
-        debugger;
+        // debugger;
         console.log('dispatching event', event);
         break;
     }

@@ -1,31 +1,50 @@
 import type { SignaliumMessage } from '../types/index.js';
 import { isSignaliumAvailable, sendMessage } from '../utils.js';
 
-function simulateStateChange() {
-  let counter = 0;
+window.addEventListener('message', (event) => {
+  if (event.source != window) {
+    return;
+  }
 
-  const interval = setInterval(() => {
-    const message: SignaliumMessage = {
-      type: 'STATE_UPDATE_FROM_PAGE',
-      timestamp: new Date().toISOString(),
-      data: {
-        source: 'Signalium',
-      },
-      payload: {
-        state: 'change',
-      },
-    };
+  console.log('content script: message', event);
 
-    if (counter > 7) {
-      clearInterval(interval);
-    }
+//   if (event.source !== window || !event.data) {
+//     return;
+//   }
 
-    counter++;
+//   if (event.data.source === 'signalium-agent') {
+//     const traceEvent = event.data.payload;
 
-    sendMessage(message);
-  }, 3000);
-}
+//     chrome.runtime.sendMessage({ type: 'STATE_UPDATE_FROM_PAGE', data: traceEvent });
+//   }
+});
 
-if (isSignaliumAvailable()) {
-  simulateStateChange();
-}
+// function simulateStateChange() {
+//   let counter = 0;
+
+//   const interval = setInterval(() => {
+//     const message: SignaliumMessage = {
+//       type: 'STATE_UPDATE_FROM_PAGE',
+//       timestamp: new Date().toISOString(),
+//       data: {
+//         source: 'Signalium',
+//       },
+//       payload: {
+//         id: 'signalium-agent',
+//         type: 'change',
+//       },
+//     };
+
+//     if (counter > 7) {
+//       clearInterval(interval);
+//     }
+
+//     counter++;
+
+//     sendMessage(message);
+//   }, 3000);
+// }
+
+// if (isSignaliumAvailable()) {
+//   simulateStateChange();
+// }

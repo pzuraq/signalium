@@ -1,10 +1,11 @@
+import { SignaliumAgent } from './agent.js';
 import { scheduleTracer } from './scheduling.js';
 import { ComputedSignal } from './signals.js';
 import { Signal, Watcher } from './types.js';
 import { createSignaliumAgent } from './agent.js';
 
 export let TRACER: TracerProxy | undefined;
-let signaliumAgentInstance = createSignaliumAgent();
+let signaliumAgentInstance: SignaliumAgent | undefined;
 
 export enum VisualizerNodeType {
   State,
@@ -312,7 +313,6 @@ export class Tracer {
   private currentFlush: TraceFlush | undefined;
 
   emit(event: TracerEvent) {
-    debugger;
     signaliumAgentInstance?.recordEvent(event);
 
     if (event.type === TracerEventType.Connected || event.type === TracerEventType.ConsumeState) {
@@ -342,7 +342,6 @@ export class Tracer {
   }
 
   handleEvent(event: TracerEvent, nextEvent?: TracerEvent) {
-    debugger;
     const node = this.nodeMap.get(event.id);
 
     if (!node) {
@@ -385,7 +384,6 @@ export class Tracer {
   }
 
   async flush() {
-    debugger;
     if (this.eventQueue.length === 0) {
       return;
     }
@@ -393,7 +391,7 @@ export class Tracer {
     this.currentFlush = new TraceFlush(this, this.eventQueue, this.currentFlush);
     this.eventQueue = [];
 
-    signaliumAgentInstance?.dispatchAll();
+    signaliumAgentInstance?.dispatchAll('remote');
   }
 
   addListener(listener: () => void) {
@@ -431,8 +429,10 @@ class TracerProxy {
 export function setTracing(enabled: boolean) {
   if (enabled) {
     TRACER = new TracerProxy();
+    signaliumAgentInstance = createSignaliumAgent();
   } else {
     TRACER = undefined;
+    signaliumAgentInstance = undefined;
   }
 }
 

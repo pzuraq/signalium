@@ -68,7 +68,6 @@ export const scheduleTracer = (tracer: Tracer) => {
 };
 
 const flushWatchers = async () => {
-  debugger;
   const flush = currentFlush!;
 
   // Flush all the dirty signals and pulls recursively, clearing
@@ -109,7 +108,6 @@ const flushWatchers = async () => {
       signal._runEffects();
     }
 
-    debugger;
     for (const tracer of PENDING_TRACERS) {
       tracer.flush();
     }

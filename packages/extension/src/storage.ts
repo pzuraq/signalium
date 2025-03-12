@@ -45,6 +45,7 @@ export function persistentStore<T>(key: string, initialValue: T): Writable<T> {
     update(this: void, updater: Updater<T>): void {
       return store.update((prev: T): T => {
         const value = updater(prev);
+        console.log('storage: updating', value);
         updateChromeStorage(value);
         return value;
       });
@@ -53,4 +54,6 @@ export function persistentStore<T>(key: string, initialValue: T): Writable<T> {
   };
 }
 
-export const signaliumState = persistentStore<SignaliumMessage>('signaliumState', []);
+export const signaliumState = persistentStore<{ log: SignaliumMessage[] }>('signaliumState', {
+  log: [],
+});

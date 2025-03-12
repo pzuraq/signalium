@@ -13,6 +13,9 @@ export default defineManifest(async () => {
     background: {
       service_worker: 'src/background/index.ts',
     },
+    "externally_connectable": {
+      matches: ['https://*/*', 'http://*/*'],
+    },
     content_scripts: [
       {
         matches: ['https://*/*'],

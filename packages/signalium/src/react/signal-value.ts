@@ -47,12 +47,12 @@ export function useSignalValue<T>(key: string, fn: () => T): T {
 
     const w = watcher(fn, { scope });
 
+    let initialized = false;
+
     ref.current.sub = () => {
       if (ref.current.unsub) {
         return ref.current.unsub;
       }
-
-      let initialized = false;
 
       const unsub = w.addListener(
         value => {

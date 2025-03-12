@@ -1,5 +1,11 @@
 # signalium
 
+## 0.3.8
+
+### Patch Changes
+
+- e1101e6: Fix initialization location in React
+
 ## 0.3.7
 
 ### Patch Changes

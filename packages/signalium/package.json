@@ -63,7 +63,7 @@
     "dev": "vitest",
     "test": "vitest run",
     "check-types": "tsc --noEmit",
-    "build": "npm run build:esm && npm run build:cjs",
+    "build": "rm -rf dist && npm run build:esm && npm run build:cjs",
     "build:esm": "tsc",
     "build:cjs": "tsc --module commonjs --outDir dist/cjs --moduleResolution node"
   },

@@ -89,3 +89,14 @@ export interface WatcherListenerOptions {
 export interface Watcher<T> {
   addListener(listener: (value: T) => void, opts?: WatcherListenerOptions): () => void;
 }
+
+declare global {
+  interface Window {
+    __Signalium__: {
+      version: string;
+      trace: {
+        enabled: boolean;
+      };
+    };
+  }
+}

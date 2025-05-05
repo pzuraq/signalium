@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies [2d4db91]
+  - signalium@1.0.1
+
 ## 0.0.10
 
 ### Patch Changes

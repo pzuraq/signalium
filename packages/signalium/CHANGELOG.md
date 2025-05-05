@@ -1,5 +1,11 @@
 # signalium
 
+## 1.0.1
+
+### Patch Changes
+
+- 2d4db91: Bind run functions to promise instances so they can be destructured
+
 ## 1.0.0
 
 ### Major Changes

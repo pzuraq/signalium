@@ -1,6 +1,6 @@
 {
   "name": "signalium",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "repository": "https://github.com/pzuraq/signalium",
   "description": "Chain-reactivity at critical mass",

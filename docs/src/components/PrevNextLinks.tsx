@@ -58,7 +58,9 @@ function PageLink({
 export function PrevNextLinks() {
   let pathname = usePathname();
   let allLinks = flattenNavigation(navigation);
-  let linkIndex = allLinks.findIndex((link) => link.href === pathname);
+  let linkIndex = allLinks.findIndex(
+    (link) => link.href.replace(/#.*$/, '') === pathname,
+  );
   let previousPage = linkIndex > -1 ? allLinks[linkIndex - 1] : null;
   let nextPage = linkIndex > -1 ? allLinks[linkIndex + 1] : null;
 

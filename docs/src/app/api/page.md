@@ -17,31 +17,49 @@ export function state<T>(
 ): WriteableSignal<T>;
 ```
 
-### computed
+Creates a new state signal with the given initial value. State signals are mutable values that can trigger reactivity when they change.
+
+#### WriteableSignal<T> Interface
 
 ```ts
-export function computed<T, Args extends unknown[]>(
-  fn: (...args: Args) => T,
-  opts?: SignalOptions<T, Args>,
-): (...args: Args) => T;
+interface WriteableSignal<T> {
+  get(): T; // Get the current value
+  set(value: T): void; // Set a new value
+  update(updater: (value: T) => T): void; // Update using a function
+  peek(): T; // Get the value without creating a dependency
+  addListener(listener: (value: T) => void): () => void; // Listen for changes
+}
 ```
 
-### asyncComputed
+### reactive
 
 ```ts
-export function asyncComputed<T, Args extends unknown[]>(
-  fn: (...args: Args) => T,
-  opts?: SignalOptionsWithInit<T, Args>,
-): (...args: Args) => AsyncResult<T>;
-```
-
-### asyncTask
-
-```ts
-export function asyncTask<T, Args extends unknown[]>(
+export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
   opts?: SignalOptions<T, Args>,
-): (...args: Args) => AsyncTask<T>;
+): (...args: Args) => ReactiveValue<T>;
+```
+
+Creates a reactive function that tracks dependencies and automatically updates when those dependencies change.
+
+### task
+
+```ts
+export function task<T, Args extends unknown[]>(
+  fn: (...args: Args) => Promise<T>,
+  opts?: SignalOptions<T, Args>,
+): ReactiveTask<T, Args>;
+```
+
+Creates a reactive task for handling asynchronous operations. Tasks are similar to reactive functions but are specialized for promises.
+
+#### ReactiveTask<T, Args> Interface
+
+```ts
+interface ReactiveTask<T, Args extends unknown[]>
+  extends ReactivePromise<T, Args> {
+  run(...args: Args): ReactivePromise<T>; // Manually trigger the task
+}
 ```
 
 ### subscription
@@ -50,122 +68,157 @@ export function asyncTask<T, Args extends unknown[]>(
 export function subscription<T, Args extends unknown[]>(
   fn: SignalSubscribe<T, Args>,
   opts?: SignalOptionsWithInit<T, Args>,
-): (...args: Args) => T;
+): ReactiveSubscription<T>;
+```
+
+Creates a reactive subscription for handling long-running, asymmetric async operations like websockets, polling, or event listeners.
+
+#### ReactiveSubscription<T> Interface
+
+```ts
+interface ReactiveSubscription<T> extends ReactivePromise<T> {
+  rerun(): void; // Manually trigger the subscription to rerun
+}
 ```
 
 ### watcher
 
 ```ts
-export function watcher<T>(
-  fn: (prev: T | undefined) => T,
-  opts?: SignalOptions<T>,
-): Watcher<T>;
+export function watcher<T>(fn: () => T): Watcher<T>;
 ```
 
-## Types
+Creates a watcher that listens to updates from signals externally. Watchers are how signals are consumed by frameworks and applications.
+
+### callback
 
 ```ts
-// ===========================
-//           Signals
-// ===========================
+export function callback<T, Args extends unknown[]>(
+  fn: (...args: Args) => T,
+): (...args: Args) => T;
+```
 
-export interface Signal<T = unknown> {
-  get(): T;
-}
+Creates a callback function that is owned by the current reactive context. This essentially allows you to use the same contexts as the owner within the callback
 
-export interface WriteableSignal<T> extends Signal<T> {
-  set(value: T): void;
-}
+### createContext
 
-export type AsyncSignal<T> = Signal<AsyncResult<T>>;
+```ts
+export function createContext<T>(
+  initialValue: T,
+  description?: string,
+): Context<T>;
+```
 
-// ===========================
-//      Signal Parameters
-// ===========================
+Creates a context that can be used to provide values to a subtree of reactive functions.
 
-export type SignalCompute<T> = (prev: T | undefined) => T;
+### useContext
 
-export type SignalAsyncCompute<T> = (prev: T | undefined) => T | Promise<T>;
+```ts
+export function useContext<T>(context: Context<T>): T;
+```
 
-export type SignalEquals<T> = (prev: T, next: T) => boolean;
+Retrieves the value from a context. Must be called within a reactive function or a component that has a parent provider.
 
-export type SignalSubscription = {
-  update?(): void;
-  unsubscribe?(): void;
-};
+### withContexts
 
-export type SignalSubscribe<T> = (
-  get: () => T | undefined,
-  set: (value: T) => void,
-) => SignalSubscription | undefined | void;
+```ts
+export function withContexts<C extends unknown[], U>(
+  contexts: [...ContextPair<C>],
+  fn: () => U,
+): U;
+```
 
-export interface SignalOptions<T> {
-  equals?: SignalEquals<T> | false;
-  id?: string;
-  desc?: string;
-  params?: string;
-  paramKey?: (...args: Args) => string;
-  scope?: SignalScope;
-}
+Executes a function with the provided context values, making them available to any reactive function called within.
 
-export interface SignalOptionsWithInit<T> extends SignalOptions<T> {
-  initValue: T;
-}
+#### Watcher<T> Interface
 
-// ===========================
-//            Async
-// ===========================
-
-export interface AsyncBaseResult<T> {
-  invalidate(): void;
-  await(): T;
-}
-
-export interface AsyncPending<T> extends AsyncBaseResult<T> {
-  result: undefined;
-  error: unknown;
-  isPending: boolean;
-  isReady: false;
-  isError: boolean;
-  isSuccess: boolean;
-  didResolve: boolean;
-}
-
-export interface AsyncReady<T> extends AsyncBaseResult<T> {
-  result: T;
-  error: unknown;
-  isPending: boolean;
-  isReady: true;
-  isError: boolean;
-  isSuccess: boolean;
-  didResolve: boolean;
-}
-
-export type AsyncResult<T> = AsyncPending<T> | AsyncReady<T>;
-
-export interface AsyncTask<T, Args extends unknown[] = unknown[]> {
-  result: T | undefined;
-  error: unknown;
-  isPending: boolean;
-  isSuccess: boolean;
-  isError: boolean;
-  isReady: boolean;
-
-  run(...args: Args): Promise<T>;
-}
-
-// ===========================
-//          Watchers
-// ===========================
-
-export interface WatcherListenerOptions {
-  immediate?: boolean;
-}
-
-export interface Watcher<T> {
-  addListener(
-    listener: (value: T) => void,
-    opts?: WatcherListenerOptions,
-  ): () => void;
+```ts
+interface Watcher<T> {
+  addListener(listener: (value: T) => void): () => void; // Add a listener for changes
+  get(): T; // Get the current value and track dependencies
+  peek(): T; // Get the current value without tracking dependencies
 }
 ```
+
+### isReactivePromise
+
+```ts
+export function isReactivePromise<T, Args extends unknown[]>(
+  obj: unknown,
+): boolean;
+```
+
+Checks if a value is a reactive promise.
+
+### isReactiveTask
+
+```ts
+export function isReactiveTask<T, Args extends unknown[]>(
+  obj: unknown,
+): boolean;
+```
+
+Checks if a value is a reactive task.
+
+### isReactiveSubscription
+
+```ts
+export function isReactiveSubscription<T, Args extends unknown[]>(
+  obj: unknown,
+): boolean;
+```
+
+Checks if a value is a reactive subscription.
+
+### hashValue
+
+```ts
+export function hashValue(value: unknown): number;
+```
+
+Generates a consistent hash for a value. Used internally for caching and memoization.
+
+### registerCustomHash
+
+```ts
+export function registerCustomHash<T>(
+  ctor: { new (): T },
+  hashFn: (obj: T) => number,
+): void;
+```
+
+Registers a custom hash function for a specific class. Useful for objects that need special equality considerations.
+
+## signalium/react
+
+### setupReact
+
+```ts
+export function setupReact(): void;
+```
+
+Initializes the React integration. Call this once at or near the root of your application.
+
+### useStateSignal
+
+```ts
+export function useStateSignal<T>(
+  value: T,
+  opts?: SignalOptions<T, unknown[]>,
+): WriteableSignal<T>;
+```
+
+Creates a component-scoped state signal that will be cleaned up when the component unmounts.
+
+### ContextProvider
+
+```tsx
+export function ContextProvider({
+  contexts,
+  children,
+}: {
+  contexts: ContextPair<unknown[]>;
+  children: React.ReactNode;
+}): React.ReactElement;
+```
+
+A component that provides multiple Signalium contexts to a React component tree.

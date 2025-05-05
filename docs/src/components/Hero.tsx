@@ -13,14 +13,12 @@ export function Hero() {
         <div className="mx-auto grid max-w-4xl grid-cols-1 items-center gap-x-8 gap-y-8 px-4 pb-10 md:grid-cols-2 lg:min-h-[calc(100vh-10rem)] lg:max-w-8xl lg:gap-x-12 lg:px-8 xl:grid-cols-[2fr_3fr] xl:gap-x-16 xl:px-12">
           <div className="order-0 text-center md:hidden">
             <p className="bg-linear-to-r from-pink-200 via-purple-300/80 to-violet-200 bg-clip-text pt-2 font-display text-[28px] tracking-tight text-transparent md:text-5xl">
-              Reactivity. <br className="hidden md:block" /> Beyond React.
+              Reactivity. <br className="hidden md:block" /> Reimagined.
             </p>
             <p className="mt-1 text-base leading-snug tracking-tight text-secondary-300 md:text-2xl">
-              Signalium is a complete, batteries-included state-management
-              system for React apps, with support for async, subscription
-              management, and more out-of-the-box. Say goodbye to dependency
-              lists, performance issues, and the overall complexity of Hooks -
-              without rewriting your entire app.
+              Simple, composable, and built for any environment from the browser
+              to the backend, Signalium brings universal reactivity to your
+              entire stack.
             </p>
           </div>
           <div className="relative z-10 order-2 flex items-center justify-center max-md:min-h-screen md:order-0">
@@ -36,21 +34,21 @@ export function Hero() {
 
             <div className="relative">
               <p className="inline bg-linear-to-r from-pink-200 via-purple-300/80 to-violet-200 bg-clip-text font-display text-[28px] tracking-tight text-transparent max-md:hidden md:text-5xl">
-                Reactivity. <br className="hidden md:block" /> Beyond React.
+                Reactivity. <br />
+                Reimagined.
               </p>
-              <p className="mt-3 mb-3 text-lg leading-snug tracking-tight text-secondary-300 max-md:hidden md:text-xl">
-                Signalium is a complete, framework-agnostic replacement for
-                React Hooks that works everywhere: Single-page apps, native
-                clients, server apps, background threads, and more.
+              <p className="mt-3 mb-3 text-xl leading-snug tracking-tight text-secondary-300 max-md:hidden md:text-xl">
+                Simple, composable, and built for any environment from the
+                browser to the backend, Signalium brings universal reactivity to
+                your entire stack.
               </p>
-              <p className="mt-3 mb-8 text-lg leading-snug tracking-tight text-secondary-300 max-md:hidden md:text-xl">
-                Say goodbye to endless dependency lists, performance issues, and
-                complex side-effects. With out of the box support for async,
-                contexts, managed-effects, and more, Signalium builds on the
-                best of Hooks, and leaves behind the rest.
+              <p className="mt-3 mb-6 text-xl leading-snug tracking-tight text-secondary-300 max-md:hidden md:text-xl">
+                Inspired by the best parts of React Hooks, grounded in a unified
+                signal model, and built to scale across any environment —
+                Signalium is all signal, no noise.
               </p>
               <div className="flex justify-center gap-4 lg:justify-start">
-                <Button href="/introduction">Get started</Button>
+                <Button href="/#getting-started">Get started</Button>
                 <Button
                   href="https://github.com/pzuraq/signalium"
                   variant="secondary"
@@ -134,24 +132,26 @@ export function Hero() {
               interactive={false}
               showGradients={true}
               source={`
-                const useCounter = subscription((state, ms) => {
-                  const id = setInterval(() => state.set(state.get() + 1), ms)
+                const useCounter = reactive((ms) => {
+                  return subscription((state) => {
+                    const id = setInterval(() => state.set(state.get() + 1), ms)
 
-                  return () => clearInterval(id)
-                }, { initValue: 0 });
+                    return () => clearInterval(id)
+                  }, { initValue: 0 });
+                });
 
-                const useDivide = computed((value, divideBy) =>
+                const useDivide = reactive((value, divideBy) =>
                   value / divideBy
                 );
 
-                const useFloor = computed((value) => Math.floor(value));
+                const useFloor = reactive((value) => Math.floor(value));
 
-                const useQuotient = computed((value, divideBy) =>
+                const useQuotient = reactive((value, divideBy) =>
                   useFloor(useDivide(value, divideBy))
                 );
 
-                const useFloorCounter = computed(() =>
-                  useQuotient(useCounter(5000), 3)
+                const useFloorCounter = reactive(() =>
+                  useQuotient(useCounter(5000).value, 3)
                 );
 
                 let renderCount = 0;

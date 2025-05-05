@@ -1,7 +1,10 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import React, { useCallback, useContext, useRef, useState, useSyncExternalStore } from 'react';
-import { ScopeContext } from './context.js';
-import { watcher } from '../hooks.js';
+import React, { useCallback, useSyncExternalStore } from 'react';
+import type { DerivedSignal } from '../internals/derived.js';
+import type { StateSignal } from '../internals/state.js';
+import type { ReactiveValue } from '../types.js';
+import { isReactivePromise } from '../internals/utils/type-utils.js';
+import { isReactiveSubscription } from '../internals/async.js';
 
 // This is a private React internal that we need to access to check if we are rendering.
 // There is no other consistent way to check if we are rendering in both development
@@ -9,85 +12,62 @@ import { watcher } from '../hooks.js';
 // should be checked on every major React version upgrade.
 const REACT_INTERNALS =
   (React as any).__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED ||
-  (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+  (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE ||
+  (React as any).__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
 
 const ReactCurrentDispatcher = REACT_INTERNALS.ReactCurrentDispatcher || REACT_INTERNALS;
+const ReactCurrentOwner = REACT_INTERNALS.ReactCurrentOwner || REACT_INTERNALS;
 
 const getReactCurrentDispatcher = () => {
-  return ReactCurrentDispatcher?.current || ReactCurrentDispatcher?.A || null;
+  return ReactCurrentDispatcher.current || REACT_INTERNALS.H;
+};
+
+const getReactCurrentOwner = () => {
+  return ReactCurrentOwner.current || REACT_INTERNALS.A;
 };
 
 function isRendering() {
-  return getReactCurrentDispatcher() !== null;
+  return !!getReactCurrentDispatcher() && !!getReactCurrentOwner();
 }
 
-export function useSignalValue<T>(key: string, fn: () => T): T {
+export function useStateSignal<T>(signal: StateSignal<T>): T {
   if (!isRendering()) {
-    return fn();
+    return signal.peek();
   }
 
-  const [, setVersion] = useState(0);
-  const scope = useContext(ScopeContext);
-  const ref = useRef<{
-    value: T | undefined;
-    sub: (() => () => void) | undefined;
-    unsub: (() => void) | undefined;
-    key: string | undefined;
-  }>({
-    value: undefined,
-    sub: undefined,
-    unsub: undefined,
-    key: undefined,
-  });
+  return useSyncExternalStore(
+    useCallback(onStoreChange => signal.addListener(onStoreChange), [signal]),
+    () => signal.peek(),
+    () => signal.peek(),
+  );
+}
 
-  const currentKey = ref.current.key;
-
-  if (key !== currentKey) {
-    ref.current.unsub?.();
-
-    const w = watcher(fn, { scope });
-
-    let initialized = false;
-
-    ref.current.sub = () => {
-      if (ref.current.unsub) {
-        return ref.current.unsub;
-      }
-
-      const unsub = w.addListener(
-        value => {
-          ref.current.value = value;
-
-          // Trigger an update to the component
-          if (initialized) {
-            setVersion(v => v + 1);
-          }
-
-          initialized = true;
-        },
-        {
-          immediate: true,
-        },
-      );
-
-      ref.current.unsub = () => {
-        ref.current.unsub = undefined;
-        unsub();
-      };
-
-      return ref.current.unsub!;
-    };
-
-    ref.current.sub!();
-
-    ref.current.key = key;
+export function useDerivedSignal<T>(signal: DerivedSignal<T, unknown[]>): ReactiveValue<T> {
+  if (!isRendering()) {
+    return signal.get();
   }
 
-  useSyncExternalStore(
-    ref.current.sub!,
-    () => ref.current.value!,
-    () => ref.current.value!,
+  const value = useSyncExternalStore(
+    signal.addListenerLazy(),
+    () => signal.get(),
+    () => signal.get(),
   );
 
-  return ref.current.value!;
+  // Reactive promises can update their value independently of the signal, since
+  // we reuse the same promise object for each result. We need to entangle the
+  // version of the promise here so that we can trigger a re-render when the
+  // promise value updates.
+  //
+  // If hooks could be called in dynamic order this would not be necessary, we
+  // could entangle the promise when it is used. But, because that is not the
+  // case, we need to eagerly entangle.
+  if (typeof value === 'object' && value !== null && isReactivePromise(value)) {
+    if (isReactiveSubscription(value)) {
+      useDerivedSignal(value['_signal'] as DerivedSignal<any, unknown[]>);
+    }
+
+    useStateSignal(value['_version']);
+  }
+
+  return value as ReactiveValue<T>;
 }

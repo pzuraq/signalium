@@ -3,9 +3,8 @@ import {
   Tracer,
   TRACER,
   TracerEventType,
-  VisualizerNodeType,
+  SignalType,
 } from 'signalium/debug';
-import { stringifyArgs, watcher } from 'signalium';
 import { useRef, useState as _useState, useEffect } from 'react';
 
 let CURRENT_HOOK_ID: string | undefined;
@@ -16,13 +15,13 @@ interface HookOptions {
 }
 
 export function hook<T, Args extends unknown[]>(
-  type: VisualizerNodeType,
+  type: SignalType,
   fn: (...args: Args) => T,
   { desc }: HookOptions = {},
 ): (...args: Args) => T {
   return (...args: Args) => {
     const fnName = desc ?? fn.name;
-    const stringifiedArgs = stringifyArgs(args).slice(1, -1);
+    const stringifiedArgs = JSON.stringify(args).slice(1, -1);
     const hookId = `${fnName}(${stringifiedArgs})`;
     const connectedId = useRef('');
 
@@ -85,25 +84,11 @@ export const useState: typeof _useState = <T>(
   return [state, setState];
 };
 
-export const computedHook = <T, Args extends unknown[]>(
+export const reactiveHook = <T, Args extends unknown[]>(
   fn: (...args: Args) => T,
   opts: HookOptions = {},
 ): ((...args: Args) => T) => {
-  return hook(VisualizerNodeType.Computed, fn, opts);
-};
-
-export const asyncComputedHook = <T, Args extends unknown[]>(
-  fn: (...args: Args) => Promise<T>,
-  opts: HookOptions = {},
-): ((...args: Args) => Promise<T>) => {
-  return hook(VisualizerNodeType.AsyncComputed, fn, opts);
-};
-
-export const subscriptionHook = <T, Args extends unknown[]>(
-  fn: (...args: Args) => T,
-  opts: HookOptions = {},
-): ((...args: Args) => T) => {
-  return hook(VisualizerNodeType.Subscription, fn, opts);
+  return hook(SignalType.Reactive, fn, opts);
 };
 
 export const createHookWatcher = <T>(

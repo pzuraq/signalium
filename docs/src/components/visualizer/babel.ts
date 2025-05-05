@@ -38,8 +38,7 @@ export const addDescOptions = (babel: any) => {
         // Check if it's a call to computed or subscription
         if (
           t.isIdentifier(path.node.callee) &&
-          (path.node.callee.name === 'computed' ||
-            path.node.callee.name === 'asyncComputed' ||
+          (path.node.callee.name === 'reactive' ||
             path.node.callee.name === 'subscription')
         ) {
           // Get the function name from the variable declaration

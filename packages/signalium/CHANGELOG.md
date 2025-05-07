@@ -1,5 +1,11 @@
 # signalium
 
+## 1.0.2
+
+### Patch Changes
+
+- c4cec0a: Fix React render check logic
+
 ## 1.0.1
 
 ### Patch Changes

@@ -15,19 +15,19 @@ const REACT_INTERNALS =
   (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE ||
   (React as any).__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
 
+const IS_REACT_18 = !!REACT_INTERNALS.ReactCurrentDispatcher;
 const ReactCurrentDispatcher = REACT_INTERNALS.ReactCurrentDispatcher || REACT_INTERNALS;
-const ReactCurrentOwner = REACT_INTERNALS.ReactCurrentOwner || REACT_INTERNALS;
-
-const getReactCurrentDispatcher = () => {
-  return ReactCurrentDispatcher.current || REACT_INTERNALS.H;
-};
-
-const getReactCurrentOwner = () => {
-  return ReactCurrentOwner.current || REACT_INTERNALS.A;
-};
 
 function isRendering() {
-  return !!getReactCurrentDispatcher() && !!getReactCurrentOwner();
+  const dispatcher = IS_REACT_18 ? ReactCurrentDispatcher.current : ReactCurrentDispatcher.H;
+
+  return (
+    !!dispatcher &&
+    // dispatcher can be in a state where it's defined, but all hooks are invalid to call.
+    // Only way we can tell is that if they are invalid, they will all be equal to each other
+    // (e.g. because it's the function that throws an error)
+    dispatcher.useState !== dispatcher.useEffect
+  );
 }
 
 export function useStateSignal<T>(signal: StateSignal<T>): T {

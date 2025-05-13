@@ -3,21 +3,21 @@ import {
   ReactiveSubscription,
   ReactiveTask,
   ReactivePromise as IReactivePromise,
-  SignalEquals,
-  SignalOptionsWithInit,
   SignalSubscribe,
   SignalSubscription,
+  SubscriptionOptionsWithInit,
+  DerivedSignalOptionsWithInit,
 } from '../types.js';
 import { createDerivedSignal, DerivedSignal, SignalState } from './derived.js';
 import { CURRENT_CONSUMER, generatorResultToPromise, getSignal } from './get.js';
 import { dirtySignal, dirtySignalConsumers } from './dirty.js';
-import { scheduleAsyncPull, schedulePull, setResolved } from './scheduling.js';
-import { createEdge, Edge, EdgeType, findAndRemoveDirty, PromiseEdge } from './edge.js';
-import { getCurrentScope, ROOT_SCOPE, SignalScope, withScope } from './contexts.js';
+import { scheduleAsyncPull } from './scheduling.js';
+import { createEdge, EdgeType, findAndRemoveDirty, PromiseEdge } from './edge.js';
+import { SignalScope, withScope } from './contexts.js';
 import { createStateSignal } from './state.js';
-import { useStateSignal } from '../config.js';
 import { isGeneratorResult, isPromise } from './utils/type-utils.js';
-import { equalsFrom } from './utils/equals.js';
+import { createShouldUpdate, ShouldUpdate } from './utils/should-update.js';
+import { hydrate, ReifiedPersistConfig, reifyPersistConfig } from './persistence.js';
 
 const enum AsyncFlags {
   // ======= Notifiers ========
@@ -56,26 +56,25 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
   private _flags = 0;
 
   private _signal: DerivedSignal<any, any> | TaskFn<T, Args> | undefined = undefined;
-  private _equals!: SignalEquals<T>;
+  private _shouldUpdate!: ShouldUpdate<T>;
   private _promise: Promise<T> | undefined;
 
   private _pending: PendingResolve<T>[] = [];
 
   private _stateSubs = new Map<WeakRef<DerivedSignal<unknown, unknown[]>>, number>();
-  _awaitSubs = new Map<WeakRef<DerivedSignal<unknown, unknown[]>>, PromiseEdge>();
+  private _awaitSubs = new Map<WeakRef<DerivedSignal<unknown, unknown[]>>, PromiseEdge>();
 
   // Version is not really needed in a pure signal world, but when integrating
   // with non-signal code, it's sometimes needed to entangle changes to the promise.
   // For example, in React we need to entangle each promise immediately after it
   // was used because we can't dynamically call hooks.
   private _version = createStateSignal(0);
-  private _boundRun: ((...args: Args) => ReactivePromise<T, Args>) | undefined;
 
-  static createPromise<T>(promise: Promise<T>, signal?: DerivedSignal<T, unknown[]>, initValue?: T | undefined) {
-    const p = new ReactivePromise();
+  static createPromise<T>(promise: Promise<T>, signal: DerivedSignal<T, unknown[]>, initValue?: T | undefined) {
+    const p = new ReactivePromise<T>();
 
     p._signal = signal;
-    p._equals = signal?.equals ?? ((a, b) => a === b);
+    p._shouldUpdate = signal.shouldUpdate as ShouldUpdate<T>;
 
     p._initFlags(AsyncFlags.Pending, initValue);
 
@@ -89,10 +88,37 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
   static createSubscription<T>(
     subscribe: SignalSubscribe<T>,
     scope: SignalScope,
-    opts?: Partial<SignalOptionsWithInit<T, unknown[]>>,
+    { initValue, equals, persist: persistConfig, ...opts }: Partial<SubscriptionOptionsWithInit<T>> = {},
   ) {
     const p = new ReactivePromise<T>();
-    const initValue = opts?.initValue;
+
+    const state = {
+      get: () => p._value as T,
+
+      set: (value: T | Promise<T>) => {
+        if (value !== null && typeof value === 'object' && isPromise(value)) {
+          p._setPromise(value);
+        } else {
+          p._setValue(value as T);
+        }
+      },
+
+      setError: (error: unknown) => {
+        p._setError(error);
+      },
+    };
+
+    let value = initValue;
+    let initFlags = AsyncFlags.isSubscription | AsyncFlags.Pending;
+    let reifiedPersistConfig: ReifiedPersistConfig<Awaited<T>, []> | undefined;
+
+    if (persistConfig) {
+      reifiedPersistConfig = reifyPersistConfig(persistConfig, [], undefined);
+
+      if (reifiedPersistConfig.hydrate) {
+        value = hydrate(reifiedPersistConfig) as Awaited<T>;
+      }
+    }
 
     let active = false;
     let currentSub: SignalSubscription | (() => void) | undefined | void;
@@ -114,22 +140,6 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
       currentSub = undefined;
     };
 
-    const state = {
-      get: () => p._value as T,
-
-      set: (value: T | Promise<T>) => {
-        if (value !== null && typeof value === 'object' && isPromise(value)) {
-          p._setPromise(value);
-        } else {
-          p._setValue(value as T);
-        }
-      },
-
-      setError: (error: unknown) => {
-        p._setError(error);
-      },
-    };
-
     p._signal = createDerivedSignal(
       () => {
         if (active === false) {
@@ -146,13 +156,30 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
       },
       [],
       undefined,
+      undefined,
       scope,
-      opts as Omit<SignalOptionsWithInit<T, unknown[]>, 'equals' | 'initValue' | 'paramKey'>,
+      opts,
       true,
     );
 
-    p._equals = equalsFrom(opts?.equals);
-    p._initFlags(AsyncFlags.isSubscription | AsyncFlags.Pending, initValue as T);
+    p._shouldUpdate = createShouldUpdate(equals, reifiedPersistConfig) as ShouldUpdate<T>;
+    p._initFlags(initFlags, value as T);
+
+    return p;
+  }
+
+  /**
+   * Creates a ReactivePromise from a persisted value
+   * The created promise will be in a resolved, ready state
+   */
+  static createFromPersisted<T>(value: Awaited<T>, signal: DerivedSignal<any, any[]>) {
+    const p = new ReactivePromise<T>();
+
+    p._signal = signal;
+    p._shouldUpdate = signal.shouldUpdate as ShouldUpdate<T>;
+
+    // Initialize with Ready and Resolved flags
+    p._initFlags(AsyncFlags.Resolved | AsyncFlags.Ready, value);
 
     return p;
   }
@@ -160,7 +187,7 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
   static createTask<T, Args extends unknown[]>(
     task: (...args: Args) => Promise<T>,
     scope: SignalScope,
-    opts?: Partial<SignalOptionsWithInit<T, Args>>,
+    opts?: Partial<DerivedSignalOptionsWithInit<T, Args>>,
   ): ReactiveTask<T, Args> {
     const p = new ReactivePromise<T, Args>();
     const initValue = opts?.initValue;
@@ -175,7 +202,7 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
       });
     };
 
-    p._equals = equalsFrom(opts?.equals);
+    p._shouldUpdate = createShouldUpdate(opts?.equals) as ShouldUpdate<T>;
     p._initFlags(AsyncFlags.isRunnable, initValue as T);
 
     return p as ReactiveTask<T, Args>;
@@ -298,7 +325,7 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
 
     let notifyFlags = 0;
 
-    if ((flags & AsyncFlags.Ready) === 0 || this._equals(value!, nextValue) === false) {
+    if (this._shouldUpdate((flags & AsyncFlags.Ready) !== 0, value!, nextValue)) {
       this._value = value = nextValue;
       notifyFlags = AsyncFlags.Value;
     }

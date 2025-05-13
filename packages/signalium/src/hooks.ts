@@ -6,7 +6,11 @@ import {
   Signal,
   SignalOptions,
   SignalSubscribe,
-  type SignalOptionsWithInit,
+  SignalSubscribeWithInit,
+  type DerivedSignalOptions,
+  type DerivedSignalOptionsWithInit,
+  type SubscriptionOptions,
+  type SubscriptionOptionsWithInit,
 } from './types.js';
 import { useDerivedSignal } from './config.js';
 import { getCurrentScope, SignalScope } from './internals/contexts.js';
@@ -19,32 +23,31 @@ export const state = createStateSignal;
 
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
-  opts?: Partial<SignalOptionsWithInit<T, Args>>,
+  opts?: Partial<DerivedSignalOptions<T, Args>>,
 ): (...args: Args) => ReactiveValue<T>;
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
-  opts: SignalOptionsWithInit<T, Args>,
+  opts: DerivedSignalOptionsWithInit<T, Args>,
 ): (...args: Args) => ReadyReactiveValue<T>;
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
-  opts?: Partial<SignalOptionsWithInit<T, Args>>,
+  opts?: Partial<DerivedSignalOptionsWithInit<T, Args>>,
 ): (...args: Args) => ReactiveValue<T> {
   return (...args) => {
     const scope = getCurrentScope();
-    const signal = scope.get(fn as any, args, opts);
-
+    const signal = scope.get(fn, args, opts);
     return useDerivedSignal(signal)!;
   };
 }
 
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: SignalOptions<T, unknown[]>): ReactivePromise<T>;
 export function subscription<T>(
-  subscribe: SignalSubscribe<T>,
-  opts: SignalOptionsWithInit<T, unknown[]>,
+  subscribe: SignalSubscribeWithInit<T>,
+  opts: SubscriptionOptionsWithInit<T>,
 ): ReadyReactivePromise<T>;
+export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: SubscriptionOptions<T>): ReactivePromise<T>;
 export function subscription<T>(
   subscribe: SignalSubscribe<T>,
-  opts?: Partial<SignalOptionsWithInit<T, unknown[]>>,
+  opts?: Partial<SubscriptionOptionsWithInit<T>>,
 ): ReactivePromise<T> | ReadyReactivePromise<T> {
   const scope = getCurrentScope();
 
@@ -53,7 +56,7 @@ export function subscription<T>(
 
 export const task = <T, Args extends unknown[]>(
   fn: (...args: Args) => Promise<T>,
-  opts?: Partial<SignalOptionsWithInit<T, Args>>,
+  opts?: Partial<DerivedSignalOptionsWithInit<T, Args>>,
 ): ReactiveTask<T, Args> => {
   const scope = getCurrentScope();
 
@@ -62,7 +65,7 @@ export const task = <T, Args extends unknown[]>(
 
 export function watcher<T>(
   fn: () => T,
-  opts?: SignalOptions<T, unknown[]> & { scope?: SignalScope; tracer?: Tracer },
+  opts?: DerivedSignalOptions<T, []> & { scope?: SignalScope; tracer?: Tracer },
 ): Signal<ReactiveValue<T>> {
-  return createDerivedSignal(fn, undefined, undefined, opts?.scope, opts);
+  return createDerivedSignal(fn, undefined, undefined, undefined, opts?.scope, opts);
 }

@@ -48,6 +48,7 @@ export function getSignal<T, Args extends unknown[]>(signal: DerivedSignal<T, Ar
 export function checkSignal(signal: DerivedSignal<any, any>): number {
   let { ref, _state: state } = signal;
 
+  // If the signal is clean, just return the updated count
   if (state < SignalState.Dirty) {
     return signal.updatedCount;
   }
@@ -70,7 +71,7 @@ export function checkSignal(signal: DerivedSignal<any, any>): number {
           }
 
           // Add the signal to the awaitSubs map to be notified when the promise is resolved
-          dep._awaitSubs.set(ref, edge);
+          dep['_awaitSubs'].set(ref, edge);
 
           state = SignalState.Pending;
           signal.dirtyHead = edge;
@@ -177,7 +178,7 @@ export function runSignal(signal: DerivedSignal<any, any[]>) {
         signal.value = ReactivePromise.createPromise(nextValue, signal, initValue);
         signal.updatedCount = updatedCount + 1;
       }
-    } else if (!initialized || !signal.equals(prevValue!, nextValue)) {
+    } else if (signal.shouldUpdate(initialized, prevValue, nextValue)) {
       signal.value = nextValue;
       signal.updatedCount = updatedCount + 1;
     }
@@ -295,4 +296,15 @@ export function generatorResultToPromise<T, Args extends unknown[]>(
 
     step(generator.next());
   });
+}
+
+export function untrack<T>(fn: () => T): T {
+  const prevConsumer = CURRENT_CONSUMER;
+
+  try {
+    CURRENT_CONSUMER = undefined;
+    return fn();
+  } finally {
+    CURRENT_CONSUMER = prevConsumer;
+  }
 }

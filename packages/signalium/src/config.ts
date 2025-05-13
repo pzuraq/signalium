@@ -3,11 +3,17 @@ import { SignalScope } from './internals/contexts.js';
 import { ReactiveValue } from './types.js';
 import { StateSignal } from './internals/state.js';
 import { CURRENT_CONSUMER } from './internals/get.js';
+import { PersistedValue } from './internals/persistence.js';
 
 export type FlushCallback = () => void;
 
 export type FlushFn = (fn: FlushCallback) => void;
 export type BatchFn = (fn: () => void) => void;
+
+export interface PersistenceStore {
+  get(key: string): PersistedValue<unknown> | undefined;
+  set(key: string, value: PersistedValue<unknown>): void;
+}
 
 interface SignalHooksConfig {
   scheduleFlush: FlushFn;
@@ -15,6 +21,7 @@ interface SignalHooksConfig {
   getFrameworkScope: () => SignalScope | undefined;
   useStateSignal: <T>(signal: StateSignal<T>) => T;
   useDerivedSignal: <T>(signal: DerivedSignal<T, unknown[]>) => ReactiveValue<T>;
+  persistenceStore?: PersistenceStore;
 }
 
 export let scheduleFlush: FlushFn = flushWatchers => {
@@ -27,7 +34,13 @@ export let runBatch: BatchFn = fn => fn();
 
 export let getFrameworkScope: () => SignalScope | undefined = () => undefined;
 
-let useFrameworkStateSignal: <T>(signal: StateSignal<T>) => T = signal => signal.get();
+export let persistenceStore: PersistenceStore | undefined = undefined;
+
+export function getPersistenceStore(): PersistenceStore | undefined {
+  return persistenceStore;
+}
+
+let useFrameworkStateSignal: <T>(signal: StateSignal<T>) => T = signal => signal.peek();
 let useFrameworkDerivedSignal: <T>(signal: DerivedSignal<T, unknown[]>) => ReactiveValue<T> = signal => signal.get();
 
 export function useDerivedSignal<T>(signal: DerivedSignal<T, any[]>): ReactiveValue<T> {
@@ -49,4 +62,5 @@ export function setConfig(cfg: Partial<SignalHooksConfig>) {
   getFrameworkScope = cfg.getFrameworkScope ?? getFrameworkScope;
   useFrameworkStateSignal = cfg.useStateSignal ?? useFrameworkStateSignal;
   useFrameworkDerivedSignal = cfg.useDerivedSignal ?? useFrameworkDerivedSignal;
+  persistenceStore = cfg.persistenceStore ?? persistenceStore;
 }

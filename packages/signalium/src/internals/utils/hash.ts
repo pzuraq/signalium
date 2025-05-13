@@ -88,7 +88,7 @@ function hashNumber(num: number, seed = 0) {
   return h >>> 0; // Convert to unsigned 32-bit integer
 }
 
-function hashArray(arr: unknown[]) {
+export function hashArray(arr: unknown[]) {
   let h = HashType.ARRAY;
   const c1 = 0xcc9e2d51;
   const c2 = 0x1b873593;
@@ -213,9 +213,7 @@ export function getObjectHash(obj: object): number {
   return id;
 }
 
-const EMPTY_ARRAY_HASH = hashArray([]);
-
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-export function hashReactiveFn(fn: Function, args: unknown[]) {
-  return getObjectHash(fn) ^ (args.length > 0 ? hashArray(args) : EMPTY_ARRAY_HASH);
+export function hashReactiveFn(fn: Function, argsHash: number) {
+  return getObjectHash(fn) ^ argsHash;
 }

@@ -115,6 +115,11 @@ export const navigation: GroupNavigationItem[] = [
       },
       {
         type: 'link',
+        title: 'Persistence and Hydration',
+        href: '/guides/persistence',
+      },
+      {
+        type: 'link',
         title: 'A Signals Deep Dive',
         href: '/signals-deep-dive',
       },

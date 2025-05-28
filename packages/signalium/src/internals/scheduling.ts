@@ -6,6 +6,11 @@ import { runListeners as runStateListeners } from './state.js';
 import { Tracer } from '../trace.js';
 import { unwatchSignal } from './connect.js';
 import { StateSignal } from './state.js';
+import { ROOT_SCOPE, SignalScope } from './contexts.js';
+
+// Determine once at startup which scheduling function to use for GC
+const scheduleIdleCallback =
+  typeof requestIdleCallback === 'function' ? requestIdleCallback : (cb: () => void) => _scheduleFlush(cb);
 
 let PROMISE_WAS_RESOLVED = false;
 
@@ -14,6 +19,7 @@ let PENDING_ASYNC_PULLS: DerivedSignal<any, any>[] = [];
 let PENDING_UNWATCH = new Map<DerivedSignal<any, any>, number>();
 let PENDING_LISTENERS: (DerivedSignal<any, any> | StateSignal<any>)[] = [];
 let PENDING_TRACERS: Tracer[] = [];
+let PENDING_GC = new Set<SignalScope>();
 
 const microtask = () => Promise.resolve();
 
@@ -60,6 +66,20 @@ export const scheduleListeners = (signal: DerivedSignal<any, any> | StateSignal<
 export const scheduleTracer = (tracer: Tracer) => {
   PENDING_TRACERS.push(tracer);
   scheduleFlush(flushWatchers);
+};
+
+export const scheduleGcSweep = (scope: SignalScope) => {
+  PENDING_GC.add(scope);
+
+  if (PENDING_GC.size > 1) return;
+
+  scheduleIdleCallback(() => {
+    for (const scope of PENDING_GC) {
+      scope.sweepGc();
+    }
+
+    PENDING_GC.clear();
+  });
 };
 
 const flushWatchers = async () => {

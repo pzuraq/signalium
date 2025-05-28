@@ -11,9 +11,10 @@ import {
 import { useDerivedSignal } from './config.js';
 import { getCurrentScope, SignalScope } from './internals/contexts.js';
 import { createStateSignal } from './internals/state.js';
-import { createDerivedSignal } from './internals/derived.js';
+import { createDerivedSignal, DerivedSignalDefinition } from './internals/derived.js';
 import { ReactivePromise } from './internals/async.js';
 import { Tracer } from './trace.js';
+import { equalsFrom } from './internals/utils/equals.js';
 
 export const state = createStateSignal;
 
@@ -29,9 +30,16 @@ export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
   opts?: Partial<SignalOptionsWithInit<T, Args>>,
 ): (...args: Args) => ReactiveValue<T> {
+  const def: DerivedSignalDefinition<T, Args> = {
+    compute: fn,
+    equals: equalsFrom(opts?.equals),
+    shouldGC: opts?.shouldGC,
+    isSubscription: false,
+  };
+
   return (...args) => {
     const scope = getCurrentScope();
-    const signal = scope.get(fn as any, args, opts);
+    const signal = scope.get(def, args, opts);
 
     return useDerivedSignal(signal)!;
   };
@@ -64,5 +72,11 @@ export function watcher<T>(
   fn: () => T,
   opts?: SignalOptions<T, unknown[]> & { scope?: SignalScope; tracer?: Tracer },
 ): Signal<ReactiveValue<T>> {
-  return createDerivedSignal(fn, undefined, undefined, opts?.scope, opts);
+  const def: DerivedSignalDefinition<T, unknown[]> = {
+    compute: fn,
+    equals: equalsFrom(opts?.equals),
+    isSubscription: false,
+  };
+
+  return createDerivedSignal(def, undefined, undefined, opts?.scope, opts);
 }

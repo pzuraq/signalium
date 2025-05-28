@@ -1,8 +1,9 @@
 import { getFrameworkScope } from '../config.js';
 import { SignalOptionsWithInit } from '../types.js';
-import { DerivedSignal, createDerivedSignal } from './derived.js';
+import { DerivedSignal, DerivedSignalDefinition, createDerivedSignal } from './derived.js';
 import { CURRENT_CONSUMER } from './get.js';
 import { hashReactiveFn, hashValue } from './utils/hash.js';
+import { scheduleGcSweep } from './scheduling.js';
 
 export const CONTEXT_KEY = Symbol('signalium:context');
 
@@ -46,7 +47,8 @@ export class SignalScope {
   private parentScope?: SignalScope = undefined;
   private contexts: Record<symbol, unknown>;
   private children = new Map<number, SignalScope>();
-  private signals = new Map<number, DerivedSignal<any, any[]>>();
+  private signals = new Map<number, DerivedSignal<any, any>>();
+  private gcCandidates = new Set<DerivedSignal<any, any>>();
 
   getChild(contexts: [ContextImpl<unknown>, unknown][]) {
     const key = hashValue(contexts);
@@ -68,20 +70,49 @@ export class SignalScope {
   }
 
   get<T, Args extends unknown[]>(
-    fn: (...args: Args) => T,
+    def: DerivedSignalDefinition<T, Args>,
     args: Args,
     opts?: Partial<SignalOptionsWithInit<T, Args>>,
   ): DerivedSignal<T, Args> {
     const paramKey = opts?.paramKey?.(...args);
-    const key = hashReactiveFn(fn, paramKey ? [paramKey] : args);
+    const key = hashReactiveFn(def.compute, paramKey ? [paramKey] : args);
     let signal = this.signals.get(key) as DerivedSignal<T, Args> | undefined;
 
     if (signal === undefined) {
-      signal = createDerivedSignal(fn, args, key, this, opts);
+      signal = createDerivedSignal(def, args, key, this, opts);
       this.signals.set(key, signal);
     }
 
     return signal;
+  }
+
+  markForGc(signal: DerivedSignal<any, any>) {
+    if (!this.gcCandidates.has(signal)) {
+      this.gcCandidates.add(signal);
+      scheduleGcSweep(this);
+    }
+  }
+
+  removeFromGc(signal: DerivedSignal<any, any>) {
+    this.gcCandidates.delete(signal);
+  }
+
+  forceGc(signal: DerivedSignal<any, any>) {
+    this.signals.delete(signal.key!);
+  }
+
+  sweepGc() {
+    for (const signal of this.gcCandidates) {
+      if (signal.watchCount === 0) {
+        const { shouldGC } = signal.def;
+
+        if (!shouldGC || shouldGC(signal, signal.value, signal.args)) {
+          this.signals.delete(signal.key!);
+        }
+      }
+    }
+
+    this.gcCandidates = new Set();
   }
 }
 
@@ -131,3 +162,8 @@ export const useContext = <T>(context: Context<T>): T => {
 
   return scope.getContext(context) ?? (context as unknown as ContextImpl<T>).defaultValue;
 };
+
+export function forceGc(_signal: object) {
+  const signal = _signal as DerivedSignal<any, any>;
+  signal.scope?.forceGc(signal);
+}

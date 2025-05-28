@@ -9,7 +9,7 @@ import {
 } from '../../index.js';
 import { ReactiveTask, ReactiveValue, SignalOptionsWithInit, SignalSubscription } from '../../types.js';
 import { Context, ContextImpl, getCurrentScope, ROOT_SCOPE, SignalScope } from '../../internals/contexts.js';
-import { createDerivedSignal, DerivedSignal } from '../../internals/derived.js';
+import { DerivedSignal } from '../../internals/derived.js';
 import { ReactivePromise } from '../../internals/async.js';
 import { hashValue } from '../../internals/utils/hash.js';
 
@@ -71,10 +71,10 @@ const WATCHERS = new WeakMap<Function, DerivedSignal<unknown, unknown[]>>();
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 function getWatcherForHook(hook: Function) {
-  let watcher = WATCHERS.get(hook);
+  let w = WATCHERS.get(hook);
 
-  if (!watcher) {
-    watcher = createDerivedSignal(
+  if (!w) {
+    w = watcher(
       () => {
         let result = hook();
 
@@ -84,18 +84,15 @@ function getWatcherForHook(hook: Function) {
 
         return result;
       },
-      undefined,
-      undefined,
-      undefined,
       { desc: 'test' + TEST_ID++ },
-    );
+    ) as DerivedSignal<unknown, unknown[]>;
 
-    unsubs.push(watcher.addListener(() => {}));
+    unsubs.push(w.addListener(() => {}));
 
-    WATCHERS.set(hook, watcher);
+    WATCHERS.set(hook, w);
   }
 
-  return watcher;
+  return w;
 }
 
 function toHaveSignalValue(

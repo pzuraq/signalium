@@ -34,6 +34,13 @@ export interface SignalOptions<T, Args extends unknown[]> {
   desc?: string;
   scope?: SignalScope;
   paramKey?: (...args: Args) => string;
+
+  /**
+   * Called when signal's watchCount reaches 0.
+   * Return `true` to allow GC, `false` to prevent it.
+   * If not provided, defaults to always allowing GC.
+   */
+  shouldGC?: (signal: object, value: T, args: Args) => boolean;
 }
 
 export interface SignalOptionsWithInit<T, Args extends unknown[]> extends SignalOptions<T, Args> {

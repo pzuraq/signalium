@@ -7,15 +7,7 @@ import {
   task as _task,
   watcher,
 } from '../../index.js';
-import {
-  DerivedSignalOptionsWithInit,
-  ReactiveTask,
-  ReactiveValue,
-  SignalSubscribeWithInit,
-  SignalSubscription,
-  SubscriptionOptions,
-  SubscriptionOptionsWithInit,
-} from '../../types.js';
+import { ReactiveTask, ReactiveValue, SignalOptionsWithInit, SignalSubscription } from '../../types.js';
 import { Context, ContextImpl, getCurrentScope, ROOT_SCOPE, SignalScope } from '../../internals/contexts.js';
 import { createDerivedSignal, DerivedSignal } from '../../internals/derived.js';
 import { ReactivePromise } from '../../internals/async.js';
@@ -92,7 +84,6 @@ function getWatcherForHook(hook: Function) {
 
         return result;
       },
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -329,7 +320,7 @@ function createBuilderFunction<T, Args extends unknown[]>(
 
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
-  opts?: Partial<DerivedSignalOptionsWithInit<T, Args>>,
+  opts?: Partial<SignalOptionsWithInit<T, Args>>,
 ): ReactiveBuilderFunction<T, Args> {
   const countsMap = new Map<number, SignalHookCounts>();
 
@@ -360,17 +351,20 @@ export const task: typeof _task = (fn, opts) => {
   return wrapper;
 };
 
-export const subscription: typeof _subscription = ((fn, opts) => {
+export const subscription = <T>(
+  fn: SignalSubscribe<T>,
+  opts?: Partial<SignalOptionsWithInit<T, unknown[]>>,
+): ReturnType<typeof _subscription<T>> => {
   const counts = new SignalHookCounts(opts?.desc ?? 'unknownSubscription');
 
-  let wrapper = _subscription(({ get, set, setError }) => {
+  let wrapper = _subscription<T>(({ get, set, setError }) => {
     counts.subscribe++;
     counts.compute++;
 
     const result = fn({
       get: () => {
         counts.internalGet++;
-        return get()!;
+        return get();
       },
       set: v => {
         counts.internalSet++;
@@ -411,9 +405,9 @@ export const subscription: typeof _subscription = ((fn, opts) => {
     }
 
     return subscriptionWrapper;
-  }, opts) as SubscriptionWithCounts<any>;
+  }, opts) as SubscriptionWithCounts<T>;
 
   wrapper[COUNTS] = counts;
 
-  return wrapper as ReturnType<typeof _subscription<any>>;
-}) as typeof _subscription;
+  return wrapper as ReturnType<typeof _subscription<T>>;
+};

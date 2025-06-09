@@ -1,6 +1,6 @@
 import { describe } from 'vitest';
 import { ReactiveBuilderFunction, reactive, subscription } from './instrumented-hooks.js';
-import { DerivedSignalOptionsWithInit } from '../../types.js';
+import { SignalOptionsWithInit } from '../../types.js';
 
 const createMethods = [
   {
@@ -11,7 +11,7 @@ const createMethods = [
     name: 'createAsyncComputed',
     create: <T, Args extends unknown[]>(
       fn: (...args: Args) => T | Promise<T>,
-      opts?: Partial<DerivedSignalOptionsWithInit<Promise<T>, Args>>,
+      opts?: Partial<SignalOptionsWithInit<Promise<T>, Args>>,
     ): ReactiveBuilderFunction<T, Args> => {
       const computed = reactive(async (...args: Args) => {
         return fn(...args);
@@ -26,7 +26,7 @@ const createMethods = [
     name: 'createSubscription',
     create: function _createSubscription<T, Args extends unknown[]>(
       fn: (...args: Args) => T,
-      opts?: Partial<DerivedSignalOptionsWithInit<T, Args>>,
+      opts?: Partial<SignalOptionsWithInit<T, Args>>,
     ): ReactiveBuilderFunction<T, Args> {
       const computed = reactive((...args: Args) => {
         return subscription(
@@ -39,7 +39,7 @@ const createMethods = [
               },
             };
           },
-          opts as Partial<DerivedSignalOptionsWithInit<T, unknown[]>>,
+          opts as Partial<SignalOptionsWithInit<T, unknown[]>>,
         );
       });
 

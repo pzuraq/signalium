@@ -13,6 +13,12 @@ export function ContextProvider<C extends unknown[]>({
   inherit?: boolean;
   root?: boolean;
 }) {
+  // if (root) {
+  //   useEffect(() => )
+
+  //   return <ScopeContext.Provider value={scope}>{children}</ScopeContext.Provider>;
+  // }
+
   const parentScope = useContext(ScopeContext);
   const scope = new SignalScope(contexts as [ContextImpl<unknown>, unknown][], inherit ? parentScope : undefined);
 

@@ -1,6 +1,6 @@
 import WeakRef from '../weakref.js';
 import { Tracer, TRACER, TracerMeta } from '../trace.js';
-import { ReactiveValue, Signal, SignalListener, DerivedSignalOptionsWithInit } from '../types.js';
+import { ReactiveValue, Signal, SignalEquals, SignalListener, SignalOptionsWithInit } from '../types.js';
 import { getUnknownSignalFnName } from './utils/debug-name.js';
 import { SignalScope } from './contexts.js';
 import { checkAndRunListeners, getSignal } from './get.js';
@@ -8,8 +8,7 @@ import { Edge, EdgeType, SignalEdge } from './edge.js';
 import { schedulePull, scheduleUnwatch } from './scheduling.js';
 import { hashValue } from './utils/hash.js';
 import { stringifyValue } from './utils/stringify.js';
-import { createShouldUpdate, ShouldUpdate } from './utils/should-update.js';
-import { hydrate, ReifiedPersistConfig, reifyPersistConfig } from './persistence.js';
+import { equalsFrom } from './utils/equals.js';
 
 /**
  * This file contains computed signal base types and struct definitions.
@@ -63,7 +62,7 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
 
   ref: WeakRef<DerivedSignal<T, Args>> = new WeakRef(this);
 
-  shouldUpdate: ShouldUpdate<Awaited<T>>;
+  equals: SignalEquals<any>;
   dirtyHead: Edge | undefined = undefined;
 
   updatedCount: number = 0;
@@ -84,37 +83,15 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
     compute: (...args: Args) => T,
     args: Args,
     key?: SignalId,
-    argsKey?: SignalId,
     scope?: SignalScope,
-    opts?: Partial<DerivedSignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
+    opts?: Partial<SignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
   ) {
     this.flags = (isSubscription ? SignalFlags.isSubscription : 0) | SignalState.Dirty;
     this.scope = scope;
     this.compute = compute;
     this.args = args;
 
-    let reifiedPersistConfig: ReifiedPersistConfig<Awaited<T>, Args> | undefined;
-    const persistConfig = opts?.persist;
-
-    if (persistConfig !== undefined) {
-      reifiedPersistConfig = reifyPersistConfig(persistConfig, args, argsKey);
-
-      this.compute = (...args) => {
-        if (this.updatedCount === 0) {
-          const value = hydrate(reifiedPersistConfig!, this);
-
-          if (value !== undefined) {
-            return value as T;
-          }
-        }
-
-        return compute(...args);
-      };
-    } else {
-      this.compute = compute;
-    }
-
-    this.shouldUpdate = createShouldUpdate(opts?.equals, reifiedPersistConfig);
+    this.equals = equalsFrom(opts?.equals);
     this.value = opts?.initValue as ReactiveValue<T>;
 
     if (TRACER) {
@@ -223,10 +200,9 @@ export function createDerivedSignal<T, Args extends unknown[]>(
   compute: (...args: Args) => T,
   args: Args = [] as any,
   key?: SignalId,
-  argsKey?: SignalId,
   scope?: SignalScope,
-  opts?: Partial<DerivedSignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
+  opts?: Partial<SignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
   isSubscription: boolean = false,
 ): DerivedSignal<T, Args> {
-  return new DerivedSignal(isSubscription, compute, args, key, argsKey, scope, opts);
+  return new DerivedSignal(isSubscription, compute, args, key, scope, opts);
 }

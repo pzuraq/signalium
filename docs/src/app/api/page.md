@@ -13,7 +13,7 @@ nextjs:
 ```ts
 export function state<T>(
   initialValue: T,
-  opts?: StateSignalOptions<T>,
+  opts?: SignalOptions<T>,
 ): WriteableSignal<T>;
 ```
 
@@ -36,7 +36,7 @@ interface WriteableSignal<T> {
 ```ts
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
-  opts?: DerivedSignalOptions<T, Args>,
+  opts?: SignalOptions<T, Args>,
 ): (...args: Args) => ReactiveValue<T>;
 ```
 
@@ -47,7 +47,7 @@ Creates a reactive function that tracks dependencies and automatically updates w
 ```ts
 export function task<T, Args extends unknown[]>(
   fn: (...args: Args) => Promise<T>,
-  opts?: DerivedSignalOptions<T, Args>,
+  opts?: SignalOptions<T, Args>,
 ): ReactiveTask<T, Args>;
 ```
 
@@ -67,7 +67,7 @@ interface ReactiveTask<T, Args extends unknown[]>
 ```ts
 export function subscription<T, Args extends unknown[]>(
   fn: SignalSubscribe<T, Args>,
-  opts?: DerivedSignalOptionsWithInit<T, Args>,
+  opts?: SignalOptionsWithInit<T, Args>,
 ): ReactiveSubscription<T>;
 ```
 

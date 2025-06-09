@@ -1,5 +1,5 @@
 import { TRACER as TRACER, TracerEventType } from '../trace.js';
-import { SignalEquals, SignalListener, StateSignalOptions, WriteableSignal } from '../types.js';
+import { ReactiveValue, SignalEquals, SignalListener, SignalOptions, WriteableSignal } from '../types.js';
 import { DerivedSignal, SignalState } from './derived.js';
 import { dirtySignal } from './dirty.js';
 import { CURRENT_CONSUMER } from './get.js';
@@ -101,7 +101,10 @@ export function runListeners(signal: StateSignal<any>) {
 
 const FALSE_EQUALS: SignalEquals<unknown> = () => false;
 
-export function createStateSignal<T>(initialValue: T, opts?: StateSignalOptions<T>): StateSignal<T> {
+export function createStateSignal<T>(
+  initialValue: T,
+  opts?: Omit<SignalOptions<T, unknown[]>, 'paramKey'>,
+): StateSignal<T> {
   const equals = opts?.equals === false ? FALSE_EQUALS : (opts?.equals ?? ((a, b) => a === b));
 
   return new StateSignal(initialValue, equals, opts?.desc);

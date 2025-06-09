@@ -1,8 +1,8 @@
 import { useRef } from 'react';
 import { state } from '../hooks.js';
-import { StateSignalOptions, WriteableSignal } from '../types.js';
+import { SignalOptions, WriteableSignal } from '../types.js';
 
-export function useStateSignal<T>(value: T, opts?: StateSignalOptions<T>): WriteableSignal<T> {
+export function useStateSignal<T>(value: T, opts?: SignalOptions<T, unknown[]>): WriteableSignal<T> {
   const ref = useRef<WriteableSignal<T> | undefined>(undefined);
 
   if (!ref.current) {

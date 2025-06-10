@@ -1,5 +1,17 @@
 # signalium
 
+## 1.1.0
+
+### Minor Changes
+
+- 1a70550: Add setRootContexts
+- 0f58c51: Add better GC semantics and manual collection API
+- 32fafd4: Add peek and update to StateSignal public API
+
+### Patch Changes
+
+- 1fbd19f: Fix useFrameworkScope integration in React
+
 ## 1.0.2
 
 ### Patch Changes

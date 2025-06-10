@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { state, reactive, createContext, useContext } from 'signalium';
-import { ContextProvider, setupReact } from '../index.js';
+import { ContextProvider, setupReact, useScope } from '../index.js';
 import React, { useState } from 'react';
 
 setupReact();
@@ -95,5 +95,24 @@ describe('React > contexts', () => {
     override.set('Hi');
 
     await expect.element(getByText('Hi, World')).toBeInTheDocument();
+  });
+
+  test('useScope returns undefined outside of rendering context', async () => {
+    // Direct call outside of rendering should return undefined
+    expect(useScope()).toBeUndefined();
+
+    // Inside a component during rendering, it should return the scope
+    function TestComponent() {
+      const scope = useScope();
+      return <div data-testid="scope">{scope ? 'has-scope' : 'no-scope'}</div>;
+    }
+
+    const { getByTestId } = render(
+      <ContextProvider contexts={[]}>
+        <TestComponent />
+      </ContextProvider>,
+    );
+
+    await expect.element(getByTestId('scope')).toHaveTextContent('has-scope');
   });
 });

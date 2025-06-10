@@ -6,7 +6,14 @@ export { isReactivePromise, isReactiveTask, isReactiveSubscription } from './int
 
 export { callback } from './internals/get.js';
 
-export { createContext, useContext, withContexts, SignalScope, CONTEXT_KEY } from './internals/contexts.js';
+export {
+  createContext,
+  useContext,
+  withContexts,
+  setRootContexts,
+  SignalScope,
+  CONTEXT_KEY,
+} from './internals/contexts.js';
 
 export { setConfig } from './config.js';
 

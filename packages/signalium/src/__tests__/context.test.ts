@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createContext, useContext, withContexts, state } from '../index.js';
+import { createContext, useContext, withContexts, state, setRootContexts } from '../index.js';
 import { permute } from './utils/permute.js';
 import { nextTick } from './utils/async.js';
 import { reactive } from './utils/instrumented-hooks.js';
@@ -9,6 +9,60 @@ describe('contexts', () => {
     expect(() => {
       useContext(createContext('test'));
     }).toThrow('useContext must be used within a signal hook');
+  });
+
+  test('setRootContexts sets contexts at the root level', () => {
+    const value = state('Hello');
+    const context = createContext(value);
+    const override = state('Hey');
+
+    // Create a reactive function that uses the context
+    const derived = reactive(() => `${useContext(context).get()}, World`);
+
+    // Initially should use default value
+    expect(derived()).toBe('Hello, World');
+
+    // Set root contexts
+    setRootContexts([[context, override]]);
+
+    // Should now use the override value
+    expect(derived()).toBe('Hey, World');
+
+    // Changes to override should be reflected
+    override.set('Hi');
+    expect(derived()).toBe('Hi, World');
+  });
+
+  test('setRootContexts with multiple contexts', () => {
+    const value1 = state('Hello');
+    const value2 = state('World');
+    const context1 = createContext(value1);
+    const context2 = createContext(value2);
+    const override1 = state('Hey');
+    const override2 = state('There');
+
+    const derived = reactive(() => `${useContext(context1).get()}, ${useContext(context2).get()}`);
+
+    // Initially should use default values
+    expect(derived()).toBe('Hello, World');
+
+    // Set multiple root contexts
+    setRootContexts([
+      [context1, override1],
+      [context2, override2],
+    ]);
+
+    expect(derived()).toBe('Hey, There');
+
+    // Changes to overrides should be reflected
+    override1.set('Hi');
+    override2.set('Everyone');
+    expect(derived()).toBe('Hi, Everyone');
+
+    // Changes to original values should not affect the result
+    value1.set('Bye');
+    value2.set('Earth');
+    expect(derived()).toBe('Hi, Everyone');
   });
 
   test('async computed maintains context ownership across await boundaries', async () => {

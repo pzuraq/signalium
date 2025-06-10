@@ -118,6 +118,10 @@ export class SignalScope {
 
 export let ROOT_SCOPE = new SignalScope([]);
 
+export function setRootContexts<C extends unknown[], U>(contexts: [...ContextPair<C>]): void {
+  ROOT_SCOPE = new SignalScope(contexts as [ContextImpl<unknown>, unknown][], ROOT_SCOPE);
+}
+
 export const clearRootScope = () => {
   ROOT_SCOPE = new SignalScope([]);
 };

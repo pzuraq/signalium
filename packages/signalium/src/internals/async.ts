@@ -8,7 +8,7 @@ import {
   SignalSubscribe,
   SignalSubscription,
 } from '../types.js';
-import { createDerivedSignal, DerivedSignal, SignalState } from './derived.js';
+import { createDerivedSignal, DerivedSignal, DerivedSignalDefinition, SignalState } from './derived.js';
 import { CURRENT_CONSUMER, generatorResultToPromise, getSignal } from './get.js';
 import { dirtySignal, dirtySignalConsumers } from './dirty.js';
 import { scheduleAsyncPull, schedulePull, setResolved } from './scheduling.js';
@@ -17,7 +17,7 @@ import { getCurrentScope, ROOT_SCOPE, SignalScope, withScope } from './contexts.
 import { createStateSignal } from './state.js';
 import { useStateSignal } from '../config.js';
 import { isGeneratorResult, isPromise } from './utils/type-utils.js';
-import { equalsFrom } from './utils/equals.js';
+import { DEFAULT_EQUALS, equalsFrom, FALSE_EQUALS } from './utils/equals.js';
 
 const enum AsyncFlags {
   // ======= Notifiers ========
@@ -72,10 +72,10 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
   private _boundRun: ((...args: Args) => ReactivePromise<T, Args>) | undefined;
 
   static createPromise<T>(promise: Promise<T>, signal?: DerivedSignal<T, unknown[]>, initValue?: T | undefined) {
-    const p = new ReactivePromise();
+    const p = new ReactivePromise<T>();
 
     p._signal = signal;
-    p._equals = signal?.equals ?? ((a, b) => a === b);
+    p._equals = signal?.def.equals ?? DEFAULT_EQUALS;
 
     p._initFlags(AsyncFlags.Pending, initValue);
 
@@ -130,8 +130,8 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
       },
     };
 
-    p._signal = createDerivedSignal(
-      () => {
+    const def: DerivedSignalDefinition<() => void, unknown[]> = {
+      compute: () => {
         if (active === false) {
           currentSub = subscribe(state);
           active = true;
@@ -144,11 +144,16 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
 
         return unsubscribe;
       },
+      equals: DEFAULT_EQUALS,
+      isSubscription: true,
+    };
+
+    p._signal = createDerivedSignal<() => void, unknown[]>(
+      def,
       [],
       undefined,
       scope,
-      opts as Omit<SignalOptionsWithInit<T, unknown[]>, 'equals' | 'initValue' | 'paramKey'>,
-      true,
+      opts as Omit<SignalOptionsWithInit<T, unknown[]>, 'equals' | 'initValue' | 'paramKey' | 'shouldGC'>,
     );
 
     p._equals = equalsFrom(opts?.equals);

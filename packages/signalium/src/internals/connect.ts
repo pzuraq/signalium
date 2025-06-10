@@ -10,6 +10,9 @@ export function watchSignal(signal: DerivedSignal<any, any>): void {
   // If > 0, already watching, return
   if (watchCount > 0) return;
 
+  // If signal is being watched again, remove from GC candidates
+  signal.scope?.removeFromGc(signal);
+
   for (const dep of signal.deps.keys()) {
     watchSignal(dep);
   }
@@ -37,5 +40,10 @@ export function unwatchSignal(signal: DerivedSignal<any, any>, count = 1) {
   if (isSubscription(signal)) {
     // teardown the subscription
     signal.value?.();
+  }
+
+  // If watchCount is now zero, mark the signal for GC
+  if (newWatchCount === 0 && signal.scope) {
+    signal.scope.markForGc(signal);
   }
 }

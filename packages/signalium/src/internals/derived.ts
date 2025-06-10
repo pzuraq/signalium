@@ -52,6 +52,17 @@ interface ListenerMeta {
   cachedBoundAdd: (listener: SignalListener) => () => void;
 }
 
+/**
+ * Shared definition for derived signals to reduce memory usage.
+ * Contains configuration that's common across all instances of a reactive function.
+ */
+export interface DerivedSignalDefinition<T, Args extends unknown[]> {
+  compute: (...args: Args) => T;
+  equals: SignalEquals<T>;
+  shouldGC?: (signal: object, value: T, args: Args) => boolean;
+  isSubscription: boolean;
+}
+
 export class DerivedSignal<T, Args extends unknown[]> implements Signal<ReactiveValue<T>> {
   // Bitmask containing state in the first 2 bits and boolean properties in the remaining bits
   private flags: number;
@@ -62,7 +73,6 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
 
   ref: WeakRef<DerivedSignal<T, Args>> = new WeakRef(this);
 
-  equals: SignalEquals<any>;
   dirtyHead: Edge | undefined = undefined;
 
   updatedCount: number = 0;
@@ -72,32 +82,33 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
 
   _listeners: ListenerMeta | null = null;
 
-  compute: (...args: Args) => T;
+  key: SignalId | undefined;
   args: Args;
   value: ReactiveValue<T> | undefined;
 
   tracerMeta?: TracerMeta;
 
+  // Reference to the shared definition
+  def: DerivedSignalDefinition<T, Args>;
+
   constructor(
-    isSubscription: boolean,
-    compute: (...args: Args) => T,
+    definition: DerivedSignalDefinition<T, Args>,
     args: Args,
     key?: SignalId,
     scope?: SignalScope,
     opts?: Partial<SignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
   ) {
-    this.flags = (isSubscription ? SignalFlags.isSubscription : 0) | SignalState.Dirty;
+    this.flags = (definition.isSubscription ? SignalFlags.isSubscription : 0) | SignalState.Dirty;
     this.scope = scope;
-    this.compute = compute;
+    this.key = key;
     this.args = args;
-
-    this.equals = equalsFrom(opts?.equals);
+    this.def = definition;
     this.value = opts?.initValue as ReactiveValue<T>;
 
     if (TRACER) {
       this.tracerMeta = {
-        id: opts?.id ?? key ?? hashValue([compute, ID++]),
-        desc: opts?.desc ?? compute.name ?? getUnknownSignalFnName(compute),
+        id: opts?.id ?? key ?? hashValue([definition.compute, ID++]),
+        desc: opts?.desc ?? definition.compute.name ?? getUnknownSignalFnName(definition.compute),
         params: args.map(arg => stringifyValue(arg)).join(', '),
         tracer: opts?.tracer,
       };
@@ -197,12 +208,11 @@ export const isSubscription = (signal: unknown): boolean => {
 };
 
 export function createDerivedSignal<T, Args extends unknown[]>(
-  compute: (...args: Args) => T,
+  def: DerivedSignalDefinition<T, Args>,
   args: Args = [] as any,
   key?: SignalId,
   scope?: SignalScope,
   opts?: Partial<SignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
-  isSubscription: boolean = false,
 ): DerivedSignal<T, Args> {
-  return new DerivedSignal(isSubscription, compute, args, key, scope, opts);
+  return new DerivedSignal(def, args, key, scope, opts);
 }

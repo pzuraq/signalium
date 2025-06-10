@@ -42,7 +42,7 @@ export function useStateSignal<T>(signal: StateSignal<T>): T {
   );
 }
 
-export function useDerivedSignal<T>(signal: DerivedSignal<T, unknown[]>): ReactiveValue<T> {
+export function useDerivedSignal<T, Args extends unknown[]>(signal: DerivedSignal<T, Args>): ReactiveValue<T> {
   if (!isRendering()) {
     return signal.get();
   }

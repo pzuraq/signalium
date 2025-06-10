@@ -14,7 +14,7 @@ interface SignalHooksConfig {
   runBatch: BatchFn;
   getFrameworkScope: () => SignalScope | undefined;
   useStateSignal: <T>(signal: StateSignal<T>) => T;
-  useDerivedSignal: <T>(signal: DerivedSignal<T, unknown[]>) => ReactiveValue<T>;
+  useDerivedSignal: <T, Args extends unknown[]>(signal: DerivedSignal<T, Args>) => ReactiveValue<T>;
 }
 
 export let scheduleFlush: FlushFn = flushWatchers => {
@@ -28,9 +28,11 @@ export let runBatch: BatchFn = fn => fn();
 export let getFrameworkScope: () => SignalScope | undefined = () => undefined;
 
 let useFrameworkStateSignal: <T>(signal: StateSignal<T>) => T = signal => signal.get();
-let useFrameworkDerivedSignal: <T>(signal: DerivedSignal<T, unknown[]>) => ReactiveValue<T> = signal => signal.get();
+let useFrameworkDerivedSignal: <T, Args extends unknown[]>(
+  signal: DerivedSignal<T, Args>,
+) => ReactiveValue<T> = signal => signal.get();
 
-export function useDerivedSignal<T>(signal: DerivedSignal<T, any[]>): ReactiveValue<T> {
+export function useDerivedSignal<T, Args extends unknown[]>(signal: DerivedSignal<T, Args>): ReactiveValue<T> {
   if (CURRENT_CONSUMER !== undefined) {
     return signal.get();
   } else {

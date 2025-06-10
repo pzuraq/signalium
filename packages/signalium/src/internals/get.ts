@@ -128,7 +128,7 @@ export function runSignal(signal: DerivedSignal<any, any[]>) {
 
     const initialized = updatedCount !== 0;
     const prevValue = signal.value;
-    let nextValue = signal.compute(...signal.args);
+    let nextValue = signal.def.compute(...signal.args);
     let valueIsPromise = false;
 
     if (nextValue !== null && typeof nextValue === 'object') {
@@ -177,7 +177,7 @@ export function runSignal(signal: DerivedSignal<any, any[]>) {
         signal.value = ReactivePromise.createPromise(nextValue, signal, initValue);
         signal.updatedCount = updatedCount + 1;
       }
-    } else if (!initialized || !signal.equals(prevValue!, nextValue)) {
+    } else if (!initialized || !signal.def.equals(prevValue!, nextValue)) {
       signal.value = nextValue;
       signal.updatedCount = updatedCount + 1;
     }

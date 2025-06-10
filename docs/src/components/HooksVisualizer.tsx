@@ -11,7 +11,6 @@ import {
 } from 'signalium';
 import {
   createTracerFromId,
-  scheduleTracer,
   setTracing,
   Tracer,
   VisualizerNode,

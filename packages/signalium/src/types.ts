@@ -5,9 +5,16 @@ export interface Signal<T = unknown> {
   addListener(listener: SignalListener): () => void;
 }
 
-export interface WriteableSignal<T> extends Signal<T> {
+export interface StateSignal<T> extends Signal<T> {
   set(value: T): void;
+  peek(): T;
+  update(updater: (value: T) => T): void;
 }
+
+/**
+ * @deprecated Use `StateSignal` instead.
+ */
+export type WriteableSignal<T> = StateSignal<T>;
 
 export type SignalEquals<T> = (prev: T, next: T) => boolean;
 

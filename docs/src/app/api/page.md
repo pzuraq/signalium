@@ -14,20 +14,19 @@ nextjs:
 export function state<T>(
   initialValue: T,
   opts?: SignalOptions<T>,
-): WriteableSignal<T>;
+): StateSignal<T>;
 ```
 
 Creates a new state signal with the given initial value. State signals are mutable values that can trigger reactivity when they change.
 
-#### WriteableSignal<T> Interface
+#### StateSignal<T> Interface
 
 ```ts
-interface WriteableSignal<T> {
+interface StateSignal<T> {
   get(): T; // Get the current value
   set(value: T): void; // Set a new value
   update(updater: (value: T) => T): void; // Update using a function
   peek(): T; // Get the value without creating a dependency
-  addListener(listener: (value: T) => void): () => void; // Listen for changes
 }
 ```
 
@@ -204,7 +203,7 @@ Initializes the React integration. Call this once at or near the root of your ap
 export function useStateSignal<T>(
   value: T,
   opts?: SignalOptions<T, unknown[]>,
-): WriteableSignal<T>;
+): StateSignal<T>;
 ```
 
 Creates a component-scoped state signal that will be cleaned up when the component unmounts.

@@ -1,6 +1,6 @@
 import { TRACER as TRACER, TracerEventType } from '../trace.js';
-import { ReactiveValue, SignalEquals, SignalListener, SignalOptions, WriteableSignal } from '../types.js';
-import { DerivedSignal, SignalState } from './derived.js';
+import { SignalEquals, SignalListener, SignalOptions, StateSignal as IStateSignal } from '../types.js';
+import { DerivedSignal } from './derived.js';
 import { dirtySignal } from './dirty.js';
 import { CURRENT_CONSUMER } from './get.js';
 import { useStateSignal } from '../config.js';
@@ -8,7 +8,7 @@ import { scheduleListeners } from './scheduling.js';
 
 let STATE_ID = 0;
 
-export class StateSignal<T> implements WriteableSignal<T> {
+export class StateSignal<T> implements IStateSignal<T> {
   private _value: T;
   private _equals: SignalEquals<T>;
   private _subs = new Map<WeakRef<DerivedSignal<unknown, unknown[]>>, number>();

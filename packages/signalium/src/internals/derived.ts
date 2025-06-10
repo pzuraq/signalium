@@ -3,12 +3,11 @@ import { Tracer, TRACER, TracerMeta } from '../trace.js';
 import { ReactiveValue, Signal, SignalEquals, SignalListener, SignalOptionsWithInit } from '../types.js';
 import { getUnknownSignalFnName } from './utils/debug-name.js';
 import { SignalScope } from './contexts.js';
-import { checkAndRunListeners, getSignal } from './get.js';
-import { Edge, EdgeType, SignalEdge } from './edge.js';
+import { getSignal } from './get.js';
+import { Edge } from './edge.js';
 import { schedulePull, scheduleUnwatch } from './scheduling.js';
 import { hashValue } from './utils/hash.js';
 import { stringifyValue } from './utils/stringify.js';
-import { equalsFrom } from './utils/equals.js';
 
 /**
  * This file contains computed signal base types and struct definitions.

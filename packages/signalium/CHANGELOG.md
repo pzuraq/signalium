@@ -1,5 +1,11 @@
 # signalium
 
+## 1.1.1
+
+### Patch Changes
+
+- dd4a7f9: Fix root context inheritance
+
 ## 1.1.0
 
 ### Minor Changes

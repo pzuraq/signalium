@@ -65,6 +65,54 @@ describe('contexts', () => {
     expect(derived()).toBe('Hi, Everyone');
   });
 
+  test('withContexts inherits from root scope', () => {
+    const defaultValue1 = state('default1');
+    const defaultValue2 = state('default2');
+    const ctx1 = createContext(defaultValue1);
+    const ctx2 = createContext(defaultValue2);
+    const rootOverride1 = state('root1');
+    const rootOverride2 = state('root2');
+
+    // Set root contexts
+    setRootContexts([
+      [ctx1, rootOverride1],
+      [ctx2, rootOverride2],
+    ]);
+
+    // Create a reactive function that uses both contexts
+    const derived = reactive(() => `${useContext(ctx1).get()}-${useContext(ctx2).get()}`);
+
+    // Should inherit from root scope when no local overrides
+    const result1 = withContexts([], () => derived());
+    expect(result1).toBe('root1-root2');
+
+    // Should inherit from root scope for unoverridden contexts
+    const localOverride1 = state('local1');
+    const result2 = withContexts([[ctx1, localOverride1]], () => derived());
+    expect(result2).toBe('local1-root2');
+
+    // Should use local overrides when provided
+    const localOverride2 = state('local2');
+    const result3 = withContexts(
+      [
+        [ctx1, localOverride1],
+        [ctx2, localOverride2],
+      ],
+      () => derived(),
+    );
+    expect(result3).toBe('local1-local2');
+
+    // Changes to root contexts should be reflected in inherited contexts
+    rootOverride1.set('updated-root1');
+    rootOverride2.set('updated-root2');
+
+    const result4 = withContexts([], () => derived());
+    expect(result4).toBe('updated-root1-updated-root2');
+
+    const result5 = withContexts([[ctx1, localOverride1]], () => derived());
+    expect(result5).toBe('local1-updated-root2');
+  });
+
   test('async computed maintains context ownership across await boundaries', async () => {
     const ctx = createContext('default');
 

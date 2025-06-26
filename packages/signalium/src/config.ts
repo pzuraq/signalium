@@ -27,7 +27,7 @@ export let runBatch: BatchFn = fn => fn();
 
 export let getFrameworkScope: () => SignalScope | undefined = () => undefined;
 
-let useFrameworkStateSignal: <T>(signal: StateSignal<T>) => T = signal => signal.get();
+let useFrameworkStateSignal: <T>(signal: StateSignal<T>) => T = signal => signal.peek();
 let useFrameworkDerivedSignal: <T, Args extends unknown[]>(
   signal: DerivedSignal<T, Args>,
 ) => ReactiveValue<T> = signal => signal.get();

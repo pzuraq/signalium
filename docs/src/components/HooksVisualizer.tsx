@@ -15,6 +15,7 @@ import {
   Tracer,
   VisualizerNode,
   SignalType,
+  getMemoryExporter,
 } from 'signalium/debug';
 import { setupReact } from 'signalium/react';
 import clsx from 'clsx';

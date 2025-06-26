@@ -14,6 +14,7 @@ export class StateSignal<T> implements IStateSignal<T> {
   private _subs = new Map<WeakRef<DerivedSignal<unknown, unknown[]>>, number>();
   _desc: string;
   _id: number;
+  tracerMeta: { id: number; desc: string; params: string };
 
   private _listeners: Set<SignalListener> | null = null;
 
@@ -22,6 +23,11 @@ export class StateSignal<T> implements IStateSignal<T> {
     this._equals = equals;
     this._id = STATE_ID++;
     this._desc = `${desc}${this._id}`;
+    this.tracerMeta = {
+      id: this._id,
+      desc: this._desc,
+      params: '',
+    };
   }
 
   get(): T {
@@ -29,7 +35,7 @@ export class StateSignal<T> implements IStateSignal<T> {
       TRACER?.emit({
         type: TracerEventType.ConsumeState,
         id: CURRENT_CONSUMER.tracerMeta!.id,
-        childId: this._id,
+        childId: this.tracerMeta.id,
         value: this._value,
         setValue: (value: unknown) => {
           this.set(value as T);

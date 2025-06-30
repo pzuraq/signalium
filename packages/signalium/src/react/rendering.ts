@@ -12,10 +12,28 @@ const REACT_INTERNALS =
 const IS_REACT_18 = !!REACT_INTERNALS.ReactCurrentDispatcher;
 const ReactCurrentDispatcher = REACT_INTERNALS.ReactCurrentDispatcher || REACT_INTERNALS;
 
+let RENDERING_SAFE_MODE_COUNT = 0;
+
+/**
+ * Reactive functions can be called anywhere, but React Hooks cannot. When calling reactive functions
+ * in code that _may or may not_ be used while rendering, we need to use this function to wrap the
+ * call. This will ensure that we will not be in a rendering context when the reactive function is called.
+ */
+export const runReactiveSafe = <T, Args extends unknown[]>(fn: (...args: Args) => T, ...args: Args): T => {
+  RENDERING_SAFE_MODE_COUNT++;
+
+  try {
+    return fn(...args);
+  } finally {
+    RENDERING_SAFE_MODE_COUNT--;
+  }
+};
+
 export function isRendering() {
   const dispatcher = IS_REACT_18 ? ReactCurrentDispatcher.current : ReactCurrentDispatcher.H;
 
   return (
+    RENDERING_SAFE_MODE_COUNT === 0 &&
     !!dispatcher &&
     // dispatcher can be in a state where it's defined, but all hooks are invalid to call.
     // Only way we can tell is that if they are invalid, they will all be equal to each other

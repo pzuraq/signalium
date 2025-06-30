@@ -19,11 +19,11 @@ let RENDERING_SAFE_MODE_COUNT = 0;
  * in code that _may or may not_ be used while rendering, we need to use this function to wrap the
  * call. This will ensure that we will not be in a rendering context when the reactive function is called.
  */
-export const runReactiveSafe = <T, Args extends unknown[]>(fn: (...args: Args) => T, ...args: Args): T => {
+export const runReactiveSafe = <T>(fn: () => T): T => {
   RENDERING_SAFE_MODE_COUNT++;
 
   try {
-    return fn(...args);
+    return fn();
   } finally {
     RENDERING_SAFE_MODE_COUNT--;
   }

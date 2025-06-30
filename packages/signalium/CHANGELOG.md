@@ -1,5 +1,11 @@
 # signalium
 
+## 1.2.0
+
+### Minor Changes
+
+- a56cc6f: Add runReactiveSafe for running reactive functions safely in React apps
+
 ## 1.1.1
 
 ### Patch Changes

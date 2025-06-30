@@ -1,5 +1,11 @@
 # signalium
 
+## 1.2.1
+
+### Patch Changes
+
+- af9216c: Updates runReactiveSafe API to simplify types
+
 ## 1.2.0
 
 ### Minor Changes

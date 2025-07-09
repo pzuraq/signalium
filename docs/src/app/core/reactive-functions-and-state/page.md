@@ -299,7 +299,7 @@ class User {
 
 const user = new User();
 
-const useFullName = reactive((get) => {
+const useFullName = reactive(() => {
   return `${user.firstName} ${user.lastName}`;
 });
 ```

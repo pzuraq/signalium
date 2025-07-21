@@ -3,10 +3,9 @@ import { DerivedSignal } from './derived.js';
 import { checkAndRunListeners, checkSignal } from './get.js';
 import { runListeners as runDerivedListeners } from './derived.js';
 import { runListeners as runStateListeners } from './state.js';
-import { Tracer } from '../trace.js';
 import { unwatchSignal } from './connect.js';
 import { StateSignal } from './state.js';
-import { ROOT_SCOPE, SignalScope } from './contexts.js';
+import { SignalScope } from './contexts.js';
 
 // Determine once at startup which scheduling function to use for GC
 const scheduleIdleCallback =
@@ -18,7 +17,7 @@ let PENDING_PULLS: DerivedSignal<any, any>[] = [];
 let PENDING_ASYNC_PULLS: DerivedSignal<any, any>[] = [];
 let PENDING_UNWATCH = new Map<DerivedSignal<any, any>, number>();
 let PENDING_LISTENERS: (DerivedSignal<any, any> | StateSignal<any>)[] = [];
-let PENDING_TRACERS: Tracer[] = [];
+// PENDING_TRACERS no longer needed with new tracing system
 let PENDING_GC = new Set<SignalScope>();
 
 const microtask = () => Promise.resolve();
@@ -63,9 +62,9 @@ export const scheduleListeners = (signal: DerivedSignal<any, any> | StateSignal<
   scheduleFlush(flushWatchers);
 };
 
-export const scheduleTracer = (tracer: Tracer) => {
-  PENDING_TRACERS.push(tracer);
-  scheduleFlush(flushWatchers);
+// scheduleTracer no longer needed with new tracing system
+export const scheduleTracer = (tracer: any) => {
+  // No-op for backwards compatibility
 };
 
 export const scheduleGcSweep = (scope: SignalScope) => {
@@ -129,13 +128,10 @@ const flushWatchers = async () => {
       }
     }
 
-    for (const tracer of PENDING_TRACERS) {
-      tracer.flush();
-    }
+    // Tracer flushing no longer needed with new tracing system
 
     PENDING_UNWATCH.clear();
     PENDING_LISTENERS = [];
-    PENDING_TRACERS = [];
   });
 
   // resolve the flush promise

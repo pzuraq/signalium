@@ -105,9 +105,7 @@ export function checkSignal(signal: DerivedSignal<any, any>): number {
   signal._state = SignalState.Clean;
   signal.dirtyHead = undefined;
 
-  if (TRACER !== undefined && signal.tracerMeta?.tracer) {
-    scheduleTracer(signal.tracerMeta.tracer);
-  }
+  // No longer need to schedule individual tracers since we use global TRACER
 
   return signal.updatedCount;
 }

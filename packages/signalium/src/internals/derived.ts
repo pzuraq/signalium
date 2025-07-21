@@ -1,5 +1,5 @@
 import WeakRef from '../weakref.js';
-import { Tracer, TRACER, TracerMeta } from '../trace.js';
+import { TRACER, TracerMeta } from '../trace.js';
 import { ReactiveValue, Signal, SignalEquals, SignalListener, SignalOptionsWithInit } from '../types.js';
 import { getUnknownSignalFnName } from './utils/debug-name.js';
 import { SignalScope } from './contexts.js';
@@ -95,7 +95,7 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
     args: Args,
     key?: SignalId,
     scope?: SignalScope,
-    opts?: Partial<SignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
+    opts?: Partial<SignalOptionsWithInit<T, Args>>,
   ) {
     this.flags = (definition.isSubscription ? SignalFlags.isSubscription : 0) | SignalState.Dirty;
     this.scope = scope;
@@ -104,14 +104,11 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
     this.def = definition;
     this.value = opts?.initValue as ReactiveValue<T>;
 
-    if (TRACER) {
-      this.tracerMeta = {
-        id: opts?.id ?? key ?? hashValue([definition.compute, ID++]),
-        desc: opts?.desc ?? definition.compute.name ?? getUnknownSignalFnName(definition.compute),
-        params: args.map(arg => stringifyValue(arg)).join(', '),
-        tracer: opts?.tracer,
-      };
-    }
+    this.tracerMeta = {
+      id: opts?.id ?? key ?? hashValue([definition.compute, ID++]),
+      desc: opts?.desc ?? definition.compute.name ?? getUnknownSignalFnName(definition.compute),
+      params: args.map(arg => stringifyValue(arg)).join(', '),
+    };
   }
 
   get _state() {
@@ -211,7 +208,7 @@ export function createDerivedSignal<T, Args extends unknown[]>(
   args: Args = [] as any,
   key?: SignalId,
   scope?: SignalScope,
-  opts?: Partial<SignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
+  opts?: Partial<SignalOptionsWithInit<T, Args>>,
 ): DerivedSignal<T, Args> {
   return new DerivedSignal(def, args, key, scope, opts);
 }

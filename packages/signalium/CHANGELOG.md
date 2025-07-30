@@ -1,5 +1,11 @@
 # signalium
 
+## 1.2.2
+
+### Patch Changes
+
+- b93607d: Make setRootContexts reuse existing scope so we don't leak memory
+
 ## 1.2.1
 
 ### Patch Changes

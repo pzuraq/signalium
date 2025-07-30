@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { reactive, createContext, withContexts, watcher, state } from '../index.js';
-import { SignalScope, ROOT_SCOPE, forceGc, clearRootScope } from '../internals/contexts.js';
+import { SignalScope, ROOT_SCOPE, forceGc, clearRootContexts } from '../internals/contexts.js';
 import { nextTick, sleep } from './utils/async.js';
 
 // Helper to access private properties for testing
@@ -14,7 +14,7 @@ const getGCCandidates = (scope: SignalScope) => {
 
 describe('Garbage Collection', () => {
   beforeEach(() => {
-    clearRootScope();
+    clearRootContexts();
   });
 
   it('should automatically garbage collect unwatched signals', async () => {

@@ -36,19 +36,23 @@ export const createContext = <T>(initialValue: T, description?: string): Context
 
 export class SignalScope {
   constructor(contexts: [ContextImpl<unknown>, unknown][], parent?: SignalScope) {
-    this.parentScope = parent;
     this.contexts = Object.create(parent?.contexts || null);
 
-    for (const [context, value] of contexts) {
-      this.contexts[context._key] = value;
-    }
+    this.setContexts(contexts);
   }
 
-  private parentScope?: SignalScope = undefined;
   private contexts: Record<symbol, unknown>;
   private children = new Map<number, SignalScope>();
   private signals = new Map<number, DerivedSignal<any, any>>();
   private gcCandidates = new Set<DerivedSignal<any, any>>();
+
+  setContexts(contexts: [ContextImpl<unknown>, unknown][]) {
+    for (const [context, value] of contexts) {
+      this.contexts[context._key] = value;
+    }
+
+    this.signals.clear();
+  }
 
   getChild(contexts: [ContextImpl<unknown>, unknown][]) {
     const key = hashValue(contexts);
@@ -119,10 +123,10 @@ export class SignalScope {
 export let ROOT_SCOPE = new SignalScope([]);
 
 export function setRootContexts<C extends unknown[], U>(contexts: [...ContextPair<C>]): void {
-  ROOT_SCOPE = new SignalScope(contexts as [ContextImpl<unknown>, unknown][], ROOT_SCOPE);
+  ROOT_SCOPE.setContexts(contexts as [ContextImpl<unknown>, unknown][]);
 }
 
-export const clearRootScope = () => {
+export const clearRootContexts = () => {
   ROOT_SCOPE = new SignalScope([]);
 };
 

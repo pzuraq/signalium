@@ -11,6 +11,7 @@ export {
   useContext,
   withContexts,
   setRootContexts,
+  clearRootContexts,
   SignalScope,
   CONTEXT_KEY,
 } from './internals/contexts.js';

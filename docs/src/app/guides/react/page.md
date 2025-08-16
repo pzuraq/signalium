@@ -116,9 +116,9 @@ function useCounterWithStep(step = 1) {
 
 // After
 const count = state(0); // Move to module scope
-const useCounterWithStep = reactive((step = 1) => {
-  const increment = () => count.set(count.get() + step);
-  const decrement = () => count.set(count.get() - step);
+const getCounterWithStep = reactive((step = 1) => {
+  const increment = () => count.update((c) => c + step);
+  const decrement = () => count.update((c) => c - step);
 
   return {
     get count() {
@@ -143,9 +143,9 @@ function useCounterWithHistory() {
 }
 
 // After
-const useCounterWithHistory = reactive(() => {
+const getCounterWithHistory = reactive(() => {
   return subscription((state) => {
-    const { count, increment, decrement } = useCounterWithStep();
+    const { count, increment, decrement } = getCounterWithStep();
 
     state.set({
       count,
@@ -159,7 +159,9 @@ const useCounterWithHistory = reactive(() => {
 // Usage in a component
 function Counter() {
   // When used in components, signals work seamlessly
-  const { count, history, increment, decrement } = useCounterWithHistory();
+  const { count, history, increment, decrement } = useReactive(
+    getCounterWithHistory,
+  );
 
   return (
     <div>
@@ -198,7 +200,7 @@ const MemoizedComponent = memo(({ value }) => {
 });
 
 function Parent() {
-  const data = useData(); // returns a reactive promise
+  const data = useReactive(getData); // returns a reactive promise
   return <MemoizedComponent value={data.value} />;
 }
 ```
@@ -207,7 +209,7 @@ function Parent() {
 
 ```tsx
 function DataComponent() {
-  const data = useData(); // returns a reactive promise
+  const data = useReactive(getData); // returns a reactive promise
 
   if (data.isPending) {
     return <div>Loading...</div>;

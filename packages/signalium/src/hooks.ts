@@ -8,7 +8,6 @@ import {
   SignalSubscribe,
   type SignalOptionsWithInit,
 } from './types.js';
-import { useDerivedSignal } from './config.js';
 import { getCurrentScope, SignalScope } from './internals/contexts.js';
 import { createStateSignal } from './internals/state.js';
 import { createDerivedSignal, DerivedSignalDefinition } from './internals/derived.js';
@@ -17,6 +16,9 @@ import { Tracer } from './trace.js';
 import { equalsFrom } from './internals/utils/equals.js';
 
 export const state = createStateSignal;
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+export const DERIVED_DEFINITION_MAP = new Map<Function, DerivedSignalDefinition<any, any>>();
 
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
@@ -33,16 +35,24 @@ export function reactive<T, Args extends unknown[]>(
   const def: DerivedSignalDefinition<T, Args> = {
     compute: fn,
     equals: equalsFrom(opts?.equals),
-    shouldGC: opts?.shouldGC,
     isSubscription: false,
+    id: opts?.id,
+    desc: opts?.desc,
+    paramKey: opts?.paramKey,
+    shouldGC: opts?.shouldGC,
+    initValue: opts?.initValue,
   };
 
-  return (...args) => {
+  const reactiveFn: (...args: Args) => ReactiveValue<T> = (...args) => {
     const scope = getCurrentScope();
-    const signal = scope.get(def, args, opts);
+    const signal = scope.get(def, args);
 
-    return useDerivedSignal(signal)!;
+    return signal.get();
   };
+
+  DERIVED_DEFINITION_MAP.set(reactiveFn, def);
+
+  return reactiveFn;
 }
 
 export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: SignalOptions<T, unknown[]>): ReactivePromise<T>;
@@ -76,7 +86,12 @@ export function watcher<T>(
     compute: fn,
     equals: equalsFrom(opts?.equals),
     isSubscription: false,
+    id: opts?.id,
+    desc: opts?.desc,
+    paramKey: opts?.paramKey,
+    shouldGC: opts?.shouldGC,
+    tracer: opts?.tracer,
   };
 
-  return createDerivedSignal(def, undefined, undefined, opts?.scope, opts);
+  return createDerivedSignal(def, undefined, undefined, opts?.scope);
 }

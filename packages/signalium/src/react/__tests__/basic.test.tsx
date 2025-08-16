@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { state, reactive, createContext, useContext } from 'signalium';
-import { ContextProvider, setupReact, useStateSignal } from '../index.js';
+import { ContextProvider, setupReact, useReactive, useStateSignal } from '../index.js';
 import React, { useState } from 'react';
 import { userEvent } from '@vitest/browser/context';
 import { sleep } from '../../__tests__/utils/async.js';
@@ -13,7 +13,7 @@ describe('React > basic', () => {
     const value = state('Hello');
 
     function Component(): React.ReactNode {
-      return <div>{value.get()}</div>;
+      return <div>{useReactive(value)}</div>;
     }
 
     const { getByText } = render(<Component />);
@@ -31,7 +31,7 @@ describe('React > basic', () => {
 
       return (
         <div>
-          {value.get()}
+          {useReactive(value)}
           <button onClick={() => value.set('World')}>Toggle</button>
         </div>
       );
@@ -49,10 +49,10 @@ describe('React > basic', () => {
   test('basic computed usage works', async () => {
     const value = state('Hello');
 
-    const derived = reactive(() => `${value.get()}, World`);
+    const derived = reactive(() => `${useReactive(value)}, World`);
 
     function Component(): React.ReactNode {
-      return <div>{derived()}</div>;
+      return <div>{useReactive(derived)}</div>;
     }
 
     const { getByText } = render(<Component />);
@@ -67,14 +67,14 @@ describe('React > basic', () => {
   test('computed updates when params change', async () => {
     const value = state('Hello');
 
-    const derived = reactive((universe: boolean) => `${value.get()}, ${universe ? 'Universe' : 'World'}`);
+    const derived = reactive((universe: boolean) => `${useReactive(value)}, ${universe ? 'Universe' : 'World'}`);
 
     function Component(): React.ReactNode {
       const [universe, setUniverse] = useState(true);
 
       return (
         <div>
-          {derived(universe)}
+          {useReactive(derived, universe)}
           <button onClick={() => setUniverse(!universe)}>Toggle Universe</button>
         </div>
       );

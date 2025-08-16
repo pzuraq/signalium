@@ -258,7 +258,7 @@ The important thing to realize is that in general, it is a _lot easier_ to make 
 But this strategy can also be applied to _any_ pure function. It doesn't need to be something that _produces_ a tree-like value - the callstack itself _is_ the tree.
 
 ```js {% visualize=true initialized=true showCode=false %}
-const useCounter = reactive((ms) => {
+const getCounter = reactive((ms) => {
   return subscription(
     (state) => {
       const id = setInterval(() => state.set(state.get() + 1), ms);
@@ -269,23 +269,21 @@ const useCounter = reactive((ms) => {
   );
 });
 
-const useDivide = reactive((value, divideBy) => value / divideBy);
+const divide = reactive((value, divideBy) => value / divideBy);
 
-const useFloor = reactive((value) => Math.floor(value));
+const floor = reactive((value) => Math.floor(value));
 
-const useQuotient = reactive((value, divideBy) =>
-  useFloor(useDivide(value, divideBy)),
-);
+const quotient = reactive((value, divideBy) => floor(divide(value, divideBy)));
 
-const useInnerWrapper = reactive(() => useQuotient(useCounter(3500).value, 3));
+const getInnerWrapper = reactive(() => quotient(getCounter(3500).value, 3));
 
-export const useOuterWrapper = reactive(() => useInnerWrapper());
+export const getOuterWrapper = reactive(() => getInnerWrapper());
 ```
 
 In this example, we see a visualization of a real function callstack. The bars represent function calls, and the layers represent parent/child relationships, much like a flame chart. The definitions of those functions look like this:
 
 ```ts
-const useCounter = reactive((ms) => {
+const getCounter = reactive((ms) => {
   return subscription(
     (state) => {
       const id = setInterval(() => state.set(state.get() + 1), ms);
@@ -296,17 +294,15 @@ const useCounter = reactive((ms) => {
   );
 });
 
-const useDivide = reactive((value, divideBy) => value / divideBy);
+const divide = reactive((value, divideBy) => value / divideBy);
 
-const useFloor = reactive((value) => Math.floor(value));
+const floor = reactive((value) => Math.floor(value));
 
-const useQuotient = reactive((value, divideBy) =>
-  useFloor(useDivide(value, divideBy)),
-);
+const quotient = reactive((value, divideBy) => floor(divide(value, divideBy)));
 
-const useInnerWrapper = reactive(() => useQuotient(useCounter(3500).value, 3));
+const getInnerWrapper = reactive(() => quotient(getCounter(3500).value, 3));
 
-export const useOuterWrapper = reactive(() => useInnerWrapper());
+export const getOuterWrapper = reactive(() => getInnerWrapper());
 ```
 
 You'll notice that whenever the counter increments, part of the stack lights up. Those are functions that are reactivating in response to mutable state updating - rerunning incrementally. If a function returns a different value, it continues propagating and its parent functions are also rerun. But if a function returns the _same_ value, then it stops propagation.
@@ -333,34 +329,8 @@ This is what Signalium provides: A way to annotate variables and functions in Ja
 Toward the beginning of this (now far too long) essay, one thing I noted was that monads tend to lend themselves quite well to _syntax_. It seems that every time we figure out a new monadic structure, we're able to make use of it in the syntax of _some_ new language (probably Rust. I do love Rust.) So, what might that syntax look like in JavaScript?
 
 ```js
-reactive function useCounter(ms) {
-  return new Resource((state) => {
-    state.set(0);
-
-    const id = setInterval(() => state.set(state.get() + 1), ms)
-
-    return () => clearInterval(id)
-  })
-}
-
-reactive function useDivide(value, divideBy) {
-  return value / divideBy;
-}
-
-reactive function useFloor(value) {
-  return Math.floor(value);
-}
-
-reactive function useQuotient(value, divideBy) {
-  return useFloor(useDivide(value, divideBy));
-}
-
-reactive function useInnerWrapper() {
-  useQuotient(useCounter(5000), 3);
-}
-
-export reactive function useOuterWrapper() {
-  return useInnerWrapper()
+reactive async function fetchJson(url) {
+  //...
 }
 ```
 
@@ -368,47 +338,9 @@ This is purely speculative and to be 100% clear, this is _not_ part of the curre
 
 ```js
 @reactive
-function useCounter(state) {
-  return subscription(
-    (state) => {
-      const id = setInterval(() => state.set(state.get() + 1), ms);
-
-      return () => clearInterval(id);
-    },
-    { initValue: 0 },
-  );
-}
-
-@reactive
-function useDivide(value, divideBy) {
-  return value / divideBy;
-}
-
-@reactive
-function useFloor(value) {
-  return Math.floor(value);
-}
-
-@reactive
-function useQuotient(value, divideBy) {
-  return useFloor(useDivide(value, divideBy));
-}
-
-@reactive
-function useInnerWrapper() {
-  useQuotient(useCounter(5000), 3);
-}
-
-@reactive
-export function useOuterWrapper() {
-  return useInnerWrapper()
+async function fetchJson(url) {
+  //...
 }
 ```
 
 What's neat (and validating) here though is how neatly _either option_ works for this abstraction. It fits _very nicely_ into syntax, and you could even imagine it interacting somehow with the `using` keyword from the [Explicit Resource Management Proposal](https://github.com/tc39/proposal-explicit-resource-management) in some way.
-
-## Now, let's dive in
-
-So there you have it, that's all of the context that went into the motivation and design behind Signals and Signalium, condensed into a (really, very, much too long) essay. I think I've finally gotten it all out there.
-
-Now that you have all of that, it's time to start learning how to use Signals. And we'll start off with the two core-most concepts: Computeds and State.

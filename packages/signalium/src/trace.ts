@@ -1,5 +1,5 @@
 import { scheduleTracer } from './internals/scheduling.js';
-import { DerivedSignal, SignalId } from './internals/derived.js';
+import { DerivedSignal } from './internals/derived.js';
 import { Signal } from './types.js';
 
 export let TRACER: TracerProxy | undefined;

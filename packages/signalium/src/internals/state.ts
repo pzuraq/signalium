@@ -2,8 +2,7 @@ import { TRACER as TRACER, TracerEventType } from '../trace.js';
 import { SignalEquals, SignalListener, SignalOptions, StateSignal as IStateSignal } from '../types.js';
 import { DerivedSignal } from './derived.js';
 import { dirtySignal } from './dirty.js';
-import { CURRENT_CONSUMER } from './get.js';
-import { useStateSignal } from '../config.js';
+import { CURRENT_CONSUMER } from './consumer.js';
 import { scheduleListeners } from './scheduling.js';
 
 let STATE_ID = 0;
@@ -39,8 +38,7 @@ export class StateSignal<T> implements IStateSignal<T> {
       return this._value!;
     }
 
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useStateSignal(this);
+    return this._value;
   }
 
   update(fn: (value: T) => T) {

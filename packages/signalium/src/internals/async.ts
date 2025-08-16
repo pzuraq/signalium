@@ -9,15 +9,15 @@ import {
   SignalSubscription,
 } from '../types.js';
 import { createDerivedSignal, DerivedSignal, DerivedSignalDefinition, SignalState } from './derived.js';
-import { CURRENT_CONSUMER, generatorResultToPromise, getSignal } from './get.js';
+import { generatorResultToPromise, getSignal } from './get.js';
 import { dirtySignal, dirtySignalConsumers } from './dirty.js';
-import { scheduleAsyncPull, schedulePull, setResolved } from './scheduling.js';
-import { createEdge, Edge, EdgeType, findAndRemoveDirty, PromiseEdge } from './edge.js';
-import { getCurrentScope, ROOT_SCOPE, SignalScope, withScope } from './contexts.js';
+import { scheduleAsyncPull } from './scheduling.js';
+import { createEdge, EdgeType, findAndRemoveDirty, PromiseEdge } from './edge.js';
+import { SignalScope, withScope } from './contexts.js';
 import { createStateSignal } from './state.js';
-import { useStateSignal } from '../config.js';
 import { isGeneratorResult, isPromise } from './utils/type-utils.js';
-import { DEFAULT_EQUALS, equalsFrom, FALSE_EQUALS } from './utils/equals.js';
+import { DEFAULT_EQUALS, equalsFrom } from './utils/equals.js';
+import { CURRENT_CONSUMER } from './consumer.js';
 
 const enum AsyncFlags {
   // ======= Notifiers ========
@@ -69,7 +69,6 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
   // For example, in React we need to entangle each promise immediately after it
   // was used because we can't dynamically call hooks.
   private _version = createStateSignal(0);
-  private _boundRun: ((...args: Args) => ReactivePromise<T, Args>) | undefined;
 
   static createPromise<T>(promise: Promise<T>, signal?: DerivedSignal<T, unknown[]>, initValue?: T | undefined) {
     const p = new ReactivePromise<T>();
@@ -146,15 +145,13 @@ export class ReactivePromise<T, Args extends unknown[] = unknown[]> implements B
       },
       equals: DEFAULT_EQUALS,
       isSubscription: true,
+      paramKey: opts?.paramKey,
+      shouldGC: opts?.shouldGC as (signal: object, value: () => void, args: unknown[]) => boolean,
+      id: opts?.id,
+      desc: opts?.desc,
     };
 
-    p._signal = createDerivedSignal<() => void, unknown[]>(
-      def,
-      [],
-      undefined,
-      scope,
-      opts as Omit<SignalOptionsWithInit<T, unknown[]>, 'equals' | 'initValue' | 'paramKey' | 'shouldGC'>,
-    );
+    p._signal = createDerivedSignal<() => void, unknown[]>(def, [], undefined, scope);
 
     p._equals = equalsFrom(opts?.equals);
     p._initFlags(AsyncFlags.isSubscription | AsyncFlags.Pending, initValue as T);

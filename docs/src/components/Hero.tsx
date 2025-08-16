@@ -1,4 +1,3 @@
-import { Fragment, useEffect, useRef } from 'react';
 import Image from 'next/image';
 
 import { Button } from '@/components/Button';
@@ -132,7 +131,7 @@ export function Hero() {
               interactive={false}
               showGradients={true}
               source={`
-                const useCounter = reactive((ms) => {
+                const getCounter = reactive((ms) => {
                   return subscription((state) => {
                     const id = setInterval(() => state.set(state.get() + 1), ms)
 
@@ -140,23 +139,23 @@ export function Hero() {
                   }, { initValue: 0 });
                 });
 
-                const useDivide = reactive((value, divideBy) =>
+                const divide = reactive((value, divideBy) =>
                   value / divideBy
                 );
 
-                const useFloor = reactive((value) => Math.floor(value));
+                const floor = reactive((value) => Math.floor(value));
 
-                const useQuotient = reactive((value, divideBy) =>
-                  useFloor(useDivide(value, divideBy))
+                const quotient = reactive((value, divideBy) =>
+                  floor(divide(value, divideBy))
                 );
 
-                const useFloorCounter = reactive(() =>
-                  useQuotient(useCounter(5000).value, 3)
+                const getFloorCounter = reactive(() =>
+                  quotient(getCounter(5000).value, 3)
                 );
 
                 let renderCount = 0;
                 export default function Component() {
-                  const value = useFloorCounter();
+                  const value = useReactive(getFloorCounter);
 
                   return (
                     <div className="flex flex-col px-4 md:py-12 text-center md:text-lg">

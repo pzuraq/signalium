@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { state, reactive, subscription } from 'signalium';
-import { setupReact } from '../index.js';
+import { setupReact, useReactive } from '../index.js';
 import React from 'react';
 import { sleep } from '../../__tests__/utils/async.js';
 
@@ -37,7 +37,7 @@ describe('React > subscriptions', () => {
     }
 
     function Parent(): React.ReactNode {
-      const d = derived();
+      const d = useReactive(derived);
       return <Child asyncValue={d} />;
     }
 

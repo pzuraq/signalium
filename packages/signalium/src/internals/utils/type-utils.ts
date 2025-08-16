@@ -14,6 +14,6 @@ export function isPromise(value: object): value is Promise<unknown> {
   return value.constructor === Promise;
 }
 
-export function isReactivePromise(value: object): value is ReactivePromise<unknown> {
+export function isReactivePromiseInstance(value: object): value is ReactivePromise<unknown> {
   return value.constructor === ReactivePromise;
 }

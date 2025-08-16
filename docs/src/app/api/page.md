@@ -98,13 +98,10 @@ export function callback<T, Args extends unknown[]>(
 
 Creates a callback function that is owned by the current reactive context. This essentially allows you to use the same contexts as the owner within the callback
 
-### createContext
+### context
 
 ```ts
-export function createContext<T>(
-  initialValue: T,
-  description?: string,
-): Context<T>;
+export function context<T>(initialValue: T, description?: string): Context<T>;
 ```
 
 Creates a context that can be used to provide values to a subtree of reactive functions.

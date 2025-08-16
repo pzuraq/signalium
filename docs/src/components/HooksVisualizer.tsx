@@ -16,7 +16,7 @@ import {
   VisualizerNode,
   SignalType,
 } from 'signalium/debug';
-import { setupReact } from 'signalium/react';
+import { setupReact, useReactive } from 'signalium/react';
 import clsx from 'clsx';
 import { transform } from '@babel/standalone';
 import { dedent } from '@/lib/string';
@@ -439,6 +439,7 @@ const WatcherRunner = ({
       useRef,
       useState,
       useEffect,
+      useReactive,
       React,
       sleep,
     });

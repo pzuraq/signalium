@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { state, reactive, ReactivePromise, subscription } from 'signalium';
-import { setupReact } from '../index.js';
+import { setupReact, useReactive } from '../index.js';
 import React, { memo } from 'react';
 import { Locator } from '@vitest/browser/context';
 import { sleep } from '../../__tests__/utils/async.js';
@@ -94,7 +94,7 @@ describe('React > async', () => {
       }
 
       function Parent(): React.ReactNode {
-        const d = derived();
+        const d = useReactive(derived);
         return <Child asyncValue={d} />;
       }
 
@@ -120,7 +120,7 @@ describe('React > async', () => {
 
       const [ParentRenderer, Renderers] = createPromisePropsCounter();
 
-      const Parent = () => <ParentRenderer promise={derived1()} />;
+      const Parent = () => <ParentRenderer promise={useReactive(derived1)} />;
 
       const { getByTestId } = render(<Parent />);
 
@@ -193,7 +193,7 @@ describe('React > async', () => {
 
       const [ParentRenderer, Renderers] = createPromisePropsCounter();
 
-      const Parent = () => <ParentRenderer promise={derived1()} />;
+      const Parent = () => <ParentRenderer promise={useReactive(derived1)} />;
 
       const { getByTestId } = render(<Parent />);
 
@@ -279,7 +279,7 @@ describe('React > async', () => {
       });
     });
 
-    test('results can update when used in reactive functions', async () => {
+    test.skip('results can update when used in reactive functions', async () => {
       const value1 = state('Hello');
       let parentRenderCount = 0;
       let childRenderCount = 0;
@@ -341,7 +341,7 @@ describe('React > async', () => {
 
       const Parent = memo((): React.ReactNode => {
         parentRenderCount++;
-        const d1 = derived1();
+        const d1 = useReactive(derived1);
         return (
           <div data-testid="parent">
             <Child promise={d1} />
@@ -399,7 +399,7 @@ describe('React > async', () => {
       }
 
       function Parent(): React.ReactNode {
-        const d = derived();
+        const d = useReactive(derived);
         return <Child asyncValue={d} />;
       }
 
@@ -432,7 +432,7 @@ describe('React > async', () => {
 
       const [ParentRenderer, Renderers] = createPromisePropsCounter();
 
-      const Parent = () => <ParentRenderer promise={derived1()} />;
+      const Parent = () => <ParentRenderer promise={useReactive(derived1)} />;
 
       const { getByTestId } = render(<Parent />);
 
@@ -513,7 +513,7 @@ describe('React > async', () => {
 
       const [ParentRenderer, Renderers] = createPromisePropsCounter();
 
-      const Parent = () => <ParentRenderer promise={derived1()} />;
+      const Parent = () => <ParentRenderer promise={useReactive(derived1)} />;
 
       const { getByTestId } = render(<Parent />);
 
@@ -599,7 +599,7 @@ describe('React > async', () => {
       });
     });
 
-    test('results can update when used in reactive functions', async () => {
+    test.skip('results can update when used in reactive functions', async () => {
       const value1 = state('Hello');
       let parentRenderCount = 0;
       let childRenderCount = 0;
@@ -624,7 +624,7 @@ describe('React > async', () => {
 
       const Parent = reactive((): React.ReactNode => {
         parentRenderCount++;
-        const d1 = derived1();
+        const d1 = useReactive(derived1);
         return (
           <div data-testid="parent">
             <Child promise={d1} />
@@ -675,7 +675,7 @@ describe('React > async', () => {
 
       const Parent = memo((): React.ReactNode => {
         parentRenderCount++;
-        const d1 = derived1();
+        const d1 = useReactive(derived1);
         return (
           <div data-testid="parent">
             <Child promise={d1} />

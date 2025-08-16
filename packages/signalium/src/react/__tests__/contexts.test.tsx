@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { state, reactive, createContext, useContext, setRootContexts } from '../../index.js';
-import { ContextProvider, setupReact, useScope } from '../index.js';
+import { ContextProvider, setupReact, useReactive, useScope } from '../index.js';
 import React, { useState } from 'react';
 
 setupReact();
@@ -14,7 +14,7 @@ describe('React > contexts', () => {
     const derived = reactive(() => `${useContext(context).get()}, World`);
 
     function Component(): React.ReactNode {
-      return <div>{derived()}</div>;
+      return <div>{useReactive(derived)}</div>;
     }
 
     const { getByText } = render(<Component />);
@@ -33,7 +33,7 @@ describe('React > contexts', () => {
     function Component(): React.ReactNode {
       const v = useContext(context);
 
-      return <div>{v.get()}, World</div>;
+      return <div>{useReactive(v)}, World</div>;
     }
 
     const { getByText } = render(
@@ -68,7 +68,7 @@ describe('React > contexts', () => {
       const value1 = useContext(ctx1);
       const value2 = useContext(ctx2);
       const derived = reactive(() => `${value1.get()}-${value2.get()}`);
-      return <div data-testid={testId}>{derived()}</div>;
+      return <div data-testid={testId}>{useReactive(derived)}</div>;
     }
     const localOverride1 = state('local1');
     const localOverride2 = state('local2');
@@ -120,7 +120,7 @@ describe('React > contexts', () => {
     const derived = reactive(() => `${useContext(context).get()}, World`);
 
     function Component(): React.ReactNode {
-      return <div>{derived()}</div>;
+      return <div>{useReactive(derived)}</div>;
     }
 
     const { getByText } = render(
@@ -144,7 +144,7 @@ describe('React > contexts', () => {
     function Component(): React.ReactNode {
       const v = useContext(context);
 
-      return <div>{v.get()}, World</div>;
+      return <div>{useReactive(v)}, World</div>;
     }
 
     const { getByText } = render(

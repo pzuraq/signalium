@@ -11,22 +11,22 @@ Contexts are a mainstay not just of React, but of most major frameworks these da
 Signalium includes contexts as well. A basic example looks like:
 
 ```js
-import { createContext, withContexts, reactive } from 'signalium';
+import { reactive, context, useContext, withContexts } from 'signalium';
 
-const ApiPrefixContext = createContext('/api/');
+const ApiPrefixContext = context('/api/');
 
-const useUsersUrl = reactive(() => {
+const getUsersUrl = reactive(() => {
   const prefix = useContext(ApiPrefixContext);
 
   return `${prefix}users`;
 });
 
 // '/api/users'
-const usersUrl = useUsersUrl();
+const usersUrl = getUsersUrl();
 
 // '/api-v2/users'
 const usersV2Url = withContexts([[ApiPrefixContext, '/api-v2/']], () => {
-  return useUsersUrl();
+  return getUsersUrl();
 });
 ```
 
@@ -49,16 +49,16 @@ import { createContext, withContexts, reactive } from 'signalium';
 
 const LogContext = createContext('root');
 
-const useLog = reactive(() => {
+const log = reactive(() => {
   console.log(useContext(LogContext));
 });
 
-useLog(); // logs 'root'
-useLog(); // does not log
+log(); // logs 'root'
+log(); // does not log
 
 withContexts([[LogContext, 'child']], () => {
-  useLog(); // logs 'child'
-  useLog(); // does not log
+  log(); // logs 'child'
+  log(); // does not log
 });
 ```
 
@@ -74,19 +74,19 @@ import { createContext, withContexts, reactive, state } from 'signalium';
 const apiPrefix = state('/');
 const ApiPrefixContext = createContext(apiPrefix);
 
-const useUsersUrl = reactive(() => {
+const getUsersUrl = reactive(() => {
   const prefix = useContext(ApiPrefixContext).get();
 
   return `${prefix}users`;
 });
 
 // '/api/users'
-const usersUrl = useUsersUrl();
+const usersUrl = getUsersUrl();
 
 apiPrefix.set('/api-v2/');
 
 // '/api-v2/users'
-const usersUrlV2 = useUsersUrl();
+const usersUrlV2 = getUsersUrl();
 ```
 
 ## Summary

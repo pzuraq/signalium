@@ -55,11 +55,13 @@ interface ListenerMeta {
  * Shared definition for derived signals to reduce memory usage.
  * Contains configuration that's common across all instances of a reactive function.
  */
-export interface DerivedSignalDefinition<T, Args extends unknown[]> {
+export interface DerivedSignalDefinition<T, Args extends unknown[]>
+  extends Partial<Omit<SignalOptionsWithInit<T, Args>, 'scope'>> {
   compute: (...args: Args) => T;
   equals: SignalEquals<T>;
   shouldGC?: (signal: object, value: T, args: Args) => boolean;
   isSubscription: boolean;
+  tracer?: Tracer;
 }
 
 export class DerivedSignal<T, Args extends unknown[]> implements Signal<ReactiveValue<T>> {
@@ -90,26 +92,20 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
   // Reference to the shared definition
   def: DerivedSignalDefinition<T, Args>;
 
-  constructor(
-    definition: DerivedSignalDefinition<T, Args>,
-    args: Args,
-    key?: SignalId,
-    scope?: SignalScope,
-    opts?: Partial<SignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
-  ) {
-    this.flags = (definition.isSubscription ? SignalFlags.isSubscription : 0) | SignalState.Dirty;
+  constructor(def: DerivedSignalDefinition<T, Args>, args: Args, key?: SignalId, scope?: SignalScope) {
+    this.flags = (def.isSubscription ? SignalFlags.isSubscription : 0) | SignalState.Dirty;
     this.scope = scope;
     this.key = key;
     this.args = args;
-    this.def = definition;
-    this.value = opts?.initValue as ReactiveValue<T>;
+    this.def = def;
+    this.value = def.initValue as ReactiveValue<T>;
 
     if (TRACER) {
       this.tracerMeta = {
-        id: opts?.id ?? key ?? hashValue([definition.compute, ID++]),
-        desc: opts?.desc ?? definition.compute.name ?? getUnknownSignalFnName(definition.compute),
+        id: def.id ?? key ?? hashValue([def.compute, ID++]),
+        desc: def.desc ?? def.compute.name ?? getUnknownSignalFnName(def.compute),
         params: args.map(arg => stringifyValue(arg)).join(', '),
-        tracer: opts?.tracer,
+        tracer: def.tracer,
       };
     }
   }
@@ -211,7 +207,6 @@ export function createDerivedSignal<T, Args extends unknown[]>(
   args: Args = [] as any,
   key?: SignalId,
   scope?: SignalScope,
-  opts?: Partial<SignalOptionsWithInit<T, Args>> & { tracer?: Tracer },
 ): DerivedSignal<T, Args> {
-  return new DerivedSignal(def, args, key, scope, opts);
+  return new DerivedSignal(def, args, key, scope);
 }

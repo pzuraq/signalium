@@ -19,7 +19,7 @@ Creating a reactive function is as simple as wrapping your function definition w
 ```ts
 import { reactive } from 'signalium';
 
-const useAdd = reactive((a, b) => {
+const add = reactive((a, b) => {
   return a + b;
 });
 ```
@@ -27,20 +27,20 @@ const useAdd = reactive((a, b) => {
 You can then use your function just like any other function:
 
 ```ts
-const ret = useAdd(1, 2); // 3
+const ret = add(1, 2); // 3
 ```
 
-Under the hood, the `useAdd` function gets wrapped in a signal which memoizes the value, so it's only called again if the parameters passed to it (or the state accessed _by_ it, more on that later) change.
+Under the hood, the `add` function gets wrapped in a signal which memoizes the value, so it's only called again if the parameters passed to it (or the state accessed _by_ it, more on that later) change.
 
 ```ts
-const useLog = reactive((val) => {
+const log = reactive((val) => {
   console.log(val);
 });
 
-useLog(1); // 1
-useLog(1); //
+log(1); // 1
+log(1); //
 
-useLog(2); // 2
+log(2); // 2
 ```
 
 These signals are stored weakly, so if they are no longer in use they will be automatically cleaned up. Parameters are also diffed _semi-deeply_ - plain objects, arrays, and primitive values are deeply compared, but any kind of class instance that is not a plain object is compared via reference. This allows more complex parameters to be passed and cached, while avoiding the complexity of serializing class instances which may contain private data, circular references, and many other nuances that are hard to capture.
@@ -50,15 +50,15 @@ class Foo {
   val = 1;
 }
 
-const useLog = reactive((obj) => {
+const log = reactive((obj) => {
   console.log(obj.val);
 });
 
-useLog({ val: 1 }); // 1
-useLog({ val: 1 }); //
+log({ val: 1 }); // 1
+log({ val: 1 }); //
 
-useLog(new Foo()); // 1
-useLog(new Foo()); // 1
+log(new Foo()); // 1
+log(new Foo()); // 1
 ```
 
 {% callout title="Additional Info" %}
@@ -70,12 +70,12 @@ useLog(new Foo()); // 1
 Reactive functions can be called by other reactive functions and composed just like plain functions:
 
 ```ts
-const useDivide = reactive((a, b) => a / b);
+const divide = reactive((a, b) => a / b);
 
-const useFloor = reactive((a) => Math.floor(a));
+const floor = reactive((a) => Math.floor(a));
 
-const useQuotient = reactive((a, b) => {
-  return useFloor(useDivide(a, b));
+const quotient = reactive((a, b) => {
+  return floor(divide(a, b));
 });
 ```
 
@@ -86,15 +86,15 @@ However, you can also use plain functions inside reactive functions, and you gen
 Reactive functions can be called _conditionally_. They are not dependent on the runtime order remaining static, so if it changes based on some value, it will still work:
 
 ```ts
-const useLeftValue = reactive(() => {
+const leftValue = reactive(() => {
   /* */
 });
-const useRightValue = reactive(() => {
+const rightValue = reactive(() => {
   /* */
 });
 
-const useQuotient = reactive((useLeft) => {
-  return useLeft ? useLeftValue() : useRightValue();
+const getCurrentDirection = reactive((direction: 'left' | 'right') => {
+  return direction === 'left' ? leftValue() : rightValue();
 });
 ```
 
@@ -116,12 +116,12 @@ registerCustomHash(Foo, (foo) => {
   return hashValue([foo.a, foo.b]);
 });
 
-const useLog = reactive((obj) => {
+const log = reactive((obj) => {
   console.log(obj.val);
 });
 
-useLog(new Foo()); // 1
-useLog(new Foo()); //
+log(new Foo()); // 1
+log(new Foo()); //
 ```
 
 If you want to have more fine grained control over parameter equality, you can pass a `paramKey` function to the reactive function definition. This function should generate a _unique string key_ for the parameters it receives, but other than that has no constraints.
@@ -132,7 +132,7 @@ class Foo {
   b = 2;
 }
 
-const useLog = reactive(
+const log = reactive(
   (obj) => {
     console.log(obj.a);
   },
@@ -143,8 +143,8 @@ const useLog = reactive(
   },
 );
 
-useLog(new Foo()); // 1
-useLog(new Foo()); //
+log(new Foo()); // 1
+log(new Foo()); //
 ```
 
 And that wraps up all of the basic reactive functionality. To summarize:
@@ -173,20 +173,20 @@ console.log(num.get()); // 2
 State signals represent _mutable root state_ in your application. Whern you access these signals inside of a reactive function, the function will be _entangled_ with that state. Whenever the state updates, the function will be invalidated and rerun the _next time_ it is used.
 
 ```ts
-const useLog = reactive((signal) => {
-  // we get the value of the signal, entangling it with `useLog`
+const log = reactive((signal) => {
+  // we get the value of the signal, entangling it with `log`
   console.log(signal.get());
 });
 
 const num = state(1);
 
-useLog(num); // 1
-useLog(num); //
+log(num); // 1
+log(num); //
 
-// updating the state causes useLog to rerun, even though we passed
+// updating the state causes log to rerun, even though we passed
 // the same parameters
 num.set(2);
-useLog(num); // 2
+log(num); // 2
 ```
 
 You can pass signal values as parameters, or you can access them directly if they're in scope. The reactive function will update when the value changes, either way.
@@ -194,17 +194,17 @@ You can pass signal values as parameters, or you can access them directly if the
 ```ts
 const num = state(1);
 
-const useLog = reactive(() => {
+const log = reactive(() => {
   // we reference the state directly here rather than as a parameter
   console.log(num.get());
 });
 
-useLog(); // 1
-useLog(); //
+log(); // 1
+log(); //
 
-// updating the state causes useLog to rerun
+// updating the state causes log to rerun
 num.set(2);
-useLog(); // 2
+log(); // 2
 ```
 
 One thing worth noting here is that we can set the state and then immediately call reactive functions that use that state, and they will update. This is generally true about Signalium - derived state and root state always reflect the latest version of state, as soon as you set it. Reactive functions won't _run_ until the next time you access them, but when you do, they will run immediately and you won't see an older version of the state.
@@ -230,14 +230,14 @@ Signals can be accessed _anywhere_ inside of a reactive function. This means tha
 ```ts
 const num = state(1);
 
-function logState() {
-  // even though we access the state inside this plain function, `useLog`
+function doLog() {
+  // even though we access the state inside this plain function, `log`
   // will still track that it was used.
   console.log(num.get());
 }
 
-const useLog = reactive(() => {
-  logState();
+const log = reactive(() => {
+  doLog();
 });
 ```
 
@@ -251,7 +251,7 @@ class User {
 
 const user = new User();
 
-const useFullName = reactive(() => {
+const getFullName = reactive(() => {
   return `${user.firstName.get()} ${user.lastName.get()}`;
 });
 ```
@@ -266,7 +266,7 @@ class User {
 
 const user = new User();
 
-const useFullName = reactive((get) => {
+const getFullName = reactive((get) => {
   return `${get(user.firstName)} ${get(user.lastName)}`;
 });
 ```
@@ -299,14 +299,14 @@ class User {
 
 const user = new User();
 
-const useFullName = reactive(() => {
+const getFullName = reactive(() => {
   return `${user.firstName} ${user.lastName}`;
 });
 ```
 
-In this example, the `User` class hides the details of the state signals behind getters and setters, making them appear and behave just like normal properties. However, when we call `fullName` inside of a reactive function, those states will be tracked as dependencies, and any updates to them will bust the cache.
+In this example, the `User` class hides the details of the state signals behind getters and setters, making them appear and behave just like normal properties. However, when we call `getFullName` inside of a reactive function, those states will be tracked as dependencies, and any updates to them will bust the cache.
 
-What's important here is that `fullName` does not need to _know_ about these details. We could update our implementation to add or remove reactive properties without having to make any changes to the functions that use them. Or, we could make non-reactive versions of classes and interfaces and use them interchangeably.
+What's important here is that `getFullName` does not need to _know_ about these details. We could update our implementation to add or remove reactive properties without having to make any changes to the functions that use them. Or, we could make non-reactive versions of classes and interfaces and use them interchangeably.
 
 ```js
 class ReadOnlyUser {
@@ -325,39 +325,39 @@ Reactive functions are _lazy_ by default. They will not rerun until the next use
 // Left branch
 const left = state(1);
 
-const useLogLeft = reactive(() => {
+const logLeft = reactive(() => {
   console.log(left.get());
 });
 
 // Right branch
 const right = state(2);
 
-const useLogRight = reactive(() => {
+const logRight = reactive(() => {
   console.log(right.get());
 });
 
-const logLeft = state(true);
+const shouldLogLeft = state(true);
 
 // Function with conditional logic
-const useLogConditional = reactive(() => {
-  return logLeft.get() ? useLogLeft() : useLogRight();
+const logConditional = reactive(() => {
+  return shouldLogLeft.get() ? logLeft() : logRight();
 });
 
 // The left value is logged by default
-useLogConditional(); // 1
-useLogConditional(); //
+logConditional(); // 1
+logConditional(); //
 
 // Updating the left state but not the condition,
 // the left value is logged again
 left.set(123);
-useLogConditional(); // 123
+logConditional(); // 123
 
 // Updating both the condition and the state,
 // the left value is _not_ logged despite being
 // updated. Instead, the right value is logged
 left.set(456);
-logLeft.set(false);
-useLogConditional(); // 2
+shouldLogLeft.set(false);
+logConditional(); // 2
 ```
 
 This laziness allows you to avoid unnecessary work in many cases. If a value is no longer needed and no longer accessed, it does not need to be updated.
@@ -371,7 +371,7 @@ Consider this example that uses vanilla React hooks:
 ```js
 const useIsGreaterThan2 = () => {
   const [value, setValue] = useState(0);
-  return value > 2;
+  return [value > 2, setValue];
 };
 
 const useMiddleHook = () => useIsGreaterThan2();
@@ -397,13 +397,13 @@ Reactive functions, by contrast, run in standard order the _first_ time only. Fo
 ```js {% visualize=true wrapOutput=true %}
 const value = state(0);
 
-const useIsGreaterThan2 = reactive(() => {
+const isGreaterThan2 = reactive(() => {
   return value.get() > 2;
 });
 
-const useMiddleHook = reactive(() => useIsGreaterThan2());
+const middleFn = reactive(() => isGreaterThan2());
 
-export const useOuterHook = reactive(() => useMiddleHook());
+export const outerFn = reactive(() => middleFn());
 ```
 
 This ensures that we are not rerunning more code than is needed on any given change. One major benefit of this behavior is that, unlike hooks, there is a _reduced_ need utilities like for `useRef` or `useCallback` since values will not be recreated _unless_ the function has actually changed.
@@ -418,37 +418,37 @@ You might be wondering how we can both:
 For example, in this hook:
 
 ```js
-const useLeftValue = reactive(() => {
+const getLeftValue = reactive(() => {
   /**/
 });
-const useRightValue = reactive(() => {
+const getRightValue = reactive(() => {
   /**/
 });
-const useCurrentDirection = reactive(() => {
+const getCurrentDirection = reactive(() => {
   /**/
 });
 
-const useValue = reactive(() => {
-  return useCurrentDirection() === 'left' ? useLeftValue() : useRightValue();
+const getValue = reactive(() => {
+  return getCurrentDirection() === 'left' ? getLeftValue() : getRightValue();
 });
 ```
 
-You would expect the first pass to cache both `useValue` and `useLeftValue` (assuming the initial direction is `'left'`). Now let's say we made both of these changes at the same time:
+The first pass will cache both `getValue` and `getLeftValue` (assuming the initial direction is `'left'`). Now let's say we made both of these changes at the same time:
 
-1. Update `useCurrentDirection()` to `'right'`
-2. Update `useLeftValue()` to any new value
+1. Update `getCurrentDirection()` to `'right'`
+2. Update `getLeftValue()` to any new value
 
-Following our algorithm, you might think that both `useCurrentDirection()` and `useLeftValue()` would need to re-execute before we could rerun `useValue()`. However, this is not the case because of one last nuance: We always rerun dirty children in the _same_ order that they were cached in.
+Following our algorithm, you might think that both `getCurrentDirection()` and `getLeftValue()` would need to re-execute before we could rerun `getValue()`. However, this is not the case because of one last nuance: We always rerun dirty children in the _same_ order that they were cached in.
 
-So, when we go to check `useValue()`, it first checks `useCurrentDirection()` to see if it has changed. If it _has_, then we know that our function needs to be checked, so we immediately stop checking children and we rerun `useValue()`. Because `useCurrentDirection()` has changed, we no longer execute the branch that calls `useLeftValue()`, and it does not rerun.
+So, when we go to check `getValue()`, it first checks `getCurrentDirection()` to see if it has changed. If it _has_, then we know that our function needs to be checked, so we immediately stop checking children and we rerun `getValue()`. Because `getCurrentDirection()` has changed, we no longer execute the branch that calls `getLeftValue()`, and it does not rerun.
 
-Now, let's start over and say that we trigger an update `useCurrentDirection()` such that it still needs to rerun, but it ends up returning `'left'` again. In this case, we know it is safe to move on and check `useLeftValue()` because:
+Now, let's start over and say that we trigger an update `getCurrentDirection()` such that it still needs to rerun, but it ends up returning `'left'` again. In this case, we know it is safe to move on and check `getLeftValue()` because:
 
-1. All mutable state used within the reactive should be contained within a state signal.
-2. Therefore, we _know_ that anything that could affect outcome of the conditional would have been called and tracked prior to `useLeftValue()`.
-3. If all prior values have stayed the same, then the conditional could not have changed and `useLeftValue()` would be called again if we were to rerun the function.
+1. All mutable state used within the function should be contained within a state signal.
+2. Therefore, we _know_ that anything that could affect the outcome of the conditional would have been called and tracked prior to `getLeftValue()`.
+3. If all prior values have stayed the same, then the conditional could not have changed and `getLeftValue()` would be called again if we were to rerun the function.
 
-Thus, `useLeftValue()` and other conditional reactives are only ever rerun if they _absolutely_ need to, ensuring maximum efficiency and minimal re-execution complexity.
+Thus, `getLeftValue()` and other conditional reactives are only ever rerun if they _absolutely_ need to, ensuring maximum efficiency and minimal re-execution complexity.
 
 ### Custom equality
 
@@ -467,7 +467,7 @@ const foo = state(new Foo(), {
 });
 
 // or on the reactive
-const useFoo = reactive(
+const getFoo = reactive(
   () => {
     return foo.get();
   },
@@ -484,7 +484,7 @@ You can also pass `false` to say that a value should _never_ be considered equal
 ```js {% visualize=true wrapOutput=true %}
 const value = state(0);
 
-const useIsGreaterThan2 = reactive(
+const isGreaterThan2 = reactive(
   () => {
     return value.get() > 2;
   },
@@ -493,11 +493,11 @@ const useIsGreaterThan2 = reactive(
   },
 );
 
-const useMiddleHook = reactive(() => useIsGreaterThan2(), {
+const middleFn = reactive(() => isGreaterThan2(), {
   equals: false,
 });
 
-export const useOuterHook = reactive(() => useMiddleHook(), {
+export const outerFn = reactive(() => middleFn(), {
   equals: false,
 });
 ```
@@ -528,7 +528,7 @@ In Signalium, there is no way to declare local state inside of reactive function
 1. **In Parameters.** State can be passed to reactive functions via parameters, as we discussed above, and ultimately this means that the state will live _at the usage site_ of the reactive. In React, for instance, this would be in the _component_ that is invoking the hook (and indeed, `@signalium/react` provides `useStateSignal()` for creating these states).
 
    ```ts
-   const useCustomHook = reactive((value) => {
+   const getDerived = reactive((value) => {
      const v = value.get();
 
      // do something...
@@ -537,7 +537,7 @@ In Signalium, there is no way to declare local state inside of reactive function
    // In component
    const myValue = useStateSignal(123);
 
-   const processed = useCustomHook(myValue);
+   const processed = getDerived(myValue);
    ```
 
 2. **In Contexts.** Contexts in Signalium work much like contexts in React, and we can think of these as _implicit parameters_. If a context value changes, then the reactives that consume that context will also update and return the same output for the same input, preserving functional purity.
@@ -545,31 +545,33 @@ In Signalium, there is no way to declare local state inside of reactive function
    ```ts
    const MyContext = createContext();
 
-   const useCustomHook = reactive(() => {
+   const getDerived = reactive(() => {
      const v = useContext(MyContext).get();
 
      // do something...
    });
 
    const processed = withContext({ [MyContext]: state(123) }, () => {
-     return useCustomHook();
+     return getDerived();
    });
    ```
 
 3. **In Subscriptions.** Subscriptions are a unique concept in Signalium, and they are covered in more depth later. For now though, you can think of a subscription as equivalent to a `useState` and `useEffect` paired together, which covers the remaining cases where state is generally needed to manage certain types of side-effecting values.
 
    ```ts
-   const useCounter = subscription(
-     (state, ms) => {
-       const id = setInterval(() => state.set(state.get() + 1), ms);
+   const getCounter = reactive((state, ms) => {
+     return subscription(
+       (state) => {
+         const id = setInterval(() => state.set(state.get() + 1), ms);
 
-       return () => clearInterval(id);
-     },
-     { initValue: 123 },
-   );
+         return () => clearInterval(id);
+       },
+       { initValue: 123 },
+     );
+   });
 
-   const useCustomHook = reactive(() => {
-     const v = useCounter(1000);
+   const getDerived = reactive(() => {
+     const v = getCounter(1000);
 
      // do something...
    });
@@ -580,7 +582,7 @@ In Signalium, there is no way to declare local state inside of reactive function
    ```ts
    const value = state(123);
 
-   const useCustomHook = reactive(() => {
+   const getDerived = reactive(() => {
      const v = state.get();
 
      // do something...
@@ -613,7 +615,7 @@ In Signalium, this is also something that should generally be **avoided** in rea
 2. "Lifting" that state to a shared context or parent component and passing it down so that everything downstream of that reactive can derive directly from it.
 3. If you are resetting state whenever a value changes, leveraging the _caching_ semantics of reactive function (discussed in the previous section) to reset it by _recreating it_ instead.
 
-That said, there is no blanket prohibition on mutating state _anywhere_ (i.e. it will not throw an assertion if you choose to do so). While strongly recommended against, if you're sure it's the best (or only) way, then nothing prevents you from doing it.
+That said, there is no blanket prohibition on mutating state _anywhere_ (i.e. it will not throw an error if you choose to do so). While strongly recommended against, if you're sure it's the best (or only) way, then nothing prevents you from doing it.
 
 ### Will Signalium ever add local state?
 

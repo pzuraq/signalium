@@ -41,11 +41,11 @@ const useCounter = (ms) => {
 };
 ```
 
-What we have here is an _effect_ paired with some _state_, and in such a way where that effect and _only_ that effect manages this state. To callers of `useCounter`, this is a completely opaque process. They just get the latest count, and they rerun when the count updates.
+What we have here is an _effect_ paired with some _state_, where the effect controls and manages the state entirely internally. To callers of `useCounter`, this is a completely opaque process. They just get the latest count, and they rerun when the count updates.
 
 This is notable because it preserves functional purity for everything _outside_ of `useCounter`. While `useCounter` is managing and mutating state regularly, any hook calling it is just getting the latest value and using it to derive the result. It could be a static value _or_ a dynamic one, and the code would be the same.
 
-Subscriptions formalize this pattern by combining a managed-effect with a slot for state that _by design_ is only accessible internally. From the perspective of the rest of the dependency graph, that subscription node is just like any other reactive value or state, and functional purity is maintained.
+Subscriptions formalize this pattern by combining a managed-effect with a slot for state that _by design_ is only accessible internally. From the perspective of the rest of the dependency graph, the subscription node is just like any other reactive value or state, and functional purity is maintained.
 
 ### Creating subscriptions
 
@@ -68,12 +68,12 @@ const counter = subscription(
   { initValue: 0 },
 );
 
-const useInnerCounterWrapper = reactive(() => {
+const innerCounterWrapper = reactive(() => {
   return counter.value;
 });
 
-export const useOuterCounterWrapper = reactive(() => {
-  return useInnerCounterWrapper();
+export const outerCounterWrapper = reactive(() => {
+  return getInnerCounterWrapper();
 });
 ```
 
@@ -102,7 +102,7 @@ Subscriptions implement the promise interface, but promises are modeled for _sym
 The primary reason is that subscriptions often have an _initialization_ step while they wait for the first event they want to receive. For instance, let's say you want to load a `Post` model and poll for real time updates for it as long as we're on that page. When we first load the page, we don't have any data, so we want to show a loading spinner. After the first message is received, we can show the cached data and continue polling in the background.
 
 ```ts
-const usePostData = reactive((id) => {
+const getPostData = reactive((id) => {
   return subscription((state) => {
     let currentTimeout;
 
@@ -113,8 +113,8 @@ const usePostData = reactive((id) => {
       state.set(post);
 
       // schedule the next fetch in 10s
-      currentTimeout = setTimeout(fetchPost, 10000)
-    }
+      currentTimeout = setTimeout(fetchPost, 10000);
+    };
 
     // initialize
     fetchPost();
@@ -123,12 +123,12 @@ const usePostData = reactive((id) => {
   });
 });
 
-export const usePostTitle(id) {
+export const getPostTitle = reactive(async (id) => {
   // subscription can be awaited just like a standard promise
-  const data = await usePostData(id);
+  const data = await getPostData(id);
 
   return data.title;
-}
+});
 ```
 
 Subscriptions "resolve" the first time their state is set. If you pass an initial value via the `initValue` option, they will initialize resolved. Every time after that, everything that consumes the subscription will be notified of changes and updates, but they will resolve immediately without needing to wait for async or triggering the `isPending` state.
@@ -136,7 +136,7 @@ Subscriptions "resolve" the first time their state is set. If you pass an initia
 If you need to reset the loading state for any reason, e.g. if you navigate back to a page that was already active and you want to refetch the value eagerly, you can set the value to a _new_ promise, and the promise state will be reflected on the subscription until it completes.
 
 ```ts
-const usePostData = reactive((id) => {
+const getPostData = reactive((id) => {
   return subscription((state) => {
     let currentTimeout;
 
@@ -173,7 +173,7 @@ interface SignalSubscription {
 This form of subscription is for cases where you may want more fine-grained control over how the subscription is updated. For instance, it might be fairly expensive to teardown a subscription and recreate it each time, and there might be a cheaper way to update it.
 
 ```js
-const currentTopic = state('foo');
+const currentTopic = signal('foo');
 
 const messageBus = subscription((state) => {
   const id = bus.subscribe(currentTopic.get(), (msg) => state.set(msg));
@@ -285,14 +285,14 @@ On occasion, you might want to write to a state signal and then immediately read
 ```js
 const valueSignal = state(0);
 
-const useDerived = reactive(() => {
+const getDerived = reactive(() => {
   return valueSignal.get() + 1;
 });
 
 function updateValue(value) {
   valueSignal.set(value);
 
-  useDerived(); // value + 1
+  getDerived(); // value + 1
 }
 ```
 

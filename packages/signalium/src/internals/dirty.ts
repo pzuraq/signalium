@@ -1,6 +1,6 @@
 import { scheduleAsyncPull, schedulePull } from './scheduling.js';
 import { DerivedSignal, isSubscription, SignalState } from './derived.js';
-import { CURRENT_CONSUMER } from './get.js';
+import { CURRENT_CONSUMER } from './consumer.js';
 import { Edge } from './edge.js';
 
 export function dirtySignal(signal: DerivedSignal<any, any>) {

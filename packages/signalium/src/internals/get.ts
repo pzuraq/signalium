@@ -5,9 +5,8 @@ import { createEdge, Edge, EdgeType } from './edge.js';
 import { watchSignal } from './connect.js';
 import { ReactivePromise } from './async.js';
 import { ReactiveValue } from '../types.js';
-import { isGeneratorResult, isPromise, isReactivePromise } from './utils/type-utils.js';
-
-export let CURRENT_CONSUMER: DerivedSignal<any, any> | undefined;
+import { isGeneratorResult, isPromise, isReactivePromiseInstance } from './utils/type-utils.js';
+import { CURRENT_CONSUMER, setCurrentConsumer } from './consumer.js';
 
 export function getSignal<T, Args extends unknown[]>(signal: DerivedSignal<T, Args>): ReactiveValue<T> {
   if (CURRENT_CONSUMER !== undefined) {
@@ -124,7 +123,7 @@ export function runSignal(signal: DerivedSignal<any, any[]>) {
   const computedCount = ++signal.computedCount;
 
   try {
-    CURRENT_CONSUMER = signal;
+    setCurrentConsumer(signal);
 
     const initialized = updatedCount !== 0;
     const prevValue = signal.value;
@@ -161,7 +160,7 @@ export function runSignal(signal: DerivedSignal<any, any[]>) {
         id: signal.tracerMeta!.id,
       });
 
-      if (prevValue !== null && typeof prevValue === 'object' && isReactivePromise(prevValue)) {
+      if (prevValue !== null && typeof prevValue === 'object' && isReactivePromiseInstance(prevValue)) {
         // Update the ReactivePromise with the new promise. Since the value
         // returned from the function is the same ReactivePromise instance,
         // we don't need to increment the updatedCount, because the returned
@@ -182,7 +181,7 @@ export function runSignal(signal: DerivedSignal<any, any[]>) {
       signal.updatedCount = updatedCount + 1;
     }
   } finally {
-    CURRENT_CONSUMER = prevConsumer;
+    setCurrentConsumer(prevConsumer);
 
     TRACER?.emit({
       type: TracerEventType.EndUpdate,
@@ -232,7 +231,7 @@ export function callback<T, Args extends unknown[]>(fn: (...args: Args) => T): (
 
   return (...args) => {
     const prevConsumer = CURRENT_CONSUMER;
-    CURRENT_CONSUMER = savedConsumer;
+    setCurrentConsumer(savedConsumer);
 
     try {
       const result = fn(...args);
@@ -243,7 +242,7 @@ export function callback<T, Args extends unknown[]>(fn: (...args: Args) => T): (
 
       return result;
     } finally {
-      CURRENT_CONSUMER = prevConsumer;
+      setCurrentConsumer(prevConsumer);
     }
   };
 }
@@ -253,7 +252,7 @@ export function generatorResultToPromise<T, Args extends unknown[]>(
   savedConsumer: DerivedSignal<any, any> | undefined,
 ): Promise<T> {
   function adopt(value: any) {
-    return typeof value === 'object' && value !== null && (isPromise(value) || isReactivePromise(value))
+    return typeof value === 'object' && value !== null && (isPromise(value) || isReactivePromiseInstance(value))
       ? value
       : Promise.resolve(value);
   }
@@ -271,12 +270,12 @@ export function generatorResultToPromise<T, Args extends unknown[]>(
       const prevConsumer = CURRENT_CONSUMER;
 
       try {
-        CURRENT_CONSUMER = savedConsumer;
+        setCurrentConsumer(savedConsumer);
         step(generator.next(value));
       } catch (e) {
         reject(e);
       } finally {
-        CURRENT_CONSUMER = prevConsumer;
+        setCurrentConsumer(prevConsumer);
       }
     }
 
@@ -284,12 +283,12 @@ export function generatorResultToPromise<T, Args extends unknown[]>(
       const prevConsumer = CURRENT_CONSUMER;
 
       try {
-        CURRENT_CONSUMER = savedConsumer;
+        setCurrentConsumer(savedConsumer);
         step(generator['throw'](value));
       } catch (e) {
         reject(e);
       } finally {
-        CURRENT_CONSUMER = prevConsumer;
+        setCurrentConsumer(prevConsumer);
       }
     }
 

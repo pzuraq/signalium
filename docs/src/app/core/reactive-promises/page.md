@@ -11,25 +11,25 @@ If JavaScript was a completely synchronous language, then we would be able to ge
 JavaScript has a few ways of dealing with async, but by far the most common one is with _promises_. Signalium extends promises to add reactivity to them in a _declarative_ way, enabling functional programming patterns alongside traditional imperative ones.
 
 ```js
-const useFetchJson = reactive(async (url) => {
+const fetchJson = reactive(async (url) => {
   const response = await fetch(url);
   const result = await response.json();
 
   return result;
 });
 
-// Using declarative properties
-const useFetchUserName = reactive((id) => {
-  const user = useFetchJson(`https://example.com/users/${id}`);
-
-  return user.isPending ? 'Loading user...' : user.value.fullName;
-});
-
 // Using async/await
-const useFetchUser = reactive(async (id) => {
-  const user = await useFetchJson(`https://example.com/users/${id}`);
+const getUserName = reactive(async (id) => {
+  const user = await fetchJson(`https://example.com/users/${id}`);
 
   return user.fullName;
+});
+
+// Using declarative properties
+const getUserName = reactive((id) => {
+  const user = fetchJson(`https://example.com/users/${id}`);
+
+  return user.isPending ? 'Loading user...' : user.value.fullName;
 });
 ```
 
@@ -69,17 +69,17 @@ Whenever a reactive function returns a promise, Signalium converts that promise 
 ```js {% visualize=true %}
 import { state, reactive } from 'signalium';
 
-let value = state(0);
+let value = state('Hello, world');
 
-const useLoader = reactive(async () => {
-  const v = value.get(0);
+const getLoader = reactive(async () => {
+  const v = value.get();
   await sleep(3000);
 
   return v;
 });
 
-export const useText = reactive(() => {
-  const { isPending, result } = useLoader();
+export const getText = reactive(() => {
+  const { isPending, result } = getLoader();
 
   return isPending ? 'Loading...' : result;
 });
@@ -98,25 +98,25 @@ This mirrors popular libraries such as [TanStack Query](https://tanstack.com/que
 
 ### Awaiting results
 
-You can _await_ reactive promises within using standard async/await syntax:
+You can _await_ reactive promises using standard async/await syntax:
 
 ```js {% visualize=true %}
 let value = state(0);
 
-const useInnerLoader = reactive(async () => {
+const getInnerLoader = reactive(async () => {
   const v = value.get();
   await sleep(3000);
   return v;
 });
 
-const useOuterLoader = reactive(async () => {
-  const innerValue = await useInnerLoader();
+const getOuterLoader = reactive(async () => {
+  const innerValue = await getInnerLoader();
 
   return innerValue + 1;
 });
 
-export const useText = reactive(() => {
-  const { isPending, result } = useOuterLoader();
+export const getText = reactive(() => {
+  const { isPending, result } = getOuterLoader();
 
   return isPending ? 'Loading...' : result;
 });
@@ -126,72 +126,19 @@ Await unwraps the result and returns it, so it's guaranteed to have a value. The
 
 When you await values like this, it also _stops propagation_ of changes until every async request has resolved. This allows your fetch to fully resolve _before_ notifying the view layer, meaning fewer rerenders and more performant behavior by default.
 
-### Tracking constraints
-
-Currently, auto-tracking in _non-reactive_ async functions only works up until the first `await` statement. For instance, in the following example:
-
-```js
-// 🚫 Bad
-const process = async (response, validatorSignal) => {
-  const json = await response.json();
-
-  // This will not entangle properly because validator is accessed
-  // after the first `await`, and process is not a reactive function
-  return validatorSignal.get().parse(json);
-};
-
-const useFetch = reactive(async (url, validator) => {
-  const res = await fetch(url.get());
-
-  return process(res, validator);
-});
-
-// ✅ Good
-const process = async (response, validator) => {
-  const json = await response.json();
-
-  // This will entangle properly because the validator signal was
-  // accessed directly inside the reactive async function
-  return validator.parse(json);
-};
-
-const useFetch = reactive(async (url, validator) => {
-  const res = await fetch(url.get());
-
-  return process(res, validator.get());
-});
-
-// ✅ Good
-const process = async (response, validatorSignal) => {
-  const validator = validatorSignal.get();
-  const json = await response.json();
-
-  // This will also work because the signal was accessed before the first await
-  return validator.parse(json);
-};
-
-const useFetch = reactive(async (url, validator) => {
-  const res = await fetch(url.get());
-
-  return process(res, validator);
-});
-```
-
-This is due to the limitations of promises currently, which cannot be paused and resumed with the same context. There is a proposal currently in the process, [AsyncContext](https://github.com/tc39/proposal-async-context), which will enable this ability. In the meantime, the Signalium Babel transform converts async functions into generator functions, and uses the functionality of generators to polyfill this behavior _within_ reactive functions only.
-
 ### Manual invalidation
 
 Sometimes you may need to rerun a reactive promise even though its inputs haven't changed. For instance, you might have a manual refresh button to let users get the latest data. You can call `rerun` on a reactive promise that was generated _by_ a reactive function, and it will invalidate that function and rerun it the _next time it is used_.
 
 ```js
-const useAsyncValue = reactive(async () => {
+const getAsyncValue = reactive(async () => {
   // ...
 });
 
-const result = useAsyncValue();
+const result = getAsyncValue();
 
 // Later...
-result.rerun(); // invalidates `useAsyncValue()`
+result.rerun(); // invalidates `getAsyncValue()`
 ```
 
 ## The `task` helper
@@ -201,11 +148,7 @@ Reactive promises are meant to represent _data_, values fetched or generated bas
 You can create a special kind of reactive promise directly to handle this, a _task_. Tasks don't run when they are used or accessed, unlike standard promises. Instead, you must run them manually using the `run()` method:
 
 ```js
-import { asyncTask } from 'signalium';
-
-const useSendFriendRequest = reactive((userId: string) => {
-  return ;
-});
+import { task } from 'signalium';
 
 // ...usage
 const sendFriendRequest = task(async (userId: string) => {
@@ -237,14 +180,14 @@ Tasks can receive parameters when `run` is called, and in many cases this is all
 ```ts
 import { reactive, task } from 'signalium';
 
-const useSetStorageValue = reactive((key) => {
+const createSetStorageValue = reactive((key: string) => {
   return task(async (value) => {
     await chrome.storage.local.set({ [key]: value });
   });
 });
 
 // providing build parameters
-const setUserId = useSetStorageValue('USER_ID');
+const setUserId = createSetStorageValue('USER_ID');
 
 // providing run parameters
 sendFriendRequest.run('user_1');
@@ -261,7 +204,7 @@ const fetchTask = task((url) => {
   // ...
 });
 
-const useCustomComputed = reactive(() => {
+const getCustomComputed = reactive(() => {
   const url = analyticsUrl.get();
 
   // Track something whenever this function reruns

@@ -1,9 +1,8 @@
 import { getFrameworkScope } from '../config.js';
-import { SignalOptionsWithInit } from '../types.js';
 import { DerivedSignal, DerivedSignalDefinition, createDerivedSignal } from './derived.js';
-import { CURRENT_CONSUMER } from './get.js';
 import { hashReactiveFn, hashValue } from './utils/hash.js';
 import { scheduleGcSweep } from './scheduling.js';
+import { CURRENT_CONSUMER } from './consumer.js';
 
 export const CONTEXT_KEY = Symbol('signalium:context');
 
@@ -73,17 +72,13 @@ export class SignalScope {
     return this.contexts[context._key] as T | undefined;
   }
 
-  get<T, Args extends unknown[]>(
-    def: DerivedSignalDefinition<T, Args>,
-    args: Args,
-    opts?: Partial<SignalOptionsWithInit<T, Args>>,
-  ): DerivedSignal<T, Args> {
-    const paramKey = opts?.paramKey?.(...args);
+  get<T, Args extends unknown[]>(def: DerivedSignalDefinition<T, Args>, args: Args): DerivedSignal<T, Args> {
+    const paramKey = def.paramKey?.(...args);
     const key = hashReactiveFn(def.compute, paramKey ? [paramKey] : args);
     let signal = this.signals.get(key) as DerivedSignal<T, Args> | undefined;
 
     if (signal === undefined) {
-      signal = createDerivedSignal(def, args, key, this, opts);
+      signal = createDerivedSignal(def, args, key, this);
       this.signals.set(key, signal);
     }
 

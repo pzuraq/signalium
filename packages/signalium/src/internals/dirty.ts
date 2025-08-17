@@ -1,30 +1,30 @@
 import { scheduleAsyncPull, schedulePull } from './scheduling.js';
-import { DerivedSignal, isSubscription, SignalState } from './derived.js';
+import { ReactiveFnSignal, isRelay, ReactiveFnState } from './reactive.js';
 import { CURRENT_CONSUMER } from './consumer.js';
 import { Edge } from './edge.js';
 
-export function dirtySignal(signal: DerivedSignal<any, any>) {
+export function dirtySignal(signal: ReactiveFnSignal<any, any>) {
   const prevState = signal._state;
 
-  if (prevState === SignalState.Dirty) {
+  if (prevState === ReactiveFnState.Dirty) {
     return;
   }
 
-  signal._state = SignalState.Dirty;
+  signal._state = ReactiveFnState.Dirty;
 
-  if (prevState !== SignalState.MaybeDirty) {
+  if (prevState !== ReactiveFnState.MaybeDirty) {
     propagateDirty(signal);
   }
 }
 
-function propagateDirty(signal: DerivedSignal<any, any>) {
+function propagateDirty(signal: ReactiveFnSignal<any, any>) {
   if (CURRENT_CONSUMER === signal) {
     throw new Error(
       'A signal was dirtied after it was consumed by the current function. This can cause race conditions and infinite rerenders and is not allowed.',
     );
   }
 
-  if (isSubscription(signal)) {
+  if (isRelay(signal)) {
     if (signal.watchCount > 0) {
       scheduleAsyncPull(signal);
     }
@@ -40,7 +40,7 @@ function propagateDirty(signal: DerivedSignal<any, any>) {
   }
 }
 
-export function dirtySignalConsumers(map: Map<WeakRef<DerivedSignal<any, any>>, Edge>) {
+export function dirtySignalConsumers(map: Map<WeakRef<ReactiveFnSignal<any, any>>, Edge>) {
   for (const [subRef, edge] of map) {
     const sub = subRef.deref();
 
@@ -49,15 +49,15 @@ export function dirtySignalConsumers(map: Map<WeakRef<DerivedSignal<any, any>>, 
     const dirtyState = sub._state;
 
     switch (dirtyState) {
-      case SignalState.Clean:
-        sub._state = SignalState.MaybeDirty;
+      case ReactiveFnState.Clean:
+        sub._state = ReactiveFnState.MaybeDirty;
         sub.dirtyHead = edge;
         edge.nextDirty = undefined;
         propagateDirty(sub);
         break;
 
-      case SignalState.Pending:
-      case SignalState.MaybeDirty: {
+      case ReactiveFnState.Pending:
+      case ReactiveFnState.MaybeDirty: {
         let subEdge = sub.dirtyHead!;
         const ord = edge.ord;
 
@@ -65,12 +65,12 @@ export function dirtySignalConsumers(map: Map<WeakRef<DerivedSignal<any, any>>, 
           sub.dirtyHead = edge;
           edge.nextDirty = subEdge;
 
-          if (dirtyState === SignalState.Pending) {
+          if (dirtyState === ReactiveFnState.Pending) {
             // If the signal is pending, the first edge is the halt edge. If the
             // new dirty edge is BEFORE the halt edge, then it means that something
             // changed before the current halt, so we need to cancel the current computation
             // and recompute.
-            sub._state = SignalState.MaybeDirty;
+            sub._state = ReactiveFnState.MaybeDirty;
             propagateDirty(sub);
           }
         } else {

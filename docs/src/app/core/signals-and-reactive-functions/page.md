@@ -1,16 +1,16 @@
 ---
-title: Reactive Functions and State
+title: Signals and Reactive Functions
 nextjs:
   metadata:
-    title: Reactive Functions and State
-    description: Understanding state management and reactivity in Signalium
+    title: Signals and Reactive Functions
+    description: Understanding signals and reactive functions in Signalium
 ---
 
 At it's core, Signalium is a framework for defining both _reactive functions_ and _mutable state_. Reactive functions are functions that consume some amount of mutable state, and produce some output _derived_ from that state. Importantly, when the state updates, the result of that function _also_ updates.
 
 One metaphor that is often used to describe this structure is spreadsheets. You can think of a reactive function as a _formula cell_ in a spreadsheet. It references other cells and then derives a value from them, perhaps summing up a number of cells to get the total. Whenever we update one of those cells, the formula cell _automatically_ updates with the latest value.
 
-Reactive functions work the same way - they update whenever the state they consume updates.
+Reactive functions work the same way - they update whenever the signals they consume update.
 
 ## Reactive Functions
 
@@ -161,13 +161,13 @@ Ok, now lets move on to _state_.
 You can create a state signal using the `state` function, and access its value via the `get` and `set` methods:
 
 ```ts
-const num = state(1);
+const num = signal(1);
 
-console.log(num.get()); // 1
+console.log(num.value); // 1
 
-num.set(2);
+num.value = 2;
 
-console.log(num.get()); // 2
+console.log(num.value); // 2
 ```
 
 State signals represent _mutable root state_ in your application. Whern you access these signals inside of a reactive function, the function will be _entangled_ with that state. Whenever the state updates, the function will be invalidated and rerun the _next time_ it is used.
@@ -175,35 +175,35 @@ State signals represent _mutable root state_ in your application. Whern you acce
 ```ts
 const log = reactive((signal) => {
   // we get the value of the signal, entangling it with `log`
-  console.log(signal.get());
+  console.log(signal.value);
 });
 
-const num = state(1);
+const num = signal(1);
 
 log(num); // 1
 log(num); //
 
 // updating the state causes log to rerun, even though we passed
 // the same parameters
-num.set(2);
+num.value = 2;
 log(num); // 2
 ```
 
 You can pass signal values as parameters, or you can access them directly if they're in scope. The reactive function will update when the value changes, either way.
 
 ```ts
-const num = state(1);
+const num = signal(1);
 
 const log = reactive(() => {
   // we reference the state directly here rather than as a parameter
-  console.log(num.get());
+  console.log(num.value);
 });
 
 log(); // 1
 log(); //
 
 // updating the state causes log to rerun
-num.set(2);
+num.value = 2;
 log(); // 2
 ```
 
@@ -228,12 +228,12 @@ Signal purity is what allows us to reuse memoized signal values in many differen
 Signals can be accessed _anywhere_ inside of a reactive function. This means that you can access them directly OR indirectly, for instance by calling another function.
 
 ```ts
-const num = state(1);
+const num = signal(1);
 
 function doLog() {
   // even though we access the state inside this plain function, `log`
   // will still track that it was used.
-  console.log(num.get());
+  console.log(num.value);
 }
 
 const log = reactive(() => {
@@ -245,14 +245,14 @@ We call this _auto-tracking_, and this implicit entanglement it allows you to us
 
 ```js
 class User {
-  firstName = state('Tony');
-  lastName = state('Stark');
+  firstName = signal('Tony');
+  lastName = signal('Stark');
 }
 
 const user = new User();
 
 const getFullName = reactive(() => {
-  return `${user.firstName.get()} ${user.lastName.get()}`;
+  return `${user.firstName.value} ${user.lastName.value}`;
 });
 ```
 
@@ -260,8 +260,8 @@ In an alternative design, we could instead pass a `get` function in to `reactive
 
 ```js
 class User {
-  firstName = state('Tony');
-  lastName = state('Stark');
+  firstName = signal('Tony');
+  lastName = signal('Stark');
 }
 
 const user = new User();
@@ -277,23 +277,23 @@ With Signalium's tracking semantics, we can also preserve this by leveraging ind
 
 ```js
 class User {
-  _firstName = state('Tony');
-  _lastName = state('Stark');
+  _firstName = signal('Tony');
+  _lastName = signal('Stark');
 
   get firstName() {
-    return this._firstName.get();
+    return this._firstName.value;
   }
 
   set firstName(v) {
-    this._firstName.set(v);
+    this._firstName.value = v;
   }
 
   get lastName() {
-    return this._lastName.get();
+    return this._lastName.value;
   }
 
   set lastName(v) {
-    this._lastName.set(v);
+    this._lastName.value = v;
   }
 }
 
@@ -323,24 +323,24 @@ Reactive functions are _lazy_ by default. They will not rerun until the next use
 
 ```ts
 // Left branch
-const left = state(1);
+const left = signal(1);
 
 const logLeft = reactive(() => {
-  console.log(left.get());
+  console.log(left.value);
 });
 
 // Right branch
-const right = state(2);
+const right = signal(2);
 
 const logRight = reactive(() => {
-  console.log(right.get());
+  console.log(right.value);
 });
 
-const shouldLogLeft = state(true);
+const shouldLogLeft = signal(true);
 
 // Function with conditional logic
 const logConditional = reactive(() => {
-  return shouldLogLeft.get() ? logLeft() : logRight();
+  return shouldLogLeft.value ? logLeft() : logRight();
 });
 
 // The left value is logged by default
@@ -349,14 +349,14 @@ logConditional(); //
 
 // Updating the left state but not the condition,
 // the left value is logged again
-left.set(123);
+left.value = 123;
 logConditional(); // 123
 
 // Updating both the condition and the state,
 // the left value is _not_ logged despite being
 // updated. Instead, the right value is logged
-left.set(456);
-shouldLogLeft.set(false);
+left.value = 456;
+shouldLogLeft.value = false;
 logConditional(); // 2
 ```
 
@@ -395,10 +395,10 @@ export const useOuterHook = () => useMiddleHook();
 Reactive functions, by contrast, run in standard order the _first_ time only. For each subsequent run, they start from the _state_ that updated, and move from the innermost function toward the outermost function that consumed said state.
 
 ```js {% visualize=true wrapOutput=true %}
-const value = state(0);
+const value = signal(0);
 
 const isGreaterThan2 = reactive(() => {
-  return value.get() > 2;
+  return value.value > 2;
 });
 
 const middleFn = reactive(() => isGreaterThan2());
@@ -460,7 +460,7 @@ class Foo {
 }
 
 // custom equality on the state
-const foo = state(new Foo(), {
+const foo = signal(new Foo(), {
   equals(a, b) {
     return a.val === b.val;
   },
@@ -469,7 +469,7 @@ const foo = state(new Foo(), {
 // or on the reactive
 const getFoo = reactive(
   () => {
-    return foo.get();
+    return foo.value;
   },
   {
     equals(a, b) {
@@ -482,11 +482,11 @@ const getFoo = reactive(
 You can also pass `false` to say that a value should _never_ be considered equal. This can be useful if you need a reactive to run more often for some integrations or legacy compatibility, but should generally be avoided.
 
 ```js {% visualize=true wrapOutput=true %}
-const value = state(0);
+const value = signal(0);
 
 const isGreaterThan2 = reactive(
   () => {
-    return value.get() > 2;
+    return value.value > 2;
   },
   {
     equals: false,
@@ -529,7 +529,7 @@ In Signalium, there is no way to declare local state inside of reactive function
 
    ```ts
    const getDerived = reactive((value) => {
-     const v = value.get();
+     const v = value.value;
 
      // do something...
    });
@@ -546,23 +546,23 @@ In Signalium, there is no way to declare local state inside of reactive function
    const MyContext = createContext();
 
    const getDerived = reactive(() => {
-     const v = useContext(MyContext).get();
+     const v = useContext(MyContext).value;
 
      // do something...
    });
 
-   const processed = withContext({ [MyContext]: state(123) }, () => {
+   const processed = withContext({ [MyContext]: signal(123) }, () => {
      return getDerived();
    });
    ```
 
-3. **In Subscriptions.** Subscriptions are a unique concept in Signalium, and they are covered in more depth later. For now though, you can think of a subscription as equivalent to a `useState` and `useEffect` paired together, which covers the remaining cases where state is generally needed to manage certain types of side-effecting values.
+3. **In Relays.** Relays are a unique concept in Signalium, and they are covered in more depth later. For now though, you can think of a relay as equivalent to a `useState` and `useEffect` paired together, which covers the remaining cases where state is generally needed to manage certain types of side-effecting values.
 
    ```ts
    const getCounter = reactive((state, ms) => {
-     return subscription(
+     return relay(
        (state) => {
-         const id = setInterval(() => state.set(state.get() + 1), ms);
+         const id = setInterval(() => state.value++, ms);
 
          return () => clearInterval(id);
        },
@@ -580,10 +580,10 @@ In Signalium, there is no way to declare local state inside of reactive function
 4. **Global/Module Scope.** Sometimes you need the power of a contexts for things like test isolation, providing different implementations in different scenarios, or differentiating trees. But sometimes, a value is just a global value, like a global flag or setting. In those cases it's perfectly ok for the state to live directly in a module.
 
    ```ts
-   const value = state(123);
+   const value = signal(123);
 
    const getDerived = reactive(() => {
-     const v = state.get();
+     const v = value.value;
 
      // do something...
    });
@@ -635,9 +635,9 @@ Reactive functions and state are the two most core primitives in Signalium, and 
   - Rerun _lazily_ when they are accessed, and don't rerun if they are no longer used.
   - Rerun from _innermost_ to _outermost_ function when state has changed.
 - State
-  - Is created with `state('initial value')`
-  - Accessed via `signal.get()`
-  - Updated via `signal.set()`
-  - Should live in components, contexts, subscriptions, and global/module scope.
+  - Is created with `signal('initial value')`
+  - Accessed via `signal.value`
+  - Updated via `signal.value = 'new value'`
+  - Should live in components, contexts, relays, and global/module scope.
 
 Next, let's discuss _reactive promises_.

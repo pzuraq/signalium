@@ -35,11 +35,11 @@ export const addDescOptions = (babel: any) => {
     name: 'add-desc-options',
     visitor: {
       CallExpression(path: any) {
-        // Check if it's a call to computed or subscription
+        // Check if it's a call to reactive or relay
         if (
           t.isIdentifier(path.node.callee) &&
           (path.node.callee.name === 'reactive' ||
-            path.node.callee.name === 'subscription')
+            path.node.callee.name === 'relay')
         ) {
           // Get the function name from the variable declaration
           let functionName = '';

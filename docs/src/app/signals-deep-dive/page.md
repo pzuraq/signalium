@@ -259,9 +259,9 @@ But this strategy can also be applied to _any_ pure function. It doesn't need to
 
 ```js {% visualize=true initialized=true showCode=false %}
 const getCounter = reactive((ms) => {
-  return subscription(
+  return relay(
     (state) => {
-      const id = setInterval(() => state.set(state.get() + 1), ms);
+      const id = setInterval(() => state.value++, ms);
 
       return () => clearInterval(id);
     },
@@ -284,9 +284,9 @@ In this example, we see a visualization of a real function callstack. The bars r
 
 ```ts
 const getCounter = reactive((ms) => {
-  return subscription(
+  return relay(
     (state) => {
-      const id = setInterval(() => state.set(state.get() + 1), ms);
+      const id = setInterval(() => state.value++, ms);
 
       return () => clearInterval(id);
     },

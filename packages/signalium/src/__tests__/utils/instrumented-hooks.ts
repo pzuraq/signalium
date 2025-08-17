@@ -1,16 +1,16 @@
 import { afterEach, Assertion, expect } from 'vitest';
 import {
   reactive as _reactive,
-  subscription as _subscription,
-  SignalSubscribe,
+  relay as _relay,
+  SignalActivate,
   withContexts,
   task as _task,
   watcher,
 } from '../../index.js';
-import { ReactiveTask, ReactiveValue, SignalOptionsWithInit, SignalSubscription } from '../../types.js';
+import { TaskSignal, SignalValue, SignalOptionsWithInit, RelayHooks } from '../../types.js';
 import { Context, ContextImpl, getCurrentScope, ROOT_SCOPE, SignalScope } from '../../internals/contexts.js';
-import { DerivedSignal } from '../../internals/derived.js';
-import { ReactivePromise } from '../../internals/async.js';
+import { ReactiveFnSignal } from '../../internals/reactive.js';
+import { AsyncSignalImpl } from '../../internals/async.js';
 import { hashValue } from '../../internals/utils/hash.js';
 
 class SignalHookCounts {
@@ -67,7 +67,7 @@ afterEach(() => {
 let TEST_ID = 0;
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const WATCHERS = new WeakMap<Function, DerivedSignal<unknown, unknown[]>>();
+const WATCHERS = new WeakMap<Function, ReactiveFnSignal<unknown, unknown[]>>();
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 function getWatcherForHook(hook: Function) {
@@ -78,14 +78,14 @@ function getWatcherForHook(hook: Function) {
       () => {
         let result = hook();
 
-        if (result instanceof ReactivePromise) {
+        if (result instanceof AsyncSignalImpl) {
           result = result.value;
         }
 
         return result;
       },
       { desc: 'test' + TEST_ID++ },
-    ) as DerivedSignal<unknown, unknown[]>;
+    ) as ReactiveFnSignal<unknown, unknown[]>;
 
     unsubs.push(w.addListener(() => {}));
 
@@ -101,15 +101,14 @@ function toHaveSignalValue(
   hook: Function,
   value: any,
 ) {
-  if (hook instanceof ReactivePromise) {
+  if (hook instanceof AsyncSignalImpl) {
     return {
       pass: this.equals(hook.value, value),
-      message: () =>
-        `Expected subscription value to be ${JSON.stringify(value)}, but got ${JSON.stringify(hook.value)}`,
+      message: () => `Expected relay value to be ${JSON.stringify(value)}, but got ${JSON.stringify(hook.value)}`,
     };
   }
 
-  const signalValue = getWatcherForHook(hook).get();
+  const signalValue = getWatcherForHook(hook).value;
 
   return {
     pass: this.equals(signalValue, value),
@@ -147,7 +146,7 @@ function toHaveCounts(hook: { [COUNTS]: SignalHookCounts }, counts: SignalHookCo
 expect.addSnapshotSerializer({
   serialize(val) {
     const counts = val[COUNTS];
-    const value = getWatcherForHook(val).get();
+    const value = getWatcherForHook(val).value;
 
     return JSON.stringify([value, counts], null, 2);
   },
@@ -227,19 +226,19 @@ function getCountsFor(name: string, map: Map<number, SignalHookCounts>, scope: S
 
 const COUNTS = Symbol('counts');
 
-export type SubscriptionWithCounts<T> = ReactivePromise<T> & {
+export type RelayWithCounts<T> = AsyncSignalImpl<T> & {
   [COUNTS]: SignalHookCounts;
 };
 
-export type ReactiveTaskWithCounts<T, Args extends unknown[]> = ReactiveTask<T, Args> & {
+export type TaskWithCounts<T, Args extends unknown[]> = TaskSignal<T, Args> & {
   [COUNTS]: SignalHookCounts;
 };
 
-export type ReactiveFunctionWithCounts<T, Args extends unknown[]> = ((...args: Args) => ReactiveValue<T>) & {
+export type ReactiveFunctionWithCounts<T, Args extends unknown[]> = ((...args: Args) => SignalValue<T>) & {
   [COUNTS]: SignalHookCounts;
 };
 
-export type ReactiveBuilderFunction<T, Args extends unknown[]> = ((...args: Args) => ReactiveValue<T>) & {
+export type ReactiveBuilderFunction<T, Args extends unknown[]> = ((...args: Args) => SignalValue<T>) & {
   [COUNTS]: SignalHookCounts;
   watch: () => () => void;
   withParams: (...args: Args) => ReactiveBuilderFunction<T, []>;
@@ -248,19 +247,19 @@ export type ReactiveBuilderFunction<T, Args extends unknown[]> = ((...args: Args
 
 // Create a function-class hybrid for the builder pattern
 function createBuilderFunction<T, Args extends unknown[]>(
-  originalFn: (...args: Args) => ReactiveValue<T>,
+  originalFn: (...args: Args) => SignalValue<T>,
   countsMap: Map<number, SignalHookCounts>,
   args: Args,
   contexts?: [Context<unknown>, unknown][],
 ): ReactiveBuilderFunction<T, []>;
 function createBuilderFunction<T, Args extends unknown[]>(
-  originalFn: (...args: Args) => ReactiveValue<T>,
+  originalFn: (...args: Args) => SignalValue<T>,
   countsMap: Map<number, SignalHookCounts>,
   args?: undefined,
   contexts?: [Context<unknown>, unknown][],
 ): ReactiveBuilderFunction<T, Args>;
 function createBuilderFunction<T, Args extends unknown[]>(
-  originalFn: (...args: Args) => ReactiveValue<T>,
+  originalFn: (...args: Args) => SignalValue<T>,
   countsMap: Map<number, SignalHookCounts>,
   args?: Args,
   contexts?: [Context<unknown>, unknown][],
@@ -341,58 +340,65 @@ export const task: typeof _task = (fn, opts) => {
     counts.compute++;
 
     return fn(...(args as any));
-  }, opts) as ReactiveTaskWithCounts<any, any>;
+  }, opts) as TaskWithCounts<any, any>;
 
   wrapper[COUNTS] = counts;
 
   return wrapper;
 };
 
-export const subscription = <T>(
-  fn: SignalSubscribe<T>,
+export const relay = <T>(
+  fn: SignalActivate<T>,
   opts?: Partial<SignalOptionsWithInit<T, unknown[]>>,
-): ReturnType<typeof _subscription<T>> => {
-  const counts = new SignalHookCounts(opts?.desc ?? 'unknownSubscription');
+): ReturnType<typeof _relay<T>> => {
+  const counts = new SignalHookCounts(opts?.desc ?? 'unknownRelay');
 
-  let wrapper = _subscription<T>(({ get, set, setError }) => {
+  let wrapper = _relay<T>(state => {
     counts.subscribe++;
     counts.compute++;
 
     const result = fn({
-      get: () => {
+      get value() {
         counts.internalGet++;
-        return get();
+        return state.value;
       },
-      set: v => {
+
+      set value(v) {
         counts.internalSet++;
-        set(v);
+        state.value = v;
       },
+
+      setPromise: (promise: Promise<T>) => {
+        counts.internalSet++;
+        state.setPromise(promise);
+      },
+
       setError: (error: unknown) => {
         counts.error++;
-        setError(error);
+        state.setError(error);
       },
     });
 
-    let subscriptionWrapper: SignalSubscription | (() => unknown) | undefined;
+    let relayWrapper: RelayHooks | (() => unknown) | undefined;
 
     if (result) {
       if (typeof result === 'function') {
-        subscriptionWrapper = () => {
+        relayWrapper = () => {
           counts.unsubscribe++;
           result();
         };
       } else {
-        subscriptionWrapper = {};
+        relayWrapper = {};
 
-        if (result.unsubscribe) {
-          subscriptionWrapper.unsubscribe = () => {
+        if (result.deactivate) {
+          relayWrapper.deactivate = () => {
             counts.unsubscribe++;
-            result.unsubscribe!();
+            result.deactivate!();
           };
         }
 
         if (result.update) {
-          subscriptionWrapper.update = () => {
+          relayWrapper.update = () => {
             counts.compute++;
             counts.update++;
             result.update!();
@@ -401,10 +407,10 @@ export const subscription = <T>(
       }
     }
 
-    return subscriptionWrapper;
-  }, opts) as SubscriptionWithCounts<T>;
+    return relayWrapper;
+  }, opts) as RelayWithCounts<T>;
 
   wrapper[COUNTS] = counts;
 
-  return wrapper as ReturnType<typeof _subscription<T>>;
+  return wrapper as ReturnType<typeof _relay<T>>;
 };

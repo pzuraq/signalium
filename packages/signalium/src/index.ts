@@ -1,8 +1,10 @@
 export type * from './types.js';
 
-export { state, reactive, subscription, task, watcher } from './hooks.js';
+export { reactive, relay, task, watcher } from './hooks.js';
 
-export { isReactivePromise, isReactiveTask, isReactiveSubscription } from './internals/async.js';
+export { signal } from './internals/signal.js';
+
+export { isAsyncSignal, isTaskSignal, isRelaySignal } from './internals/async.js';
 
 export { callback } from './internals/get.js';
 

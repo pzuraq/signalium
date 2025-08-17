@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { state } from 'signalium';
+import { signal } from 'signalium';
 import { reactive } from './utils/instrumented-hooks.js';
 import { nextTick } from './utils/async.js';
 
@@ -62,11 +62,11 @@ describe('async computeds', () => {
 
   test('Async computed is recomputed when state changes', async () => {
     let computeCount = 0;
-    const stateValue = state(1);
+    const stateValue = signal(1);
 
     const getC = reactive(async (a: number) => {
       computeCount++;
-      return a + stateValue.get();
+      return a + stateValue.value;
     });
 
     const result1 = getC(1);
@@ -74,7 +74,7 @@ describe('async computeds', () => {
     expect(result1.value).toBe(2);
     expect(computeCount).toBe(1);
 
-    stateValue.set(2);
+    stateValue.value = 2;
     const result2 = getC(1);
     expect(result2.isPending).toBe(true);
     await nextTick();
@@ -195,13 +195,13 @@ describe('async computeds', () => {
     let inner2Count = 0;
     let outerCount = 0;
 
-    const state1Value = state(1);
-    const state2Value = state(2);
+    const state1Value = signal(1);
+    const state2Value = signal(2);
 
     const inner1 = reactive(
       async (x: number) => {
         inner1Count++;
-        const state1 = state1Value.get();
+        const state1 = state1Value.value;
         await nextTick();
         return x * state1;
       },
@@ -213,7 +213,7 @@ describe('async computeds', () => {
     const inner2 = reactive(
       async (x: number) => {
         inner2Count++;
-        const state2 = state2Value.get();
+        const state2 = state2Value.value;
         await nextTick();
         return x * state2;
       },
@@ -249,7 +249,7 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(1);
     expect(outerCount).toBe(1);
 
-    state1Value.set(2);
+    state1Value.value = 2;
     const result2 = outer(2);
     expect(result2.isPending).toBe(true);
     expect(result2.value).toBe(6);
@@ -265,7 +265,7 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(1);
     expect(outerCount).toBe(2);
 
-    state2Value.set(3);
+    state2Value.value = 3;
     const result3 = outer(2);
     expect(result3.isPending).toBe(true);
     expect(result3.value).toBe(8);
@@ -287,14 +287,14 @@ describe('async computeds', () => {
     let inner2Count = 0;
     let outerCount = 0;
 
-    const state1Value = state(1);
-    const state2Value = state(2);
-    const state3Value = state(3);
+    const state1Value = signal(1);
+    const state2Value = signal(2);
+    const state3Value = signal(3);
 
     const inner1 = reactive(
       function* foo(x: number) {
         inner1Count++;
-        const state = state1Value.get() + state2Value.get();
+        const state = state1Value.value + state2Value.value;
         yield nextTick();
         return x * state;
       },
@@ -306,7 +306,7 @@ describe('async computeds', () => {
     const inner2 = reactive(
       function* (x: number) {
         inner2Count++;
-        const state = state2Value.get() + state3Value.get();
+        const state = state2Value.value + state3Value.value;
         yield nextTick();
         return x * state;
       },
@@ -342,8 +342,8 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(1);
     expect(outerCount).toBe(1);
 
-    state1Value.set(2);
-    state2Value.set(1);
+    state1Value.value = 2;
+    state2Value.value = 1;
     const result2 = outer(2);
     expect(result2.isPending).toBe(true);
     expect(result2.value).toBe(16);
@@ -359,7 +359,7 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(2);
     expect(outerCount).toBe(2);
 
-    state3Value.set(2);
+    state3Value.value = 2;
     const result3 = outer(2);
     expect(result3.isPending).toBe(true);
     expect(result3.value).toBe(14);
@@ -381,14 +381,14 @@ describe('async computeds', () => {
     let inner2Count = 0;
     let outerCount = 0;
 
-    const state1Value = state(1);
-    const state2Value = state(2);
-    const state3Value = state(3);
+    const state1Value = signal(1);
+    const state2Value = signal(2);
+    const state3Value = signal(3);
 
     const inner1 = reactive(
       function* foo(x: number) {
         inner1Count++;
-        const state = state1Value.get() + state2Value.get();
+        const state = state1Value.value + state2Value.value;
         yield nextTick();
         return x * state;
       },
@@ -400,7 +400,7 @@ describe('async computeds', () => {
     const inner2 = reactive(
       function* (x: number) {
         inner2Count++;
-        const state = state2Value.get() + state3Value.get();
+        const state = state2Value.value + state3Value.value;
         yield nextTick();
         return x * state;
       },
@@ -436,7 +436,7 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(1);
     expect(outerCount).toBe(1);
 
-    state3Value.set(2);
+    state3Value.value = 2;
     const result2 = outer(2);
     expect(result2.isPending).toBe(true);
     expect(result2.value).toBe(16);
@@ -444,7 +444,7 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(2);
     expect(outerCount).toBe(1);
 
-    state1Value.set(2);
+    state1Value.value = 2;
     const result3 = outer(2);
     expect(result3.isPending).toBe(true);
     expect(result3.value).toBe(16);
@@ -466,14 +466,14 @@ describe('async computeds', () => {
     let inner2Count = 0;
     let outerCount = 0;
 
-    const state1Value = state(1);
-    const state2Value = state(2);
-    const state3Value = state(3);
+    const state1Value = signal(1);
+    const state2Value = signal(2);
+    const state3Value = signal(3);
 
     const inner1 = reactive(
       function* foo(x: number) {
         inner1Count++;
-        const state = state1Value.get() + state2Value.get();
+        const state = state1Value.value + state2Value.value;
         yield nextTick();
         return x * state;
       },
@@ -485,7 +485,7 @@ describe('async computeds', () => {
     const inner2 = reactive(
       function* (x: number) {
         inner2Count++;
-        const state = state2Value.get() + state3Value.get();
+        const state = state2Value.value + state3Value.value;
         yield nextTick();
         return x * state;
       },
@@ -521,7 +521,7 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(1);
     expect(outerCount).toBe(1);
 
-    state1Value.set(2);
+    state1Value.value = 2;
     const result2 = outer(2);
     expect(result2.isPending).toBe(true);
     expect(result2.value).toBe(16);
@@ -529,7 +529,7 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(1);
     expect(outerCount).toBe(1);
 
-    state3Value.set(2);
+    state3Value.value = 2;
     const result3 = outer(2);
     expect(result3.isPending).toBe(true);
     expect(result3.value).toBe(16);

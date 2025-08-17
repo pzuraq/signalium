@@ -69,13 +69,13 @@ All contexts are collectively treated like a single parameter in terms of forkin
 Contexts themselves are considered _immutable_. Like parameters, when you call a reactive function with a different context value, it will always create a new instance of that reactive and call its function again. If you want to update a context, you can set it as a _signal_ within the context.
 
 ```js
-import { createContext, withContexts, reactive, state } from 'signalium';
+import { createContext, withContexts, reactive, signal } from 'signalium';
 
-const apiPrefix = state('/');
+const apiPrefix = signal('/');
 const ApiPrefixContext = createContext(apiPrefix);
 
 const getUsersUrl = reactive(() => {
-  const prefix = useContext(ApiPrefixContext).get();
+  const prefix = useContext(ApiPrefixContext).value;
 
   return `${prefix}users`;
 });
@@ -83,7 +83,7 @@ const getUsersUrl = reactive(() => {
 // '/api/users'
 const usersUrl = getUsersUrl();
 
-apiPrefix.set('/api-v2/');
+apiPrefix.value = '/api-v2/';
 
 // '/api-v2/users'
 const usersUrlV2 = getUsersUrl();

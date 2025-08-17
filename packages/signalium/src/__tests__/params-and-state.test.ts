@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { state } from '../index.js';
+import { signal } from '../index.js';
 import { permute } from './utils/permute.js';
 import { nextTick } from './utils/async.js';
 
@@ -33,9 +33,9 @@ describe('parameters and state reactivity', () => {
     });
 
     test('Computed is recomputed when state changes', async () => {
-      const stateValue = state(1);
+      const stateValue = signal(1);
       const getC = createHook((a: number) => {
-        return a + stateValue.get();
+        return a + stateValue.value;
       });
 
       getC.withParams(1)();
@@ -44,7 +44,7 @@ describe('parameters and state reactivity', () => {
 
       expect(getC.withParams(1)).toHaveSignalValue(2).toMatchSnapshot();
 
-      stateValue.set(2);
+      stateValue.value = 2;
       await nextTick();
 
       expect(getC.withParams(1)).toHaveSignalValue(3).toMatchSnapshot();
@@ -205,9 +205,9 @@ describe('parameters and state reactivity', () => {
     });
 
     test('Computed can take state as argument and handle updates', async () => {
-      const stateValue = state(1);
+      const stateValue = signal(1);
       const getC = createHook((s: typeof stateValue) => {
-        return s.get() * 2;
+        return s.value * 2;
       });
 
       getC.withParams(stateValue)();
@@ -217,12 +217,12 @@ describe('parameters and state reactivity', () => {
       expect(getC.withParams(stateValue)).toHaveSignalValue(2).toMatchSnapshot();
       expect(getC.withParams(stateValue)).toHaveSignalValue(2).toMatchSnapshot();
 
-      stateValue.set(2);
+      stateValue.value = 2;
       await nextTick();
 
       expect(getC.withParams(stateValue)).toHaveSignalValue(4).toMatchSnapshot();
 
-      stateValue.set(3);
+      stateValue.value = 3;
       await nextTick();
       expect(getC.withParams(stateValue)).toHaveSignalValue(6).toMatchSnapshot();
     });

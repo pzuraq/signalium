@@ -1,16 +1,16 @@
 import { TRACER as TRACER, TracerEventType } from '../trace.js';
-import { SignalEquals, SignalListener, SignalOptions, StateSignal as IStateSignal } from '../types.js';
-import { DerivedSignal } from './derived.js';
+import { Signal, SignalEquals, SignalListener, SignalOptions } from '../types.js';
+import { ReactiveFnSignal } from './reactive.js';
 import { dirtySignal } from './dirty.js';
 import { CURRENT_CONSUMER } from './consumer.js';
 import { scheduleListeners } from './scheduling.js';
 
 let STATE_ID = 0;
 
-export class StateSignal<T> implements IStateSignal<T> {
+export class StateSignal<T> implements Signal<T> {
   private _value: T;
   private _equals: SignalEquals<T>;
-  private _subs = new Map<WeakRef<DerivedSignal<unknown, unknown[]>>, number>();
+  private _subs = new Map<WeakRef<ReactiveFnSignal<unknown, unknown[]>>, number>();
   _desc: string;
   _id: number;
 
@@ -23,7 +23,7 @@ export class StateSignal<T> implements IStateSignal<T> {
     this._desc = `${desc}${this._id}`;
   }
 
-  get(): T {
+  get value(): T {
     if (CURRENT_CONSUMER !== undefined) {
       TRACER?.emit({
         type: TracerEventType.ConsumeState,
@@ -31,7 +31,7 @@ export class StateSignal<T> implements IStateSignal<T> {
         childId: this._id,
         value: this._value,
         setValue: (value: unknown) => {
-          this.set(value as T);
+          this.value = value as T;
         },
       });
       this._subs.set(CURRENT_CONSUMER.ref, CURRENT_CONSUMER.computedCount);
@@ -42,14 +42,10 @@ export class StateSignal<T> implements IStateSignal<T> {
   }
 
   update(fn: (value: T) => T) {
-    this.set(fn(this._value));
+    this.value = fn(this._value);
   }
 
-  peek(): T {
-    return this._value;
-  }
-
-  set(value: T) {
+  set value(value: T) {
     if (this._equals(value, this._value)) {
       return;
     }
@@ -99,10 +95,7 @@ export function runListeners(signal: StateSignal<any>) {
 
 const FALSE_EQUALS: SignalEquals<unknown> = () => false;
 
-export function createStateSignal<T>(
-  initialValue: T,
-  opts?: Omit<SignalOptions<T, unknown[]>, 'paramKey'>,
-): StateSignal<T> {
+export function signal<T>(initialValue: T, opts?: Omit<SignalOptions<T, unknown[]>, 'paramKey'>): StateSignal<T> {
   const equals = opts?.equals === false ? FALSE_EQUALS : (opts?.equals ?? ((a, b) => a === b));
 
   return new StateSignal(initialValue, equals, opts?.desc);

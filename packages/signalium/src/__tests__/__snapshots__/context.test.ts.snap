@@ -500,7 +500,7 @@ exports[`contexts > createAsyncComputed, createComputed > contexts are properly 
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 1`] = `
+exports[`contexts > createAsyncComputed, createRelay > context scopes inherit from parent scope when nested in computeds 1`] = `
 [
   "default2default1:inner-override2",
   {
@@ -520,7 +520,7 @@ exports[`contexts > createAsyncComputed, createSubscription > context scopes inh
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 2`] = `
+exports[`contexts > createAsyncComputed, createRelay > context scopes inherit from parent scope when nested in computeds 2`] = `
 [
   null,
   {
@@ -540,7 +540,7 @@ exports[`contexts > createAsyncComputed, createSubscription > context scopes inh
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 3`] = `
+exports[`contexts > createAsyncComputed, createRelay > context scopes inherit from parent scope when nested in computeds 3`] = `
 [
   "default2override1:inner-override2",
   {
@@ -560,7 +560,7 @@ exports[`contexts > createAsyncComputed, createSubscription > context scopes inh
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 4`] = `
+exports[`contexts > createAsyncComputed, createRelay > context scopes inherit from parent scope when nested in computeds 4`] = `
 [
   null,
   {
@@ -580,7 +580,7 @@ exports[`contexts > createAsyncComputed, createSubscription > context scopes inh
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 5`] = `
+exports[`contexts > createAsyncComputed, createRelay > context scopes inherit from parent scope when nested in computeds 5`] = `
 [
   "override2override1:inner-override2",
   {
@@ -600,7 +600,7 @@ exports[`contexts > createAsyncComputed, createSubscription > context scopes inh
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 6`] = `
+exports[`contexts > createAsyncComputed, createRelay > context scopes inherit from parent scope when nested in computeds 6`] = `
 [
   "default1default2",
   {
@@ -620,7 +620,7 @@ exports[`contexts > createAsyncComputed, createSubscription > context scopes inh
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 7`] = `
+exports[`contexts > createAsyncComputed, createRelay > context scopes inherit from parent scope when nested in computeds 7`] = `
 [
   "override2default1:inner-override2",
   {
@@ -640,7 +640,7 @@ exports[`contexts > createAsyncComputed, createSubscription > context scopes inh
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 8`] = `
+exports[`contexts > createAsyncComputed, createRelay > context scopes inherit from parent scope when nested in computeds 8`] = `
 [
   "default1default2",
   {
@@ -660,7 +660,7 @@ exports[`contexts > createAsyncComputed, createSubscription > context scopes inh
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > contexts are properly scoped 1`] = `
+exports[`contexts > createAsyncComputed, createRelay > contexts are properly scoped 1`] = `
 [
   "default",
   {
@@ -680,7 +680,7 @@ exports[`contexts > createAsyncComputed, createSubscription > contexts are prope
 ]
 `;
 
-exports[`contexts > createAsyncComputed, createSubscription > contexts are properly scoped 2`] = `
+exports[`contexts > createAsyncComputed, createRelay > contexts are properly scoped 2`] = `
 [
   "override",
   {
@@ -1200,7 +1200,7 @@ exports[`contexts > createComputed, createComputed > contexts are properly scope
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 1`] = `
+exports[`contexts > createComputed, createRelay > context scopes inherit from parent scope when nested in computeds 1`] = `
 [
   "default2default1:inner-override2",
   {
@@ -1220,7 +1220,7 @@ exports[`contexts > createComputed, createSubscription > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 2`] = `
+exports[`contexts > createComputed, createRelay > context scopes inherit from parent scope when nested in computeds 2`] = `
 [
   "default1default2",
   {
@@ -1240,7 +1240,7 @@ exports[`contexts > createComputed, createSubscription > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 3`] = `
+exports[`contexts > createComputed, createRelay > context scopes inherit from parent scope when nested in computeds 3`] = `
 [
   "default2override1:inner-override2",
   {
@@ -1260,7 +1260,7 @@ exports[`contexts > createComputed, createSubscription > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 4`] = `
+exports[`contexts > createComputed, createRelay > context scopes inherit from parent scope when nested in computeds 4`] = `
 [
   "default1default2",
   {
@@ -1280,7 +1280,7 @@ exports[`contexts > createComputed, createSubscription > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 5`] = `
+exports[`contexts > createComputed, createRelay > context scopes inherit from parent scope when nested in computeds 5`] = `
 [
   "override2override1:inner-override2",
   {
@@ -1300,7 +1300,7 @@ exports[`contexts > createComputed, createSubscription > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 6`] = `
+exports[`contexts > createComputed, createRelay > context scopes inherit from parent scope when nested in computeds 6`] = `
 [
   "default1default2",
   {
@@ -1320,7 +1320,7 @@ exports[`contexts > createComputed, createSubscription > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 7`] = `
+exports[`contexts > createComputed, createRelay > context scopes inherit from parent scope when nested in computeds 7`] = `
 [
   "override2default1:inner-override2",
   {
@@ -1340,7 +1340,7 @@ exports[`contexts > createComputed, createSubscription > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > context scopes inherit from parent scope when nested in computeds 8`] = `
+exports[`contexts > createComputed, createRelay > context scopes inherit from parent scope when nested in computeds 8`] = `
 [
   "default1default2",
   {
@@ -1360,7 +1360,7 @@ exports[`contexts > createComputed, createSubscription > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > contexts are properly scoped 1`] = `
+exports[`contexts > createComputed, createRelay > contexts are properly scoped 1`] = `
 [
   "default",
   {
@@ -1380,7 +1380,7 @@ exports[`contexts > createComputed, createSubscription > contexts are properly s
 ]
 `;
 
-exports[`contexts > createComputed, createSubscription > contexts are properly scoped 2`] = `
+exports[`contexts > createComputed, createRelay > contexts are properly scoped 2`] = `
 [
   "override",
   {
@@ -1400,7 +1400,7 @@ exports[`contexts > createComputed, createSubscription > contexts are properly s
 ]
 `;
 
-exports[`contexts > createSubscription > computed signals are cached per context scope 1`] = `
+exports[`contexts > createRelay > computed signals are cached per context scope 1`] = `
 [
   "default0",
   {
@@ -1420,7 +1420,7 @@ exports[`contexts > createSubscription > computed signals are cached per context
 ]
 `;
 
-exports[`contexts > createSubscription > computed signals are cached per context scope 2`] = `
+exports[`contexts > createRelay > computed signals are cached per context scope 2`] = `
 [
   "default0",
   {
@@ -1440,7 +1440,7 @@ exports[`contexts > createSubscription > computed signals are cached per context
 ]
 `;
 
-exports[`contexts > createSubscription > computed signals are cached per context scope 3`] = `
+exports[`contexts > createRelay > computed signals are cached per context scope 3`] = `
 [
   "other0",
   {
@@ -1460,7 +1460,7 @@ exports[`contexts > createSubscription > computed signals are cached per context
 ]
 `;
 
-exports[`contexts > createSubscription > computed signals are cached per context scope 4`] = `
+exports[`contexts > createRelay > computed signals are cached per context scope 4`] = `
 [
   "other0",
   {
@@ -1480,7 +1480,7 @@ exports[`contexts > createSubscription > computed signals are cached per context
 ]
 `;
 
-exports[`contexts > createSubscription > computed signals are cached per context scope 5`] = `
+exports[`contexts > createRelay > computed signals are cached per context scope 5`] = `
 [
   "default0",
   {
@@ -1500,7 +1500,7 @@ exports[`contexts > createSubscription > computed signals are cached per context
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 1`] = `
+exports[`contexts > createRelay, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 1`] = `
 [
   "default2default1:inner-override2",
   {
@@ -1520,7 +1520,7 @@ exports[`contexts > createSubscription, createAsyncComputed > context scopes inh
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 2`] = `
+exports[`contexts > createRelay, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 2`] = `
 [
   "default1default2",
   {
@@ -1540,7 +1540,7 @@ exports[`contexts > createSubscription, createAsyncComputed > context scopes inh
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 3`] = `
+exports[`contexts > createRelay, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 3`] = `
 [
   "default2override1:inner-override2",
   {
@@ -1560,7 +1560,7 @@ exports[`contexts > createSubscription, createAsyncComputed > context scopes inh
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 4`] = `
+exports[`contexts > createRelay, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 4`] = `
 [
   "default1default2",
   {
@@ -1580,7 +1580,7 @@ exports[`contexts > createSubscription, createAsyncComputed > context scopes inh
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 5`] = `
+exports[`contexts > createRelay, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 5`] = `
 [
   "override2override1:inner-override2",
   {
@@ -1600,7 +1600,7 @@ exports[`contexts > createSubscription, createAsyncComputed > context scopes inh
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 6`] = `
+exports[`contexts > createRelay, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 6`] = `
 [
   "default1default2",
   {
@@ -1620,7 +1620,7 @@ exports[`contexts > createSubscription, createAsyncComputed > context scopes inh
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 7`] = `
+exports[`contexts > createRelay, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 7`] = `
 [
   "override2default1:inner-override2",
   {
@@ -1640,7 +1640,7 @@ exports[`contexts > createSubscription, createAsyncComputed > context scopes inh
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 8`] = `
+exports[`contexts > createRelay, createAsyncComputed > context scopes inherit from parent scope when nested in computeds 8`] = `
 [
   "default1default2",
   {
@@ -1660,7 +1660,7 @@ exports[`contexts > createSubscription, createAsyncComputed > context scopes inh
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > contexts are properly scoped 1`] = `
+exports[`contexts > createRelay, createAsyncComputed > contexts are properly scoped 1`] = `
 [
   "default",
   {
@@ -1680,7 +1680,7 @@ exports[`contexts > createSubscription, createAsyncComputed > contexts are prope
 ]
 `;
 
-exports[`contexts > createSubscription, createAsyncComputed > contexts are properly scoped 2`] = `
+exports[`contexts > createRelay, createAsyncComputed > contexts are properly scoped 2`] = `
 [
   "override",
   {
@@ -1700,7 +1700,7 @@ exports[`contexts > createSubscription, createAsyncComputed > contexts are prope
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > context scopes inherit from parent scope when nested in computeds 1`] = `
+exports[`contexts > createRelay, createComputed > context scopes inherit from parent scope when nested in computeds 1`] = `
 [
   "default2default1:inner-override2",
   {
@@ -1720,7 +1720,7 @@ exports[`contexts > createSubscription, createComputed > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > context scopes inherit from parent scope when nested in computeds 2`] = `
+exports[`contexts > createRelay, createComputed > context scopes inherit from parent scope when nested in computeds 2`] = `
 [
   "default1default2",
   {
@@ -1740,7 +1740,7 @@ exports[`contexts > createSubscription, createComputed > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > context scopes inherit from parent scope when nested in computeds 3`] = `
+exports[`contexts > createRelay, createComputed > context scopes inherit from parent scope when nested in computeds 3`] = `
 [
   "default2override1:inner-override2",
   {
@@ -1760,7 +1760,7 @@ exports[`contexts > createSubscription, createComputed > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > context scopes inherit from parent scope when nested in computeds 4`] = `
+exports[`contexts > createRelay, createComputed > context scopes inherit from parent scope when nested in computeds 4`] = `
 [
   "default1default2",
   {
@@ -1780,7 +1780,7 @@ exports[`contexts > createSubscription, createComputed > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > context scopes inherit from parent scope when nested in computeds 5`] = `
+exports[`contexts > createRelay, createComputed > context scopes inherit from parent scope when nested in computeds 5`] = `
 [
   "override2override1:inner-override2",
   {
@@ -1800,7 +1800,7 @@ exports[`contexts > createSubscription, createComputed > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > context scopes inherit from parent scope when nested in computeds 6`] = `
+exports[`contexts > createRelay, createComputed > context scopes inherit from parent scope when nested in computeds 6`] = `
 [
   "default1default2",
   {
@@ -1820,7 +1820,7 @@ exports[`contexts > createSubscription, createComputed > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > context scopes inherit from parent scope when nested in computeds 7`] = `
+exports[`contexts > createRelay, createComputed > context scopes inherit from parent scope when nested in computeds 7`] = `
 [
   "override2default1:inner-override2",
   {
@@ -1840,7 +1840,7 @@ exports[`contexts > createSubscription, createComputed > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > context scopes inherit from parent scope when nested in computeds 8`] = `
+exports[`contexts > createRelay, createComputed > context scopes inherit from parent scope when nested in computeds 8`] = `
 [
   "default1default2",
   {
@@ -1860,7 +1860,7 @@ exports[`contexts > createSubscription, createComputed > context scopes inherit 
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > contexts are properly scoped 1`] = `
+exports[`contexts > createRelay, createComputed > contexts are properly scoped 1`] = `
 [
   "default",
   {
@@ -1880,7 +1880,7 @@ exports[`contexts > createSubscription, createComputed > contexts are properly s
 ]
 `;
 
-exports[`contexts > createSubscription, createComputed > contexts are properly scoped 2`] = `
+exports[`contexts > createRelay, createComputed > contexts are properly scoped 2`] = `
 [
   "override",
   {
@@ -1900,7 +1900,7 @@ exports[`contexts > createSubscription, createComputed > contexts are properly s
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > context scopes inherit from parent scope when nested in computeds 1`] = `
+exports[`contexts > createRelay, createRelay > context scopes inherit from parent scope when nested in computeds 1`] = `
 [
   "default2default1:inner-override2",
   {
@@ -1920,7 +1920,7 @@ exports[`contexts > createSubscription, createSubscription > context scopes inhe
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > context scopes inherit from parent scope when nested in computeds 2`] = `
+exports[`contexts > createRelay, createRelay > context scopes inherit from parent scope when nested in computeds 2`] = `
 [
   "default1default2",
   {
@@ -1940,7 +1940,7 @@ exports[`contexts > createSubscription, createSubscription > context scopes inhe
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > context scopes inherit from parent scope when nested in computeds 3`] = `
+exports[`contexts > createRelay, createRelay > context scopes inherit from parent scope when nested in computeds 3`] = `
 [
   "default2override1:inner-override2",
   {
@@ -1960,7 +1960,7 @@ exports[`contexts > createSubscription, createSubscription > context scopes inhe
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > context scopes inherit from parent scope when nested in computeds 4`] = `
+exports[`contexts > createRelay, createRelay > context scopes inherit from parent scope when nested in computeds 4`] = `
 [
   "default1default2",
   {
@@ -1980,7 +1980,7 @@ exports[`contexts > createSubscription, createSubscription > context scopes inhe
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > context scopes inherit from parent scope when nested in computeds 5`] = `
+exports[`contexts > createRelay, createRelay > context scopes inherit from parent scope when nested in computeds 5`] = `
 [
   "override2override1:inner-override2",
   {
@@ -2000,7 +2000,7 @@ exports[`contexts > createSubscription, createSubscription > context scopes inhe
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > context scopes inherit from parent scope when nested in computeds 6`] = `
+exports[`contexts > createRelay, createRelay > context scopes inherit from parent scope when nested in computeds 6`] = `
 [
   "default1default2",
   {
@@ -2020,7 +2020,7 @@ exports[`contexts > createSubscription, createSubscription > context scopes inhe
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > context scopes inherit from parent scope when nested in computeds 7`] = `
+exports[`contexts > createRelay, createRelay > context scopes inherit from parent scope when nested in computeds 7`] = `
 [
   "override2default1:inner-override2",
   {
@@ -2040,7 +2040,7 @@ exports[`contexts > createSubscription, createSubscription > context scopes inhe
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > context scopes inherit from parent scope when nested in computeds 8`] = `
+exports[`contexts > createRelay, createRelay > context scopes inherit from parent scope when nested in computeds 8`] = `
 [
   "default1default2",
   {
@@ -2060,7 +2060,7 @@ exports[`contexts > createSubscription, createSubscription > context scopes inhe
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > contexts are properly scoped 1`] = `
+exports[`contexts > createRelay, createRelay > contexts are properly scoped 1`] = `
 [
   "default",
   {
@@ -2080,7 +2080,7 @@ exports[`contexts > createSubscription, createSubscription > contexts are proper
 ]
 `;
 
-exports[`contexts > createSubscription, createSubscription > contexts are properly scoped 2`] = `
+exports[`contexts > createRelay, createRelay > contexts are properly scoped 2`] = `
 [
   "override",
   {

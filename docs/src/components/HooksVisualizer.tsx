@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   SignalScope,
   watcher,
-  subscription,
+  relay,
   reactive,
-  state,
-  ReactivePromise,
-  isReactivePromise,
+  signal,
+  AsyncSignal,
+  isAsyncSignal,
 } from 'signalium';
 import {
   createTracerFromId,
@@ -66,8 +66,8 @@ function useNodeClass(
 
   const loading = node.loading;
   const updating = node.updating || forceUpdating;
-  const success = isReactivePromise(node.value) && node.value.isResolved;
-  const error = isReactivePromise(node.value) && node.value.isRejected;
+  const success = isAsyncSignal(node.value) && node.value.isResolved;
+  const error = isAsyncSignal(node.value) && node.value.isRejected;
 
   if (loading) {
     return classes.loading;
@@ -91,10 +91,10 @@ export const VisualizerNodeComponent = ({ node }: { node: VisualizerNode }) => {
     () => node.version,
   );
 
-  const isPromise = isReactivePromise(node.value);
+  const isPromise = isAsyncSignal(node.value);
   const params = node.params;
   const value = isPromise
-    ? (node.value as ReactivePromise<unknown>).value
+    ? (node.value as AsyncSignal<unknown>).value
     : node.value;
 
   const nodeClass = useNodeClass(
@@ -429,11 +429,11 @@ const WatcherRunner = ({
       .replace(/import .* from .*;?/, '');
 
     let output = new Function(
-      '{ state, subscription, reactive, hook, useRef, useState, useEffect, React, sleep }',
+      '{ signal, relay, reactive, useReactive, hook, useRef, useState, useEffect, React, sleep }',
       compiled,
     )({
-      state,
-      subscription,
+      signal,
+      relay,
       reactive,
       hook: reactiveHook,
       useRef,

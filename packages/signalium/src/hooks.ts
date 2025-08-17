@@ -1,41 +1,38 @@
 import {
-  ReactiveTask,
-  ReactiveValue,
-  ReadyReactivePromise,
-  ReadyReactiveValue,
-  Signal,
+  TaskSignal,
+  SignalValue,
+  ReadyAsyncSignal as ReadyAsyncSignal,
+  ReadySignalValue,
+  ReadonlySignal,
   SignalOptions,
-  SignalSubscribe,
+  SignalActivate,
   type SignalOptionsWithInit,
 } from './types.js';
 import { getCurrentScope, SignalScope } from './internals/contexts.js';
-import { createStateSignal } from './internals/state.js';
-import { createDerivedSignal, DerivedSignalDefinition } from './internals/derived.js';
-import { ReactivePromise } from './internals/async.js';
+import { createDerivedSignal, ReactiveFnDefinition } from './internals/reactive.js';
+import { AsyncSignalImpl } from './internals/async.js';
 import { Tracer } from './trace.js';
 import { equalsFrom } from './internals/utils/equals.js';
 
-export const state = createStateSignal;
-
 // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-export const DERIVED_DEFINITION_MAP = new Map<Function, DerivedSignalDefinition<any, any>>();
+export const DERIVED_DEFINITION_MAP = new Map<Function, ReactiveFnDefinition<any, any>>();
 
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
   opts?: Partial<SignalOptionsWithInit<T, Args>>,
-): (...args: Args) => ReactiveValue<T>;
+): (...args: Args) => SignalValue<T>;
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
   opts: SignalOptionsWithInit<T, Args>,
-): (...args: Args) => ReadyReactiveValue<T>;
+): (...args: Args) => ReadySignalValue<T>;
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
   opts?: Partial<SignalOptionsWithInit<T, Args>>,
-): (...args: Args) => ReactiveValue<T> {
-  const def: DerivedSignalDefinition<T, Args> = {
+): (...args: Args) => SignalValue<T> {
+  const def: ReactiveFnDefinition<T, Args> = {
     compute: fn,
     equals: equalsFrom(opts?.equals),
-    isSubscription: false,
+    isRelay: false,
     id: opts?.id,
     desc: opts?.desc,
     paramKey: opts?.paramKey,
@@ -43,11 +40,11 @@ export function reactive<T, Args extends unknown[]>(
     initValue: opts?.initValue,
   };
 
-  const reactiveFn: (...args: Args) => ReactiveValue<T> = (...args) => {
+  const reactiveFn: (...args: Args) => SignalValue<T> = (...args) => {
     const scope = getCurrentScope();
     const signal = scope.get(def, args);
 
-    return signal.get();
+    return signal.value;
   };
 
   DERIVED_DEFINITION_MAP.set(reactiveFn, def);
@@ -55,37 +52,36 @@ export function reactive<T, Args extends unknown[]>(
   return reactiveFn;
 }
 
-export function subscription<T>(subscribe: SignalSubscribe<T>, opts?: SignalOptions<T, unknown[]>): ReactivePromise<T>;
-export function subscription<T>(
-  subscribe: SignalSubscribe<T>,
-  opts: SignalOptionsWithInit<T, unknown[]>,
-): ReadyReactivePromise<T>;
-export function subscription<T>(
-  subscribe: SignalSubscribe<T>,
+export function relay<T>(activate: SignalActivate<T>, opts?: SignalOptions<T, unknown[]>): AsyncSignalImpl<T>;
+export function relay<T>(activate: SignalActivate<T>, opts: SignalOptionsWithInit<T, unknown[]>): ReadyAsyncSignal<T>;
+export function relay<T>(
+  activate: SignalActivate<T>,
   opts?: Partial<SignalOptionsWithInit<T, unknown[]>>,
-): ReactivePromise<T> | ReadyReactivePromise<T> {
+): AsyncSignalImpl<T> | ReadyAsyncSignal<T> {
   const scope = getCurrentScope();
 
-  return ReactivePromise.createSubscription(subscribe, scope, opts);
+  return AsyncSignalImpl.createRelay(activate, scope, opts);
 }
 
 export const task = <T, Args extends unknown[]>(
   fn: (...args: Args) => Promise<T>,
   opts?: Partial<SignalOptionsWithInit<T, Args>>,
-): ReactiveTask<T, Args> => {
+): TaskSignal<T, Args> => {
   const scope = getCurrentScope();
 
-  return ReactivePromise.createTask(fn, scope, opts);
+  return AsyncSignalImpl.createTask(fn, scope, opts);
 };
 
 export function watcher<T>(
   fn: () => T,
   opts?: SignalOptions<T, unknown[]> & { scope?: SignalScope; tracer?: Tracer },
-): Signal<ReactiveValue<T>> {
-  const def: DerivedSignalDefinition<T, unknown[]> = {
+): ReadonlySignal<SignalValue<T>> & {
+  addListener(listener: () => void): () => void;
+} {
+  const def: ReactiveFnDefinition<T, unknown[]> = {
     compute: fn,
     equals: equalsFrom(opts?.equals),
-    isSubscription: false,
+    isRelay: false,
     id: opts?.id,
     desc: opts?.desc,
     paramKey: opts?.paramKey,

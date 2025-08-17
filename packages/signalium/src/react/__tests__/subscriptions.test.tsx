@@ -1,30 +1,30 @@
 import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { state, reactive, subscription } from 'signalium';
+import { signal, reactive, relay } from 'signalium';
 import { setupReact, useReactive } from '../index.js';
 import React from 'react';
 import { sleep } from '../../__tests__/utils/async.js';
 
 setupReact();
 
-describe('React > subscriptions', () => {
-  test('subscriptions can be set by values accessed outside of normal run loop ', async () => {
-    const value = state('Hello');
+describe('React > Relays', () => {
+  test('relays can be set by values accessed outside of normal run loop ', async () => {
+    const value = signal('Hello');
 
     const derived = reactive(() => {
-      return subscription<string>(({ set }) => {
+      return relay<string>(state => {
         const run = async () => {
           await sleep(100);
 
           try {
-            return `${value.get()}, World`;
+            return `${value.value}, World`;
           } catch (e) {
             console.error(e);
             return 'Error';
           }
         };
 
-        set(run());
+        state.setPromise(run());
       });
     });
 

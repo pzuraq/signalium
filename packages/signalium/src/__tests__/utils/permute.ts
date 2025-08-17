@@ -1,5 +1,5 @@
 import { describe } from 'vitest';
-import { ReactiveBuilderFunction, reactive, subscription } from './instrumented-hooks.js';
+import { ReactiveBuilderFunction, reactive, relay } from './instrumented-hooks.js';
 import { SignalOptionsWithInit } from '../../types.js';
 
 const createMethods = [
@@ -23,19 +23,31 @@ const createMethods = [
     },
   },
   {
-    name: 'createSubscription',
-    create: function _createSubscription<T, Args extends unknown[]>(
+    name: 'createRelay',
+    create: function _createRelay<T, Args extends unknown[]>(
       fn: (...args: Args) => T,
       opts?: Partial<SignalOptionsWithInit<T, Args>>,
     ): ReactiveBuilderFunction<T, Args> {
       const computed = reactive((...args: Args) => {
-        return subscription(
+        return relay(
           state => {
-            state.set(fn(...args));
+            const value = fn(...args);
+
+            if (value instanceof Promise) {
+              state.setPromise(value);
+            } else {
+              state.value = value;
+            }
 
             return {
               update: () => {
-                state.set(fn(...args));
+                const value = fn(...args);
+
+                if (value instanceof Promise) {
+                  state.setPromise(value);
+                } else {
+                  state.value = value;
+                }
               },
             };
           },

@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { state, reactive, ReactivePromise, subscription } from 'signalium';
+import { signal, reactive, AsyncSignal, relay } from 'signalium';
 import { setupReact, useReactive } from '../index.js';
 import React, { memo } from 'react';
 import { Locator } from '@vitest/browser/context';
@@ -9,7 +9,7 @@ import { createRenderCounter, HOC, RenderCounter } from './utils.js';
 
 setupReact();
 
-const PROMISE_PROPS: (keyof ReactivePromise<string>)[] = [
+const PROMISE_PROPS: (keyof AsyncSignal<string>)[] = [
   'value',
   'error',
   'isPending',
@@ -19,26 +19,26 @@ const PROMISE_PROPS: (keyof ReactivePromise<string>)[] = [
   'isReady',
 ];
 
-function createPromisePropCounter(prop: keyof ReactivePromise<string>, wrapper?: HOC) {
-  return createRenderCounter(({ promise }: { promise: ReactivePromise<string> }) => {
+function createPromisePropCounter(prop: keyof AsyncSignal<string>, wrapper?: HOC) {
+  return createRenderCounter(({ promise }: { promise: AsyncSignal<string> }) => {
     return <>{String(promise[prop])}</>;
   }, wrapper);
 }
 
-type PromisePropsKey = keyof ReactivePromise<string> | 'parent';
+type PromisePropsKey = keyof AsyncSignal<string> | 'parent';
 
-type PromisePropsRenderers = Record<PromisePropsKey, RenderCounter<{ promise: ReactivePromise<string> }>>;
+type PromisePropsRenderers = Record<PromisePropsKey, RenderCounter<{ promise: AsyncSignal<string> }>>;
 
 export const createPromisePropsCounter = (
   propWrapper?: HOC,
   parentWrapper?: HOC,
-): [RenderCounter<{ promise: ReactivePromise<string> }>, PromisePropsRenderers] => {
+): [RenderCounter<{ promise: AsyncSignal<string> }>, PromisePropsRenderers] => {
   const PropRenderers = PROMISE_PROPS.reduce((acc, prop) => {
     acc[prop] = createPromisePropCounter(prop, propWrapper);
     return acc;
   }, {} as PromisePropsRenderers);
 
-  const ParentRenderer = createRenderCounter(({ promise }: { promise: ReactivePromise<string> }) => {
+  const ParentRenderer = createRenderCounter(({ promise }: { promise: AsyncSignal<string> }) => {
     return (
       <>
         {PROMISE_PROPS.map(prop => {
@@ -73,10 +73,10 @@ const getPromiseValuesAndCounts = (
 describe('React > async', () => {
   describe('reactive functions', () => {
     test('results can be passed down to children and grandchildren, and are updated when reactive promise resolves', async () => {
-      const value = state('Hello');
+      const value = signal('Hello');
 
       const derived = reactive(async () => {
-        const v = value.get();
+        const v = value.value;
         await sleep(100);
         return `${v}, World`;
       });
@@ -103,17 +103,17 @@ describe('React > async', () => {
       await expect.element(getByText('Loading...')).toBeInTheDocument();
       await expect.element(getByText('Hello, World')).toBeInTheDocument();
 
-      value.set('Hey');
+      value.value = 'Hey';
 
       await expect.element(getByText('Loading...')).toBeInTheDocument();
       await expect.element(getByText('Hey, World')).toBeInTheDocument();
     });
 
     test('results will update all promise props together when used in unmemoized functions', async () => {
-      const content = state('World');
+      const content = signal('World');
 
       const derived1 = reactive(async () => {
-        const v = `Hello, ${content.get()}`;
+        const v = `Hello, ${content.value}`;
         await sleep(100);
         return v;
       });
@@ -149,7 +149,7 @@ describe('React > async', () => {
         error: ['undefined', 2],
       });
 
-      content.set('Galaxy');
+      content.value = 'Galaxy';
       await sleep(0);
 
       expect(getPromiseValuesAndCounts(getByTestId, Renderers)).toEqual({
@@ -179,10 +179,10 @@ describe('React > async', () => {
     });
 
     test('it can transition back and forth between error and success states', async () => {
-      const content = state('World');
+      const content = signal('World');
 
       const derived1 = reactive(async () => {
-        const value = content.get();
+        const value = content.value;
         const v = `Hello, ${value}`;
         await sleep(100);
         if (value === 'Galaxy') {
@@ -222,7 +222,7 @@ describe('React > async', () => {
         error: ['undefined', 2],
       });
 
-      content.set('Galaxy');
+      content.value = 'Galaxy';
       await sleep(0);
 
       expect(getPromiseValuesAndCounts(getByTestId, Renderers)).toEqual({
@@ -250,7 +250,7 @@ describe('React > async', () => {
         error: ['Error: Galaxy is not allowed', 4],
       });
 
-      content.set('Universe');
+      content.value = 'Universe';
       await sleep(0);
 
       expect(getPromiseValuesAndCounts(getByTestId, Renderers)).toEqual({
@@ -280,17 +280,17 @@ describe('React > async', () => {
     });
 
     test.skip('results can update when used in reactive functions', async () => {
-      const value1 = state('Hello');
+      const value1 = signal('Hello');
       let parentRenderCount = 0;
       let childRenderCount = 0;
 
       const derived1 = reactive(async () => {
-        const v = value1.get();
+        const v = value1.value;
         await sleep(100);
         return v;
       });
 
-      const Child = reactive(({ promise }: { promise: ReactivePromise<string> }): React.ReactNode => {
+      const Child = reactive(({ promise }: { promise: AsyncSignal<string> }): React.ReactNode => {
         childRenderCount++;
         return <span data-testid="child">{promise.value}</span>;
       });
@@ -316,7 +316,7 @@ describe('React > async', () => {
       expect(childRenderCount).toBe(2);
 
       // Update only value1, should re-render only the child
-      value1.set('World');
+      value1.value = 'World';
       await sleep(200);
 
       expect(parentRenderCount).toBe(1);
@@ -324,17 +324,17 @@ describe('React > async', () => {
     });
 
     test('results do not update when used in React.memo components when passed down directly', async () => {
-      const value1 = state('Hello');
+      const value1 = signal('Hello');
       let parentRenderCount = 0;
       let childRenderCount = 0;
 
       const derived1 = reactive(async () => {
-        const v = value1.get();
+        const v = value1.value;
         await sleep(100);
         return v;
       });
 
-      const Child = memo(({ promise }: { promise: ReactivePromise<string> }): React.ReactNode => {
+      const Child = memo(({ promise }: { promise: AsyncSignal<string> }): React.ReactNode => {
         childRenderCount++;
         return <span data-testid="child">{promise.value}</span>;
       });
@@ -360,7 +360,7 @@ describe('React > async', () => {
       expect(childRenderCount).toBe(1);
 
       // Update only value1, should re-render only the child
-      value1.set('World');
+      value1.value = 'World';
       await sleep(200);
 
       expect(parentRenderCount).toBe(4);
@@ -368,21 +368,21 @@ describe('React > async', () => {
     });
   });
 
-  describe('subscriptions', () => {
+  describe('relays', () => {
     test('results can be passed down to children and grandchildren, and are updated when reactive promise resolves', async () => {
-      const value = state('Hello');
+      const value = signal('Hello');
 
       const derived = reactive(() => {
-        const greeting = value.get();
+        const greeting = value.value;
 
-        return subscription<string>(({ set }) => {
+        return relay<string>(state => {
           const run = async () => {
             await sleep(100);
 
             return `${greeting}, World`;
           };
 
-          set(run());
+          state.setPromise(run());
         });
       });
 
@@ -408,25 +408,25 @@ describe('React > async', () => {
       await expect.element(getByText('Loading...')).toBeInTheDocument();
       await expect.element(getByText('Hello, World')).toBeInTheDocument();
 
-      value.set('Hey');
+      value.value = 'Hey';
 
       await expect.element(getByText('Loading...')).toBeInTheDocument();
       await expect.element(getByText('Hey, World')).toBeInTheDocument();
     });
 
     test('results will update all promise props together when used in unmemoized functions', async () => {
-      const content = state('World');
+      const content = signal('World');
 
       const derived1 = reactive(() => {
-        return subscription<string>(({ set }) => {
-          const v = content.get();
+        return relay<string>(state => {
+          const v = content.value;
 
           const run = async () => {
             await sleep(100);
             return `Hello, ${v}`;
           };
 
-          set(run());
+          state.setPromise(run());
         });
       });
 
@@ -461,7 +461,7 @@ describe('React > async', () => {
         error: ['undefined', 2],
       });
 
-      content.set('Galaxy');
+      content.value = 'Galaxy';
       // await sleep(10);
 
       // expect(getPromiseValuesAndCounts(getByTestId, Renderers)).toEqual({
@@ -491,11 +491,11 @@ describe('React > async', () => {
     });
 
     test('it can transition back and forth between error and success states', async () => {
-      const content = state('World');
+      const content = signal('World');
 
       const derived1 = reactive(() => {
-        return subscription<string>(({ set }) => {
-          const value = content.get();
+        return relay<string>(state => {
+          const value = content.value;
 
           const run = async () => {
             await sleep(100);
@@ -507,7 +507,7 @@ describe('React > async', () => {
             return `Hello, ${value}`;
           };
 
-          set(run());
+          state.setPromise(run());
         });
       });
 
@@ -542,7 +542,7 @@ describe('React > async', () => {
         error: ['undefined', 2],
       });
 
-      content.set('Galaxy');
+      content.value = 'Galaxy';
       await sleep(0);
 
       expect(getPromiseValuesAndCounts(getByTestId, Renderers)).toEqual({
@@ -570,7 +570,7 @@ describe('React > async', () => {
         error: ['Error: Galaxy is not allowed', 4],
       });
 
-      content.set('Universe');
+      content.value = 'Universe';
       await sleep(0);
 
       expect(getPromiseValuesAndCounts(getByTestId, Renderers)).toEqual({
@@ -600,24 +600,24 @@ describe('React > async', () => {
     });
 
     test.skip('results can update when used in reactive functions', async () => {
-      const value1 = state('Hello');
+      const value1 = signal('Hello');
       let parentRenderCount = 0;
       let childRenderCount = 0;
 
       const derived1 = reactive(() => {
-        return subscription<string>(({ set }) => {
-          const v = value1.get();
+        return relay<string>(state => {
+          const v = value1.value;
 
           const run = async () => {
             await sleep(100);
             return v;
           };
 
-          set(run());
+          state.setPromise(run());
         });
       });
 
-      const Child = reactive(({ promise }: { promise: ReactivePromise<string> }): React.ReactNode => {
+      const Child = reactive(({ promise }: { promise: AsyncSignal<string> }): React.ReactNode => {
         childRenderCount++;
         return <span data-testid="child">{promise.value}</span>;
       });
@@ -643,7 +643,7 @@ describe('React > async', () => {
       expect(childRenderCount).toBe(2);
 
       // Update only value1, should re-render only the child
-      value1.set('World');
+      value1.value = 'World';
       await sleep(200);
 
       expect(parentRenderCount).toBe(1);
@@ -651,24 +651,24 @@ describe('React > async', () => {
     });
 
     test('results do not update when used in React.memo components when passed down directly', async () => {
-      const value1 = state('Hello');
+      const value1 = signal('Hello');
       let parentRenderCount = 0;
       let childRenderCount = 0;
 
       const derived1 = reactive(() => {
-        return subscription<string>(({ set }) => {
-          const v = value1.get();
+        return relay<string>(state => {
+          const v = value1.value;
 
           const run = async () => {
             await sleep(100);
             return v;
           };
 
-          set(run());
+          state.setPromise(run());
         });
       });
 
-      const Child = memo(({ promise }: { promise: ReactivePromise<string> }): React.ReactNode => {
+      const Child = memo(({ promise }: { promise: AsyncSignal<string> }): React.ReactNode => {
         childRenderCount++;
         return <span data-testid="child">{promise.value}</span>;
       });
@@ -694,7 +694,7 @@ describe('React > async', () => {
       expect(childRenderCount).toBe(1);
 
       // Update only value1, should re-render only the child
-      value1.set('World');
+      value1.value = 'World';
       await sleep(200);
 
       expect(parentRenderCount).toBe(4);

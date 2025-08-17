@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { reactive, createContext, withContexts, watcher, state } from '../index.js';
+import { reactive, createContext, withContexts, watcher, signal } from '../index.js';
 import { SignalScope, ROOT_SCOPE, forceGc, clearRootContexts } from '../internals/contexts.js';
 import { nextTick, sleep } from './utils/async.js';
 
@@ -70,9 +70,9 @@ describe('Garbage Collection', () => {
 
   it('should support conditional GC based on signal state', async () => {
     // Create a signal with conditional GC
-    const shouldAllowGC = state(false);
+    const shouldAllowGC = signal(false);
 
-    const conditionalSignal = reactive(() => shouldAllowGC.get(), {
+    const conditionalSignal = reactive(() => shouldAllowGC.value, {
       shouldGC: (signal, value) => {
         // console.log('shouldGC', signal, value);
         return value;
@@ -100,7 +100,7 @@ describe('Garbage Collection', () => {
     expect(getSignalsMap(ROOT_SCOPE).size).toBe(1);
 
     // Now allow GC
-    shouldAllowGC.set(true);
+    shouldAllowGC.value = true;
 
     // Watch the signal
     const unwatch2 = w.addListener(() => {
@@ -159,7 +159,7 @@ describe('Garbage Collection', () => {
 
     // The remaining signal should be signal2
     const remainingSignal = Array.from(getSignalsMap(ROOT_SCOPE).values())[0];
-    expect(remainingSignal.get()).toBe('signal2');
+    expect(remainingSignal.value).toBe('signal2');
 
     forceGc(signalObj!);
 

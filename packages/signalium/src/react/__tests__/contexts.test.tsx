@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { state, reactive, createContext, useContext, setRootContexts } from '../../index.js';
+import { signal, reactive, createContext, useContext, setRootContexts } from '../../index.js';
 import { ContextProvider, setupReact, useReactive, useScope } from '../index.js';
 import React, { useState } from 'react';
 
@@ -8,10 +8,10 @@ setupReact();
 
 describe('React > contexts', () => {
   test('useContext works inside computed with default value', async () => {
-    const value = state('Hello');
+    const value = signal('Hello');
     const context = createContext(value);
 
-    const derived = reactive(() => `${useContext(context).get()}, World`);
+    const derived = reactive(() => `${useContext(context).value}, World`);
 
     function Component(): React.ReactNode {
       return <div>{useReactive(derived)}</div>;
@@ -21,13 +21,13 @@ describe('React > contexts', () => {
 
     await expect.element(getByText('Hello, World')).toBeInTheDocument();
 
-    value.set('Hey');
+    value.value = 'Hey';
 
     await expect.element(getByText('Hey, World')).toBeInTheDocument();
   });
 
   test('useContext works at root level with default value', async () => {
-    const value = state('Hello');
+    const value = signal('Hello');
     const context = createContext(value);
 
     function Component(): React.ReactNode {
@@ -44,18 +44,18 @@ describe('React > contexts', () => {
 
     await expect.element(getByText('Hello, World')).toBeInTheDocument();
 
-    value.set('Hey');
+    value.value = 'Hey';
 
     await expect.element(getByText('Hey, World')).toBeInTheDocument();
   });
 
   test('provider inherits from root scope', async () => {
-    const defaultValue1 = state('default1');
-    const defaultValue2 = state('default2');
+    const defaultValue1 = signal('default1');
+    const defaultValue2 = signal('default2');
     const ctx1 = createContext(defaultValue1);
     const ctx2 = createContext(defaultValue2);
-    const rootOverride1 = state('root1');
-    const rootOverride2 = state('root2');
+    const rootOverride1 = signal('root1');
+    const rootOverride2 = signal('root2');
 
     // Set root contexts
     setRootContexts([
@@ -67,11 +67,11 @@ describe('React > contexts', () => {
     function Component({ testId }: { testId: string }): React.ReactNode {
       const value1 = useContext(ctx1);
       const value2 = useContext(ctx2);
-      const derived = reactive(() => `${value1.get()}-${value2.get()}`);
+      const derived = reactive(() => `${value1.value}-${value2.value}`);
       return <div data-testid={testId}>{useReactive(derived)}</div>;
     }
-    const localOverride1 = state('local1');
-    const localOverride2 = state('local2');
+    const localOverride1 = signal('local1');
+    const localOverride2 = signal('local2');
 
     // Should inherit from root scope when no local overrides
     const { getByTestId } = render(
@@ -102,8 +102,8 @@ describe('React > contexts', () => {
     await expect.element(getByTestId('result3')).toHaveTextContent('local1-local2');
 
     // Changes to root contexts should be reflected in inherited contexts
-    rootOverride1.set('updated-root1');
-    rootOverride2.set('updated-root2');
+    rootOverride1.value = 'updated-root1';
+    rootOverride2.value = 'updated-root2';
 
     await expect.element(getByTestId('result')).toHaveTextContent('updated-root1-updated-root2');
 
@@ -113,11 +113,11 @@ describe('React > contexts', () => {
   });
 
   test('useContext works inside computed value passed via context provider', async () => {
-    const value = state('Hello');
-    const override = state('Hey');
+    const value = signal('Hello');
+    const override = signal('Hey');
     const context = createContext(value);
 
-    const derived = reactive(() => `${useContext(context).get()}, World`);
+    const derived = reactive(() => `${useContext(context).value}, World`);
 
     function Component(): React.ReactNode {
       return <div>{useReactive(derived)}</div>;
@@ -131,14 +131,14 @@ describe('React > contexts', () => {
 
     await expect.element(getByText('Hey, World')).toBeInTheDocument();
 
-    override.set('Hi');
+    override.value = 'Hi';
 
     await expect.element(getByText('Hi, World')).toBeInTheDocument();
   });
 
   test('useContext works at root level with default value', async () => {
-    const value = state('Hello');
-    const override = state('Hey');
+    const value = signal('Hello');
+    const override = signal('Hey');
     const context = createContext(value);
 
     function Component(): React.ReactNode {
@@ -155,7 +155,7 @@ describe('React > contexts', () => {
 
     await expect.element(getByText('Hey, World')).toBeInTheDocument();
 
-    override.set('Hi');
+    override.value = 'Hi';
 
     await expect.element(getByText('Hi, World')).toBeInTheDocument();
   });

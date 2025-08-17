@@ -132,8 +132,8 @@ export function Hero() {
               showGradients={true}
               source={`
                 const getCounter = reactive((ms) => {
-                  return subscription((state) => {
-                    const id = setInterval(() => state.set(state.get() + 1), ms)
+                  return relay((state) => {
+                    const id = setInterval(() => state.value++, ms)
 
                     return () => clearInterval(id)
                   }, { initValue: 0 });

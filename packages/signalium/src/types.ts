@@ -1,39 +1,30 @@
 import { SignalScope } from './internals/contexts.js';
 
-export interface Signal<T = unknown> {
-  get(): T;
-  addListener(listener: SignalListener): () => void;
-}
-
-export interface StateSignal<T> extends Signal<T> {
-  set(value: T): void;
-  peek(): T;
+export interface Signal<T> {
+  value: T;
   update(updater: (value: T) => T): void;
 }
 
-/**
- * @deprecated Use `StateSignal` instead.
- */
-export type WriteableSignal<T> = StateSignal<T>;
+export interface ReadonlySignal<T> {
+  readonly value: T;
+}
 
 export type SignalEquals<T> = (prev: T, next: T) => boolean;
 
 export type SignalListener = () => void;
 
-export type SignalSubscription = {
+export type RelayHooks = {
   update?(): void;
-  unsubscribe?(): void;
+  deactivate?(): void;
 };
 
-export interface SubscriptionState<T> {
-  get: () => T | undefined;
-  set: (value: T | Promise<T>) => void;
+export interface RelayState<T> {
+  value: T | undefined;
+  setPromise: (promise: Promise<T>) => void;
   setError: (error: unknown) => void;
 }
 
-export type SignalSubscribe<T> = (
-  state: SubscriptionState<T>,
-) => SignalSubscription | (() => unknown) | undefined | void;
+export type SignalActivate<T> = (state: RelayState<T>) => RelayHooks | (() => unknown) | undefined | void;
 
 export interface SignalOptions<T, Args extends unknown[]> {
   equals?: SignalEquals<T> | false;
@@ -61,7 +52,7 @@ export interface Thenable<T> {
   [Symbol.toStringTag]: string;
 }
 
-export interface BaseReactivePromise<T> extends Promise<T> {
+export interface BaseAsyncSignal<T> extends Promise<T>, ReadonlySignal<T | undefined> {
   value: T | undefined;
   error: unknown;
 
@@ -74,42 +65,42 @@ export interface BaseReactivePromise<T> extends Promise<T> {
   rerun(): void;
 }
 
-export interface PendingReactivePromise<T> extends BaseReactivePromise<T> {
+export interface PendingAsyncSignal<T> extends BaseAsyncSignal<T> {
   value: undefined;
   isReady: false;
 }
 
-export interface ReadyReactivePromise<T> extends BaseReactivePromise<T> {
+export interface ReadyAsyncSignal<T> extends BaseAsyncSignal<T> {
   value: T;
   isReady: true;
 }
 
-export type ReactivePromise<T> = PendingReactivePromise<T> | ReadyReactivePromise<T>;
+export type AsyncSignal<T> = PendingAsyncSignal<T> | ReadyAsyncSignal<T>;
 
-export type ReactiveTask<T, Args extends unknown[]> = Omit<ReactivePromise<T>, 'notify'> & {
-  run(...args: Args): ReactivePromise<T>;
+export type TaskSignal<T, Args extends unknown[]> = Omit<AsyncSignal<T>, 'rerun'> & {
+  run(...args: Args): AsyncSignal<T>;
 };
 
-export type ReactiveSubscription<T> = Omit<ReactivePromise<T>, 'rerun'>;
+export type RelaySignal<T> = Omit<AsyncSignal<T>, 'rerun'>;
 
-export type ReactiveValue<T> =
+export type SignalValue<T> =
   // We have to first check if T is a ReactiveTask, because it will also match Promise<T>
-  T extends ReactiveTask<infer U, infer Args>
-    ? ReactiveTask<U, Args>
+  T extends TaskSignal<infer U, infer Args>
+    ? TaskSignal<U, Args>
     : T extends Promise<infer U>
-      ? ReactivePromise<U>
+      ? AsyncSignal<U>
       : T extends Generator<any, infer U>
-        ? ReactivePromise<U>
+        ? AsyncSignal<U>
         : T;
 
 // This type is used when initial values are provided to async functions and
-// subscriptions. It allows us to skip checking `isReady` when there is always
+// relays. It allows us to skip checking `isReady` when there is always
 // a guaranteed value to return.
-export type ReadyReactiveValue<T> =
-  T extends ReactiveTask<infer U, infer Args>
-    ? ReactiveTask<U, Args>
+export type ReadySignalValue<T> =
+  T extends TaskSignal<infer U, infer Args>
+    ? TaskSignal<U, Args>
     : T extends Promise<infer U>
-      ? ReadyReactivePromise<U>
+      ? ReadyAsyncSignal<U>
       : T extends Generator<any, infer U>
-        ? ReadyReactivePromise<U>
+        ? ReadyAsyncSignal<U>
         : T;

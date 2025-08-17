@@ -33,8 +33,8 @@ function Counter() {
 
   return (
     <div>
-      <p>Count: {count.get()}</p>
-      <button onClick={() => count.set(count.get() + 1)}>Increment</button>
+      <p>Count: {count.value}</p>
+      <button onClick={() => count.value++}>Increment</button>
     </div>
   );
 }
@@ -47,17 +47,17 @@ The signal created by `useStateSignal` will be automatically cleaned up when the
 You can use any signal directly in your components:
 
 ```tsx
-import { state, reactive } from 'signalium';
+import { signal, reactive } from 'signalium';
 
-const count = state(0);
-const doubled = reactive(() => count.get() * 2);
+const count = signal(0);
+const doubled = reactive(() => count.value * 2);
 
 function Counter() {
   return (
     <div>
-      <p>Count: {count.get()}</p>
+      <p>Count: {count.value}</p>
       <p>Doubled: {doubled()}</p>
-      <button onClick={() => count.set(count.get() + 1)}>Increment</button>
+      <button onClick={() => count.value++}>Increment</button>
     </div>
   );
 }
@@ -86,8 +86,8 @@ function Counter() {
 
   return (
     <div>
-      <p>Count: {count.get()}</p>
-      <button onClick={() => count.set(count.get() + 1)}>Increment</button>
+      <p>Count: {count.value}</p>
+      <button onClick={() => count.value++}>Increment</button>
     </div>
   );
 }
@@ -95,8 +95,8 @@ function Counter() {
 
 Key differences to be aware of:
 
-1. With `useStateSignal`, you need to call `.get()` to read the value
-2. Use `.set()` instead of calling the setter function directly
+1. With `useStateSignal`, you need to call `.value` to read the value
+2. Use `.value = 'new value'` instead of calling the setter function directly
 3. If you prefer functional updates like `setCount(prev => prev + 1)` you can use `update()` instead of `set()` - `count.update(prev => prev + 1)`
 4. The signal itself is stable - it doesn't change on re-renders
 
@@ -115,14 +115,14 @@ function useCounterWithStep(step = 1) {
 }
 
 // After
-const count = state(0); // Move to module scope
+const count = signal(0); // Move to module scope
 const getCounterWithStep = reactive((step = 1) => {
   const increment = () => count.update((c) => c + step);
   const decrement = () => count.update((c) => c - step);
 
   return {
     get count() {
-      return count.get();
+      return count.value;
     },
     increment,
     decrement,
@@ -144,15 +144,15 @@ function useCounterWithHistory() {
 
 // After
 const getCounterWithHistory = reactive(() => {
-  return subscription((state) => {
+  return relay((state) => {
     const { count, increment, decrement } = getCounterWithStep();
 
-    state.set({
+    state.value = {
       count,
       increment,
       decrement,
-      history: [...state.get()?.history, count],
-    });
+      history: [...(state.value?.history ?? []), count],
+    };
   });
 });
 
@@ -165,10 +165,10 @@ function Counter() {
 
   return (
     <div>
-      <p>Count: {count.get()}</p>
+      <p>Count: {count.value}</p>
       <button onClick={increment}>Increment</button>
       <button onClick={decrement}>Decrement</button>
-      <p>History: {history.get().join(', ')}</p>
+      <p>History: {history.value.join(', ')}</p>
     </div>
   );
 }
@@ -231,11 +231,11 @@ Signalium's context system integrates with React's context system through the `C
 import { ContextProvider } from '@signalium/react';
 import { createContext, state } from 'signalium';
 
-const ThemeContext = createContext(state('light'));
+const ThemeContext = createContext(signal('light'));
 
 function App() {
   return (
-    <ContextProvider contexts={[[ThemeContext, state('dark')]]}>
+    <ContextProvider contexts={[[ThemeContext, signal('dark')]]}>
       <YourApp />
     </ContextProvider>
   );
@@ -243,7 +243,7 @@ function App() {
 
 function ThemedComponent() {
   const theme = useContext(ThemeContext);
-  return <div>Current theme: {theme.get()}</div>;
+  return <div>Current theme: {theme.value}</div>;
 }
 ```
 
@@ -252,8 +252,8 @@ Multiple contexts can be provided to the `ContextProvider` component, removing t
 ```tsx
 <ContextProvider
   contexts={[
-    [ThemeContext, state('dark')],
-    [OtherContext, state('foo')],
+    [ThemeContext, signal('dark')],
+    [OtherContext, signal('foo')],
   ]}
 >
   <YourApp />

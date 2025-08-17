@@ -1,5 +1,5 @@
 import { getFrameworkScope } from '../config.js';
-import { DerivedSignal, DerivedSignalDefinition, createDerivedSignal } from './derived.js';
+import { ReactiveFnSignal, ReactiveFnDefinition, createDerivedSignal } from './reactive.js';
 import { hashReactiveFn, hashValue } from './utils/hash.js';
 import { scheduleGcSweep } from './scheduling.js';
 import { CURRENT_CONSUMER } from './consumer.js';
@@ -34,7 +34,10 @@ export const createContext = <T>(initialValue: T, description?: string): Context
 };
 
 export class SignalScope {
+  private parentScope?: SignalScope;
+
   constructor(contexts: [ContextImpl<unknown>, unknown][], parent?: SignalScope) {
+    this.parentScope = parent;
     this.contexts = Object.create(parent?.contexts || null);
 
     this.setContexts(contexts);
@@ -42,8 +45,8 @@ export class SignalScope {
 
   private contexts: Record<symbol, unknown>;
   private children = new Map<number, SignalScope>();
-  private signals = new Map<number, DerivedSignal<any, any>>();
-  private gcCandidates = new Set<DerivedSignal<any, any>>();
+  private signals = new Map<number, ReactiveFnSignal<any, any>>();
+  private gcCandidates = new Set<ReactiveFnSignal<any, any>>();
 
   setContexts(contexts: [ContextImpl<unknown>, unknown][]) {
     for (const [context, value] of contexts) {
@@ -72,10 +75,10 @@ export class SignalScope {
     return this.contexts[context._key] as T | undefined;
   }
 
-  get<T, Args extends unknown[]>(def: DerivedSignalDefinition<T, Args>, args: Args): DerivedSignal<T, Args> {
+  get<T, Args extends unknown[]>(def: ReactiveFnDefinition<T, Args>, args: Args): ReactiveFnSignal<T, Args> {
     const paramKey = def.paramKey?.(...args);
     const key = hashReactiveFn(def.compute, paramKey ? [paramKey] : args);
-    let signal = this.signals.get(key) as DerivedSignal<T, Args> | undefined;
+    let signal = this.signals.get(key) as ReactiveFnSignal<T, Args> | undefined;
 
     if (signal === undefined) {
       signal = createDerivedSignal(def, args, key, this);
@@ -85,18 +88,18 @@ export class SignalScope {
     return signal;
   }
 
-  markForGc(signal: DerivedSignal<any, any>) {
+  markForGc(signal: ReactiveFnSignal<any, any>) {
     if (!this.gcCandidates.has(signal)) {
       this.gcCandidates.add(signal);
       scheduleGcSweep(this);
     }
   }
 
-  removeFromGc(signal: DerivedSignal<any, any>) {
+  removeFromGc(signal: ReactiveFnSignal<any, any>) {
     this.gcCandidates.delete(signal);
   }
 
-  forceGc(signal: DerivedSignal<any, any>) {
+  forceGc(signal: ReactiveFnSignal<any, any>) {
     this.signals.delete(signal.key!);
   }
 
@@ -105,7 +108,7 @@ export class SignalScope {
       if (signal.watchCount === 0) {
         const { shouldGC } = signal.def;
 
-        if (!shouldGC || shouldGC(signal, signal.value, signal.args)) {
+        if (!shouldGC || shouldGC(signal, signal._value, signal.args)) {
           this.signals.delete(signal.key!);
         }
       }
@@ -167,6 +170,6 @@ export const useContext = <T>(context: Context<T>): T => {
 };
 
 export function forceGc(_signal: object) {
-  const signal = _signal as DerivedSignal<any, any>;
+  const signal = _signal as ReactiveFnSignal<any, any>;
   signal.scope?.forceGc(signal);
 }

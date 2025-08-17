@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { state } from '../index.js';
+import { signal } from '../index.js';
 import { nextTick } from './utils/async.js';
 import { permute } from './utils/permute.js';
 
@@ -37,7 +37,7 @@ describe('nesting', () => {
     });
 
     test('outer state + params', async () => {
-      const val = state(1);
+      const val = signal(1);
 
       const inner = create2((a: number, b: number) => {
         return a + b;
@@ -45,7 +45,7 @@ describe('nesting', () => {
 
       const outer = create1((a: number) => {
         if (a > 1) {
-          return inner(a, 2)! + val.get();
+          return inner(a, 2)! + val.value;
         }
 
         return inner(a, 2);
@@ -59,7 +59,7 @@ describe('nesting', () => {
       expect(outer.withParams(1)).toHaveSignalValue(3).toMatchSnapshot();
       expect(outer.withParams(2)).toHaveSignalValue(5).toMatchSnapshot();
 
-      val.set(2);
+      val.value = 2;
       await nextTick();
 
       expect(outer.withParams(1)).toHaveSignalValue(3).toMatchSnapshot();
@@ -67,11 +67,11 @@ describe('nesting', () => {
     });
 
     test('inner state + params', async () => {
-      const val = state(1);
+      const val = signal(1);
 
       const inner = create2((a: number, b: number) => {
         if (a > 1) {
-          return a + b + val.get();
+          return a + b + val.value;
         }
 
         return a + b;
@@ -89,7 +89,7 @@ describe('nesting', () => {
       expect(outer.withParams(1)).toHaveSignalValue(3).toMatchSnapshot();
       expect(outer.withParams(2)).toHaveSignalValue(5).toMatchSnapshot();
 
-      val.set(2);
+      val.value = 2;
 
       await nextTick();
 
@@ -120,7 +120,7 @@ describe('nesting', () => {
     });
 
     test('state + params one level deep', async () => {
-      const val = state(1);
+      const val = signal(1);
 
       const inner = create3((a: number, b: number, c: number) => {
         return a + b + c;
@@ -128,7 +128,7 @@ describe('nesting', () => {
 
       const middle = create2((a: number, b: number) => {
         if (a > 1) {
-          return inner(a, b, 3)! + val.get();
+          return inner(a, b, 3)! + val.value;
         }
 
         return inner(a, b, 3);
@@ -146,7 +146,7 @@ describe('nesting', () => {
       expect(outer.withParams(1)).toHaveSignalValue(6).toMatchSnapshot();
       expect(outer.withParams(2)).toHaveSignalValue(8).toMatchSnapshot();
 
-      val.set(2);
+      val.value = 2;
       await nextTick();
 
       expect(outer.withParams(1)).toHaveSignalValue(6).toMatchSnapshot();
@@ -154,11 +154,11 @@ describe('nesting', () => {
     });
 
     test('state + params two levels deep', async () => {
-      const val = state(1);
+      const val = signal(1);
 
       const inner = create3((a: number, b: number, c: number) => {
         if (a > 1) {
-          return a + b + c + val.get();
+          return a + b + c + val.value;
         }
 
         return a + b + c;
@@ -180,7 +180,7 @@ describe('nesting', () => {
       expect(outer.withParams(1)).toHaveSignalValue(6).toMatchSnapshot();
       expect(outer.withParams(2)).toHaveSignalValue(8).toMatchSnapshot();
 
-      val.set(2);
+      val.value = 2;
 
       await nextTick();
 
@@ -214,7 +214,7 @@ describe('nesting', () => {
     });
 
     test('params + state + multiple children', async () => {
-      const val = state(1);
+      const val = signal(1);
 
       const inner1 = create3((a: number, b: number, c: number) => {
         return a + b + c;
@@ -222,7 +222,7 @@ describe('nesting', () => {
 
       const inner2 = create2((a: number, b: number) => {
         if (a > 1) {
-          return a + b + inner1(a, b, 3)! + val.get();
+          return a + b + inner1(a, b, 3)! + val.value;
         }
 
         return a + b + inner1(a, b, 3)!;
@@ -244,9 +244,9 @@ describe('nesting', () => {
       expect(outer.withParams(2, 3)).toHaveSignalValue(21).toMatchSnapshot();
       expect(outer.withParams(3, 3)).toHaveSignalValue(22).toMatchSnapshot();
 
-      val.set(2);
+      val.value = 2;
 
-      // Wait for async with subscriptions
+      // Wait for async with relays
       await nextTick();
 
       expect(outer.withParams(1, 2)).toHaveSignalValue(19).toMatchSnapshot();
@@ -256,15 +256,15 @@ describe('nesting', () => {
     });
 
     test('passing state as params + multiple children', async () => {
-      const stateA = state(1);
-      const stateB = state(2);
+      const stateA = signal(1);
+      const stateB = signal(2);
 
       const inner1 = create2((a: number, s: typeof stateA) => {
-        return a + s.get();
+        return a + s.value;
       });
 
       const inner2 = create3((b: number, s: typeof stateB) => {
-        return b * s.get();
+        return b * s.value;
       });
 
       const outer = create1((x: number) => {
@@ -282,13 +282,13 @@ describe('nesting', () => {
       expect(outer.withParams(1)).toHaveSignalValue(2).toMatchSnapshot();
       expect(outer.withParams(3)).toHaveSignalValue(10).toMatchSnapshot();
 
-      stateA.set(2);
+      stateA.value = 2;
       await nextTick();
 
       expect(outer.withParams(1)).toHaveSignalValue(3).toMatchSnapshot();
       expect(outer.withParams(3)).toHaveSignalValue(11).toMatchSnapshot();
 
-      stateB.set(3);
+      stateB.value = 3;
 
       await nextTick();
       expect(outer.withParams(1)).toHaveSignalValue(3).toMatchSnapshot();

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createContext, useContext, withContexts, state, setRootContexts } from '../index.js';
+import { createContext, useContext, withContexts, signal, setRootContexts } from '../index.js';
 import { permute } from './utils/permute.js';
 import { nextTick } from './utils/async.js';
 import { reactive } from './utils/instrumented-hooks.js';
@@ -12,12 +12,12 @@ describe('contexts', () => {
   });
 
   test('setRootContexts sets contexts at the root level', () => {
-    const value = state('Hello');
+    const value = signal('Hello');
     const context = createContext(value);
-    const override = state('Hey');
+    const override = signal('Hey');
 
     // Create a reactive function that uses the context
-    const derived = reactive(() => `${useContext(context).get()}, World`);
+    const derived = reactive(() => `${useContext(context).value}, World`);
 
     // Initially should use default value
     expect(derived()).toBe('Hello, World');
@@ -29,19 +29,19 @@ describe('contexts', () => {
     expect(derived()).toBe('Hey, World');
 
     // Changes to override should be reflected
-    override.set('Hi');
+    override.value = 'Hi';
     expect(derived()).toBe('Hi, World');
   });
 
   test('setRootContexts with multiple contexts', () => {
-    const value1 = state('Hello');
-    const value2 = state('World');
+    const value1 = signal('Hello');
+    const value2 = signal('World');
     const context1 = createContext(value1);
     const context2 = createContext(value2);
-    const override1 = state('Hey');
-    const override2 = state('There');
+    const override1 = signal('Hey');
+    const override2 = signal('There');
 
-    const derived = reactive(() => `${useContext(context1).get()}, ${useContext(context2).get()}`);
+    const derived = reactive(() => `${useContext(context1).value}, ${useContext(context2).value}`);
 
     // Initially should use default values
     expect(derived()).toBe('Hello, World');
@@ -55,23 +55,23 @@ describe('contexts', () => {
     expect(derived()).toBe('Hey, There');
 
     // Changes to overrides should be reflected
-    override1.set('Hi');
-    override2.set('Everyone');
+    override1.value = 'Hi';
+    override2.value = 'Everyone';
     expect(derived()).toBe('Hi, Everyone');
 
     // Changes to original values should not affect the result
-    value1.set('Bye');
-    value2.set('Earth');
+    value1.value = 'Bye';
+    value2.value = 'Earth';
     expect(derived()).toBe('Hi, Everyone');
   });
 
   test('withContexts inherits from root scope', () => {
-    const defaultValue1 = state('default1');
-    const defaultValue2 = state('default2');
+    const defaultValue1 = signal('default1');
+    const defaultValue2 = signal('default2');
     const ctx1 = createContext(defaultValue1);
     const ctx2 = createContext(defaultValue2);
-    const rootOverride1 = state('root1');
-    const rootOverride2 = state('root2');
+    const rootOverride1 = signal('root1');
+    const rootOverride2 = signal('root2');
 
     // Set root contexts
     setRootContexts([
@@ -80,19 +80,19 @@ describe('contexts', () => {
     ]);
 
     // Create a reactive function that uses both contexts
-    const derived = reactive(() => `${useContext(ctx1).get()}-${useContext(ctx2).get()}`);
+    const derived = reactive(() => `${useContext(ctx1).value}-${useContext(ctx2).value}`);
 
     // Should inherit from root scope when no local overrides
     const result1 = withContexts([], () => derived());
     expect(result1).toBe('root1-root2');
 
     // Should inherit from root scope for unoverridden contexts
-    const localOverride1 = state('local1');
+    const localOverride1 = signal('local1');
     const result2 = withContexts([[ctx1, localOverride1]], () => derived());
     expect(result2).toBe('local1-root2');
 
     // Should use local overrides when provided
-    const localOverride2 = state('local2');
+    const localOverride2 = signal('local2');
     const result3 = withContexts(
       [
         [ctx1, localOverride1],
@@ -103,8 +103,8 @@ describe('contexts', () => {
     expect(result3).toBe('local1-local2');
 
     // Changes to root contexts should be reflected in inherited contexts
-    rootOverride1.set('updated-root1');
-    rootOverride2.set('updated-root2');
+    rootOverride1.value = 'updated-root1';
+    rootOverride2.value = 'updated-root2';
 
     const result4 = withContexts([], () => derived());
     expect(result4).toBe('updated-root1-updated-root2');
@@ -159,14 +159,14 @@ describe('contexts', () => {
   permute(1, create => {
     test('computed signals are cached per context scope', async () => {
       const ctx = createContext('default');
-      const value = state(0);
+      const value = signal(0);
 
       const computed = create(
         () => {
-          return useContext(ctx) + value.get();
+          return useContext(ctx) + value.value;
         },
         {
-          desc: 'subscription',
+          desc: 'relay',
         },
       );
 
@@ -197,7 +197,7 @@ describe('contexts', () => {
 
     // test.skip('computed forks when accessing forked context after being shared', async () => {
     //   const ctx = createContext('default');
-    //   const value = state(0);
+    //   const value = signal(0);
 
     //   const computed = create(() => {
     //     // Initially only depends on value, not context
@@ -229,7 +229,7 @@ describe('contexts', () => {
 
     // test.skip('computed forks correctly regardless of access order', () => {
     //   const ctx = createContext('default');
-    //   const value = state(0);
+    //   const value = signal(0);
 
     //   const computed = create(() => {
     //     // Initially only depends on value, not context
@@ -263,7 +263,7 @@ describe('contexts', () => {
 
     // test.skip('computed ownership transfers correctly between parent and child scopes', () => {
     //   const ctx = createContext('default');
-    //   const value = state(0);
+    //   const value = signal(0);
 
     //   const computed = create(() => {
     //     // Initially only depends on value, not context
@@ -418,7 +418,7 @@ describe('contexts', () => {
   // permute(3, (create1, create2, create3) => {
   //   test.skip('the gauntlet (params + state + context)', async () => {
   //     const ctx = createContext('ctxdefault');
-  //     const value = state('value');
+  //     const value = signal('value');
 
   //     const inner1 = create1((a: number) => {
   //       if (a === 3) {

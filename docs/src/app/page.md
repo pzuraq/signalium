@@ -80,7 +80,7 @@ import { reactive } from 'signalium';
 import { setupReact, useStateSignal } from '@signalium/react';
 
 // Create a reactive function outside your component
-const doubled = reactive(() => count.get() * 2);
+const doubled = reactive(() => count.value * 2);
 
 function Counter() {
   // Create a state signal inside your component
@@ -88,9 +88,9 @@ function Counter() {
 
   return (
     <div>
-      <h1>Counter: {count.get()}</h1>
+      <h1>Counter: {count.value}</h1>
       <p>Doubled: {doubled()}</p>
-      <button onClick={() => count.set(count.get() + 1)}>Increment</button>
+      <button onClick={() => count.value++}>Increment</button>
     </div>
   );
 }
@@ -116,6 +116,6 @@ export default Counter;
 
 - **Fine-grained reactivity**: Only re-render what actually changed
 - **Framework-agnostic**: Works with React, Svelte, Vue, or without a framework
-- **First-class async**: Seamless handling of promises, tasks, and subscriptions
+- **First-class async**: Seamless handling of promises, tasks, and relays
 - **Predictable state**: Signal-based state management with clear dependencies
 - **Type-safe**: Full TypeScript support with excellent DX

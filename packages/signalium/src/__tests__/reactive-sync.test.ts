@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { state } from '../index.js';
+import { signal } from '../index.js';
 import { reactive } from './utils/instrumented-hooks.js';
 
 describe('reactive (sync)', () => {
@@ -41,10 +41,10 @@ describe('reactive (sync)', () => {
     });
 
     test('Nested computeds with shared state', () => {
-      const sharedState = state(1);
+      const sharedState = signal(1);
 
       const getInner = reactive((a: number) => {
-        return a + sharedState.get();
+        return a + sharedState.value;
       });
 
       const getOuter = reactive((x: number) => {
@@ -52,7 +52,7 @@ describe('reactive (sync)', () => {
       });
 
       expect(getOuter.withParams(1)).toHaveValueAndCounts(4, { compute: 1, get: 1 });
-      sharedState.set(2);
+      sharedState.value = 2;
       expect(getOuter.withParams(1)).toHaveValueAndCounts(6, { compute: 2, get: 2 });
     });
 
@@ -76,38 +76,38 @@ describe('reactive (sync)', () => {
     });
 
     test('Nested computeds work with state signals', () => {
-      const stateA = state(1);
-      const stateB = state(2);
+      const stateA = signal(1);
+      const stateB = signal(2);
 
       const getInner = reactive((x: number) => {
-        return x + stateA.get();
+        return x + stateA.value;
       });
 
       const getOuter = reactive((x: number) => {
-        return getInner(x) * stateB.get();
+        return getInner(x) * stateB.value;
       });
 
       expect(getOuter.withParams(3)).toHaveValueAndCounts(8, { compute: 1, get: 1 });
 
-      stateA.set(2);
+      stateA.value = 2;
       expect(getOuter.withParams(3)).toHaveValueAndCounts(10, { compute: 2, get: 2 });
 
-      stateB.set(3);
+      stateB.value = 3;
       expect(getOuter.withParams(3)).toHaveValueAndCounts(15, { compute: 3, get: 3 });
 
       expect(getOuter.withParams(3)).toHaveValueAndCounts(15, { compute: 3, get: 4 });
     });
 
     test('Nested computeds work with both state and arguments', () => {
-      const stateA = state(1);
-      const stateB = state(2);
+      const stateA = signal(1);
+      const stateB = signal(2);
 
       const getInner = reactive((x: number, y: number) => {
-        return x + y + stateA.get();
+        return x + y + stateA.value;
       });
 
       const getMiddle = reactive((x: number) => {
-        return getInner(x, stateB.get()) * 2;
+        return getInner(x, stateB.value) * 2;
       });
 
       const getOuter = reactive((x: number, y: number) => {
@@ -116,10 +116,10 @@ describe('reactive (sync)', () => {
 
       expect(getOuter.withParams(1, 3)).toHaveValueAndCounts(11, { compute: 1, get: 1 });
 
-      stateB.set(3);
+      stateB.value = 3;
       expect(getOuter.withParams(1, 3)).toHaveValueAndCounts(13, { compute: 2, get: 2 });
 
-      stateA.set(2);
+      stateA.value = 2;
       expect(getOuter.withParams(1, 3)).toHaveValueAndCounts(15, { compute: 3, get: 3 });
 
       expect(getOuter.withParams(1, 4)).toHaveValueAndCounts(16, { compute: 1, get: 1 });

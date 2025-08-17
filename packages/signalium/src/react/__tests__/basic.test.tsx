@@ -1,16 +1,15 @@
-import { beforeEach, describe, expect, test } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { state, reactive, createContext, useContext } from 'signalium';
-import { ContextProvider, setupReact, useReactive, useStateSignal } from '../index.js';
+import { signal, reactive } from 'signalium';
+import { setupReact, useReactive, useSignal } from '../index.js';
 import React, { useState } from 'react';
 import { userEvent } from '@vitest/browser/context';
-import { sleep } from '../../__tests__/utils/async.js';
 
 setupReact();
 
 describe('React > basic', () => {
   test('basic state usage works', async () => {
-    const value = state('Hello');
+    const value = signal('Hello');
 
     function Component(): React.ReactNode {
       return <div>{useReactive(value)}</div>;
@@ -20,19 +19,19 @@ describe('React > basic', () => {
 
     await expect.element(getByText('Hello')).toBeInTheDocument();
 
-    value.set('World');
+    value.value = 'World';
 
     await expect.element(getByText('World')).toBeInTheDocument();
   });
 
-  test('useStateSignal works', async () => {
+  test('useSignal works', async () => {
     function Component(): React.ReactNode {
-      const value = useStateSignal('Hello');
+      const value = useSignal('Hello');
 
       return (
         <div>
           {useReactive(value)}
-          <button onClick={() => value.set('World')}>Toggle</button>
+          <button onClick={() => (value.value = 'World')}>Toggle</button>
         </div>
       );
     }
@@ -47,7 +46,7 @@ describe('React > basic', () => {
   });
 
   test('basic computed usage works', async () => {
-    const value = state('Hello');
+    const value = signal('Hello');
 
     const derived = reactive(() => `${useReactive(value)}, World`);
 
@@ -59,13 +58,13 @@ describe('React > basic', () => {
 
     await expect.element(getByText('Hello, World')).toBeInTheDocument();
 
-    value.set('Hey');
+    value.value = 'Hey';
 
     await expect.element(getByText('Hey, World')).toBeInTheDocument();
   });
 
   test('computed updates when params change', async () => {
-    const value = state('Hello');
+    const value = signal('Hello');
 
     const derived = reactive((universe: boolean) => `${useReactive(value)}, ${universe ? 'Universe' : 'World'}`);
 
@@ -84,7 +83,7 @@ describe('React > basic', () => {
 
     await expect.element(getByText('Hello, Universe')).toBeInTheDocument();
 
-    value.set('Hey');
+    value.value = 'Hey';
 
     await expect.element(getByText('Hey, Universe')).toBeInTheDocument();
 

@@ -8,10 +8,10 @@ nextjs:
 
 ## signalium
 
-### state
+### signal
 
 ```ts
-export function state<T>(
+export function signal<T>(
   initialValue: T,
   opts?: SignalOptions<T>,
 ): StateSignal<T>;
@@ -19,14 +19,12 @@ export function state<T>(
 
 Creates a new state signal with the given initial value. State signals are mutable values that can trigger reactivity when they change.
 
-#### StateSignal<T> Interface
+#### Signal<T> Interface
 
 ```ts
-interface StateSignal<T> {
-  get(): T; // Get the current value
-  set(value: T): void; // Set a new value
+interface Signal<T> {
+  value: T; // the current value of the signal
   update(updater: (value: T) => T): void; // Update using a function
-  peek(): T; // Get the value without creating a dependency
 }
 ```
 
@@ -36,7 +34,7 @@ interface StateSignal<T> {
 export function reactive<T, Args extends unknown[]>(
   fn: (...args: Args) => T,
   opts?: SignalOptions<T, Args>,
-): (...args: Args) => ReactiveValue<T>;
+): (...args: Args) => SignalValue<T>;
 ```
 
 Creates a reactive function that tracks dependencies and automatically updates when those dependencies change.
@@ -47,38 +45,29 @@ Creates a reactive function that tracks dependencies and automatically updates w
 export function task<T, Args extends unknown[]>(
   fn: (...args: Args) => Promise<T>,
   opts?: SignalOptions<T, Args>,
-): ReactiveTask<T, Args>;
+): TaskSignal<T, Args>;
 ```
 
 Creates a reactive task for handling asynchronous operations. Tasks are similar to reactive functions but are specialized for promises.
 
-#### ReactiveTask<T, Args> Interface
+#### TaskSignal<T, Args> Interface
 
 ```ts
-interface ReactiveTask<T, Args extends unknown[]>
-  extends ReactivePromise<T, Args> {
-  run(...args: Args): ReactivePromise<T>; // Manually trigger the task
+interface TaskSignal<T, Args extends unknown[]> extends AsyncSignal<T> {
+  run(...args: Args): AsyncSignal<T>; // Manually trigger the task
 }
 ```
 
-### subscription
+### relay
 
 ```ts
-export function subscription<T, Args extends unknown[]>(
-  fn: SignalSubscribe<T, Args>,
+export function relay<T, Args extends unknown[]>(
+  fn: SignalActivate<T, Args>,
   opts?: SignalOptionsWithInit<T, Args>,
-): ReactiveSubscription<T>;
+): AsyncSignal<T>;
 ```
 
-Creates a reactive subscription for handling long-running, asymmetric async operations like websockets, polling, or event listeners.
-
-#### ReactiveSubscription<T> Interface
-
-```ts
-interface ReactiveSubscription<T> extends ReactivePromise<T> {
-  rerun(): void; // Manually trigger the subscription to rerun
-}
-```
+Creates a Relay for handling long-running, asymmetric async operations like websockets, polling, or event listeners.
 
 ### watcher
 
@@ -131,39 +120,32 @@ Executes a function with the provided context values, making them available to a
 interface Watcher<T> {
   addListener(listener: (value: T) => void): () => void; // Add a listener for changes
   get(): T; // Get the current value and track dependencies
-  peek(): T; // Get the current value without tracking dependencies
 }
 ```
 
-### isReactivePromise
+### isAsyncSignal
 
 ```ts
-export function isReactivePromise<T, Args extends unknown[]>(
-  obj: unknown,
-): boolean;
+export function isAsyncSignal(obj: unknown): boolean;
 ```
 
-Checks if a value is a reactive promise.
+Checks if a value is a promise signal.
 
-### isReactiveTask
+### isTaskSignal
 
 ```ts
-export function isReactiveTask<T, Args extends unknown[]>(
-  obj: unknown,
-): boolean;
+export function isTaskSignal(obj: unknown): boolean;
 ```
 
-Checks if a value is a reactive task.
+Checks if a value is a task signal.
 
-### isReactiveSubscription
+### isRelaySignal
 
 ```ts
-export function isReactiveSubscription<T, Args extends unknown[]>(
-  obj: unknown,
-): boolean;
+export function isRelaySignal(obj: unknown): boolean;
 ```
 
-Checks if a value is a reactive subscription.
+Checks if a value is a relay signal.
 
 ### hashValue
 

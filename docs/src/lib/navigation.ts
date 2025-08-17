@@ -84,18 +84,18 @@ export const navigation: GroupNavigationItem[] = [
     items: [
       {
         type: 'link',
-        title: 'Reactive Functions and State',
-        href: '/core/reactive-functions-and-state',
+        title: 'Signals and Reactive Functions',
+        href: '/core/signals-and-reactive-functions',
       },
       {
         type: 'link',
-        title: 'Reactive Promises',
-        href: '/core/reactive-promises',
+        title: 'Async Signals',
+        href: '/core/async-signals',
       },
       {
         type: 'link',
-        title: 'Subscriptions and Watchers',
-        href: '/core/subscriptions-and-watchers',
+        title: 'Relays and Watchers',
+        href: '/core/relays-and-watchers',
       },
       {
         type: 'link',
@@ -128,7 +128,7 @@ export const navigation: GroupNavigationItem[] = [
         type: 'group',
         title: 'signalium',
         items: [
-          { type: 'link', title: 'state()', href: '/api#state' },
+          { type: 'link', title: 'signal()', href: '/api#signal' },
           {
             type: 'link',
             title: 'reactive()',
@@ -141,8 +141,8 @@ export const navigation: GroupNavigationItem[] = [
           },
           {
             type: 'link',
-            title: 'subscription()',
-            href: '/api#subscription',
+            title: 'relay()',
+            href: '/api#relay',
           },
           { type: 'link', title: 'watcher()', href: '/api#watcher' },
           {
@@ -167,18 +167,18 @@ export const navigation: GroupNavigationItem[] = [
           },
           {
             type: 'link',
-            title: 'isReactivePromise()',
-            href: '/api#is-reactive-promise',
+            title: 'isAsyncSignal()',
+            href: '/api#is-async-signal',
           },
           {
             type: 'link',
-            title: 'isReactiveTask()',
-            href: '/api#is-reactive-task',
+            title: 'isTaskSignal()',
+            href: '/api#is-task-signal',
           },
           {
             type: 'link',
-            title: 'isReactiveSubscription()',
-            href: '/api#is-reactive-subscription',
+            title: 'isRelaySignal()',
+            href: '/api#is-relay-signal',
           },
           {
             type: 'link',

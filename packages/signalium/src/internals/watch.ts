@@ -1,7 +1,7 @@
-import { DerivedSignal, isSubscription } from './derived.js';
+import { ReactiveFnSignal, isRelay } from './reactive.js';
 import { checkSignal } from './get.js';
 
-export function watchSignal(signal: DerivedSignal<any, any>): void {
+export function watchSignal(signal: ReactiveFnSignal<any, any>): void {
   const { watchCount } = signal;
   const newWatchCount = watchCount + 1;
 
@@ -17,13 +17,13 @@ export function watchSignal(signal: DerivedSignal<any, any>): void {
     watchSignal(dep);
   }
 
-  if (isSubscription(signal)) {
-    // Bootstrap the subscription
+  if (isRelay(signal)) {
+    // Bootstrap the relay
     checkSignal(signal);
   }
 }
 
-export function unwatchSignal(signal: DerivedSignal<any, any>, count = 1) {
+export function unwatchSignal(signal: ReactiveFnSignal<any, any>, count = 1) {
   const { watchCount } = signal;
   const newWatchCount = Math.max(watchCount - count, 0);
 
@@ -37,9 +37,9 @@ export function unwatchSignal(signal: DerivedSignal<any, any>, count = 1) {
     unwatchSignal(dep);
   }
 
-  if (isSubscription(signal)) {
-    // teardown the subscription
-    signal.value?.();
+  if (isRelay(signal)) {
+    // teardown the relay
+    signal._value?.();
   }
 
   // If watchCount is now zero, mark the signal for GC

@@ -1,6 +1,6 @@
 import WeakRef from '../weakref.js';
 import { Tracer, TRACER, TracerMeta } from '../trace.js';
-import { ReactiveValue, Signal, SignalEquals, SignalListener, SignalOptionsWithInit } from '../types.js';
+import { SignalValue, SignalEquals, SignalListener, SignalOptionsWithInit } from '../types.js';
 import { getUnknownSignalFnName } from './utils/debug-name.js';
 import { SignalScope } from './contexts.js';
 import { getSignal } from './get.js';
@@ -22,19 +22,19 @@ import { stringifyValue } from './utils/stringify.js';
 
 export type SignalId = number;
 
-export const enum SignalState {
+export const enum ReactiveFnState {
   Clean = 0,
   Pending = 1,
   Dirty = 2,
   MaybeDirty = 3,
 }
 
-export const enum SignalFlags {
+export const enum ReactiveFnFlags {
   // State
   State = 0b11,
 
   // Properties
-  isSubscription = 0b100,
+  isRelay = 0b100,
   isListener = 0b1000,
 }
 
@@ -55,24 +55,24 @@ interface ListenerMeta {
  * Shared definition for derived signals to reduce memory usage.
  * Contains configuration that's common across all instances of a reactive function.
  */
-export interface DerivedSignalDefinition<T, Args extends unknown[]>
+export interface ReactiveFnDefinition<T, Args extends unknown[]>
   extends Partial<Omit<SignalOptionsWithInit<T, Args>, 'scope'>> {
   compute: (...args: Args) => T;
   equals: SignalEquals<T>;
   shouldGC?: (signal: object, value: T, args: Args) => boolean;
-  isSubscription: boolean;
+  isRelay: boolean;
   tracer?: Tracer;
 }
 
-export class DerivedSignal<T, Args extends unknown[]> implements Signal<ReactiveValue<T>> {
+export class ReactiveFnSignal<T, Args extends unknown[]> {
   // Bitmask containing state in the first 2 bits and boolean properties in the remaining bits
   private flags: number;
   scope: SignalScope | undefined = undefined;
 
-  subs = new Map<WeakRef<DerivedSignal<any, any>>, Edge>();
-  deps = new Map<DerivedSignal<any, any>, Edge>();
+  subs = new Map<WeakRef<ReactiveFnSignal<any, any>>, Edge>();
+  deps = new Map<ReactiveFnSignal<any, any>, Edge>();
 
-  ref: WeakRef<DerivedSignal<T, Args>> = new WeakRef(this);
+  ref: WeakRef<ReactiveFnSignal<T, Args>> = new WeakRef(this);
 
   dirtyHead: Edge | undefined = undefined;
 
@@ -81,24 +81,24 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
 
   watchCount: number = 0;
 
-  _listeners: ListenerMeta | null = null;
-
   key: SignalId | undefined;
   args: Args;
-  value: ReactiveValue<T> | undefined;
+
+  _listeners: ListenerMeta | null = null;
+  _value: SignalValue<T> | undefined;
 
   tracerMeta?: TracerMeta;
 
   // Reference to the shared definition
-  def: DerivedSignalDefinition<T, Args>;
+  def: ReactiveFnDefinition<T, Args>;
 
-  constructor(def: DerivedSignalDefinition<T, Args>, args: Args, key?: SignalId, scope?: SignalScope) {
-    this.flags = (def.isSubscription ? SignalFlags.isSubscription : 0) | SignalState.Dirty;
+  constructor(def: ReactiveFnDefinition<T, Args>, args: Args, key?: SignalId, scope?: SignalScope) {
+    this.flags = (def.isRelay ? ReactiveFnFlags.isRelay : 0) | ReactiveFnState.Dirty;
     this.scope = scope;
     this.key = key;
     this.args = args;
     this.def = def;
-    this.value = def.initValue as ReactiveValue<T>;
+    this._value = def.initValue as SignalValue<T>;
 
     if (TRACER) {
       this.tracerMeta = {
@@ -111,22 +111,22 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
   }
 
   get _state() {
-    return this.flags & SignalFlags.State;
+    return this.flags & ReactiveFnFlags.State;
   }
 
-  set _state(state: SignalState) {
-    this.flags = (this.flags & ~SignalFlags.State) | state;
+  set _state(state: ReactiveFnState) {
+    this.flags = (this.flags & ~ReactiveFnFlags.State) | state;
   }
 
   get _isListener() {
-    return (this.flags & SignalFlags.isListener) !== 0;
+    return (this.flags & ReactiveFnFlags.isListener) !== 0;
   }
 
   set _isListener(isListener: boolean) {
     if (isListener) {
-      this.flags |= SignalFlags.isListener;
+      this.flags |= ReactiveFnFlags.isListener;
     } else {
-      this.flags &= ~SignalFlags.isListener;
+      this.flags &= ~ReactiveFnFlags.isListener;
     }
   }
 
@@ -141,7 +141,7 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
     );
   }
 
-  get(): ReactiveValue<T> {
+  get value() {
     return getSignal(this);
   }
 
@@ -151,7 +151,7 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
     if (!current.has(listener)) {
       if (!this._isListener) {
         this.watchCount++;
-        this.flags |= SignalFlags.isListener;
+        this.flags |= ReactiveFnFlags.isListener;
       }
 
       schedulePull(this);
@@ -165,7 +165,7 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
 
         if (current.size === 0) {
           scheduleUnwatch(this);
-          this.flags &= ~SignalFlags.isListener;
+          this.flags &= ~ReactiveFnFlags.isListener;
         }
       }
     };
@@ -173,18 +173,18 @@ export class DerivedSignal<T, Args extends unknown[]> implements Signal<Reactive
 
   // This method is used in React hooks specifically. It returns a bound add method
   // that is cached to avoid creating a new one on each call, and it eagerly sets
-  // the listener as watched so that subscriptions that are accessed will be activated.
+  // the listener as watched so that relays that are accessed will be activated.
   addListenerLazy() {
     if (!this._isListener) {
       this.watchCount++;
-      this.flags |= SignalFlags.isListener;
+      this.flags |= ReactiveFnFlags.isListener;
     }
 
     return this.listeners.cachedBoundAdd;
   }
 }
 
-export const runListeners = (signal: DerivedSignal<any, any>) => {
+export const runListeners = (signal: ReactiveFnSignal<any, any>) => {
   const { listeners } = signal;
 
   if (listeners === null) {
@@ -198,15 +198,15 @@ export const runListeners = (signal: DerivedSignal<any, any>) => {
   }
 };
 
-export const isSubscription = (signal: unknown): boolean => {
-  return ((signal as any).flags & SignalFlags.isSubscription) !== 0;
+export const isRelay = (signal: unknown): boolean => {
+  return ((signal as any).flags & ReactiveFnFlags.isRelay) !== 0;
 };
 
 export function createDerivedSignal<T, Args extends unknown[]>(
-  def: DerivedSignalDefinition<T, Args>,
+  def: ReactiveFnDefinition<T, Args>,
   args: Args = [] as any,
   key?: SignalId,
   scope?: SignalScope,
-): DerivedSignal<T, Args> {
-  return new DerivedSignal(def, args, key, scope);
+): ReactiveFnSignal<T, Args> {
+  return new ReactiveFnSignal(def, args, key, scope);
 }

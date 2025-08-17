@@ -1,5 +1,5 @@
 import { scheduleTracer } from './internals/scheduling.js';
-import { DerivedSignal } from './internals/derived.js';
+import { ReactiveFnSignal } from './internals/reactive.js';
 import { Signal } from './types.js';
 
 export let TRACER: TracerProxy | undefined;
@@ -433,7 +433,7 @@ export function setTracing(enabled: boolean) {
 }
 
 export function createTracer(_signal: Signal<unknown>, immediate = false) {
-  const signal = _signal as unknown as DerivedSignal<unknown, unknown[]>;
+  const signal = _signal as unknown as ReactiveFnSignal<unknown, unknown[]>;
   return createTracerFromId(signal.tracerMeta!.id, immediate);
 }
 

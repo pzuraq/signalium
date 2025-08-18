@@ -14,11 +14,6 @@
       },
       "require": {
         "default": "./dist/cjs/index.js"
-      },
-      "types": {
-        "development": "./src/index.ts",
-        "import": "./dist/esm/index.d.ts",
-        "require": "./dist/cjs/index.d.ts"
       }
     },
     "./debug": {
@@ -28,11 +23,6 @@
       },
       "require": {
         "default": "./dist/cjs/debug.js"
-      },
-      "types": {
-        "development": "./src/debug.ts",
-        "import": "./dist/esm/debug.d.ts",
-        "require": "./dist/cjs/debug.d.ts"
       }
     },
     "./react": {
@@ -42,11 +32,6 @@
       },
       "require": {
         "default": "./dist/cjs/react/index.js"
-      },
-      "types": {
-        "development": "./src/react/index.ts",
-        "import": "./dist/esm/react/index.d.ts",
-        "require": "./dist/cjs/react/index.d.ts"
       }
     },
     "./transform": {
@@ -56,11 +41,6 @@
       },
       "require": {
         "default": "./dist/cjs/transform.js"
-      },
-      "types": {
-        "development": "./src/transform.ts",
-        "import": "./dist/esm/transform.d.ts",
-        "require": "./dist/cjs/transform.d.ts"
       }
     },
     "./package.json": "./package.json"
@@ -74,7 +54,8 @@
     }
   },
   "scripts": {
-    "dev": "vitest",
+    "dev": "vitest dev --project unit",
+    "dev:react": "vitest dev --project react",
     "test": "vitest run",
     "check-types": "tsc --noEmit",
     "prepublishOnly": "cp build/react.js react.js && cp build/transform.js transform.js",
@@ -86,14 +67,14 @@
   "license": "ISC",
   "devDependencies": {
     "@babel/core": "^7.23.6",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^5.0.0",
     "@vitest/browser": "^3.0.6",
     "playwright": "^1.50.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "vite": "^5.4.8",
+    "vite": "^7.1.2",
     "vite-plugin-babel": "^1.3.0",
-    "vitest": "^3.1.1",
-    "vitest-browser-react": "^0.1.1"
+    "vitest": "^3.2.4",
+    "vitest-browser-react": "^1.0.1"
   }
 }

@@ -1,7 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { useCallback, useSyncExternalStore } from 'react';
 import { RelaySignal, AsyncSignal, SignalValue, Signal } from '../types.js';
-import { getCurrentScope } from '../internals/contexts.js';
 import { DERIVED_DEFINITION_MAP } from '../hooks.js';
 import { expect } from '../type-utils.js';
 import { isRelaySignal } from '../internals/async.js';
@@ -10,6 +9,8 @@ import { ReactiveFnSignal } from '../internals/reactive.js';
 import { isAsyncSignalImpl } from '../internals/utils/type-utils.js';
 import { AsyncSignalImpl } from '../internals/async.js';
 import { StateSignal } from '../internals/signal.js';
+import { useScope } from './context.js';
+import { ROOT_SCOPE } from '../internals/contexts.js';
 
 const useStateSignal = <T>(signal: StateSignal<T>): T => {
   return useSyncExternalStore(
@@ -40,13 +41,9 @@ const useAsyncSignal = <R>(promise: AsyncSignalImpl<R>): AsyncSignalImpl<R> => {
 const useReactiveFn = <R, Args extends readonly Narrowable[]>(fn: (...args: Args) => R, ...args: Args): R => {
   const def = expect(DERIVED_DEFINITION_MAP.get(fn), 'Expected to find a derived definition for the function');
 
-  const scope = getCurrentScope();
+  const scope = useScope() ?? ROOT_SCOPE;
+
   const signal = scope.get(def, args);
-
-  if (CURRENT_CONSUMER) {
-    return signal.value;
-  }
-
   const value = useReactiveFnSignal(signal);
 
   // Reactive promises can update their value independently of the signal, since

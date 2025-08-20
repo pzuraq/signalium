@@ -1,13 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { signal, reactive, AsyncSignal, relay } from 'signalium';
-import { setupReact, useReactive } from '../index.js';
+import { useReactive } from '../index.js';
 import React, { memo } from 'react';
 import { Locator } from '@vitest/browser/context';
 import { sleep } from '../../__tests__/utils/async.js';
 import { createRenderCounter, HOC, RenderCounter } from './utils.js';
-
-setupReact();
+import component from '../component.js';
 
 const PROMISE_PROPS: (keyof AsyncSignal<string>)[] = [
   'value',
@@ -279,7 +278,7 @@ describe('React > async', () => {
       });
     });
 
-    test.skip('results can update when used in reactive functions', async () => {
+    test('results can update independently from reactives when used in components', async () => {
       const value1 = signal('Hello');
       let parentRenderCount = 0;
       let childRenderCount = 0;
@@ -290,12 +289,12 @@ describe('React > async', () => {
         return v;
       });
 
-      const Child = reactive(({ promise }: { promise: AsyncSignal<string> }): React.ReactNode => {
+      const Child = component(({ promise }: { promise: AsyncSignal<string> }): React.ReactNode => {
         childRenderCount++;
         return <span data-testid="child">{promise.value}</span>;
       });
 
-      const Parent = reactive((): React.ReactNode => {
+      const Parent = component((): React.ReactNode => {
         parentRenderCount++;
         const d1 = derived1();
         return (
@@ -312,15 +311,15 @@ describe('React > async', () => {
       await expect.element(getByTestId('parent')).toBeInTheDocument();
       await expect.element(getByTestId('child')).toBeInTheDocument();
 
-      expect(parentRenderCount).toBe(1);
-      expect(childRenderCount).toBe(2);
+      expect(parentRenderCount).toBe(2);
+      expect(childRenderCount).toBe(3);
 
       // Update only value1, should re-render only the child
       value1.value = 'World';
       await sleep(200);
 
-      expect(parentRenderCount).toBe(1);
-      expect(childRenderCount).toBe(3);
+      expect(parentRenderCount).toBe(2);
+      expect(childRenderCount).toBe(4);
     });
 
     test('results do not update when used in React.memo components when passed down directly', async () => {
@@ -599,7 +598,7 @@ describe('React > async', () => {
       });
     });
 
-    test.skip('results can update when used in reactive functions', async () => {
+    test('results can update when used in components', async () => {
       const value1 = signal('Hello');
       let parentRenderCount = 0;
       let childRenderCount = 0;
@@ -617,12 +616,12 @@ describe('React > async', () => {
         });
       });
 
-      const Child = reactive(({ promise }: { promise: AsyncSignal<string> }): React.ReactNode => {
+      const Child = component(({ promise }: { promise: AsyncSignal<string> }): React.ReactNode => {
         childRenderCount++;
         return <span data-testid="child">{promise.value}</span>;
       });
 
-      const Parent = reactive((): React.ReactNode => {
+      const Parent = component((): React.ReactNode => {
         parentRenderCount++;
         const d1 = useReactive(derived1);
         return (
@@ -639,15 +638,15 @@ describe('React > async', () => {
       await expect.element(getByTestId('parent')).toBeInTheDocument();
       await expect.element(getByTestId('child')).toBeInTheDocument();
 
-      expect(parentRenderCount).toBe(1);
-      expect(childRenderCount).toBe(2);
+      expect(parentRenderCount).toBe(2);
+      expect(childRenderCount).toBe(3);
 
       // Update only value1, should re-render only the child
       value1.value = 'World';
       await sleep(200);
 
-      expect(parentRenderCount).toBe(1);
-      expect(childRenderCount).toBe(3);
+      expect(parentRenderCount).toBe(2);
+      expect(childRenderCount).toBe(4);
     });
 
     test('results do not update when used in React.memo components when passed down directly', async () => {

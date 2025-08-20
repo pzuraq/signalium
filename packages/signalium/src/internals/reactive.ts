@@ -36,6 +36,7 @@ export const enum ReactiveFnFlags {
   // Properties
   isRelay = 0b100,
   isListener = 0b1000,
+  isLazy = 0b10000,
 }
 
 let ID = 0;
@@ -130,6 +131,18 @@ export class ReactiveFnSignal<T, Args extends unknown[]> {
     }
   }
 
+  get _isLazy() {
+    return (this.flags & ReactiveFnFlags.isLazy) !== 0;
+  }
+
+  set _isLazy(isLazy: boolean) {
+    if (isLazy) {
+      this.flags |= ReactiveFnFlags.isLazy;
+    } else {
+      this.flags &= ~ReactiveFnFlags.isLazy;
+    }
+  }
+
   get listeners() {
     return (
       this._listeners ??
@@ -202,7 +215,7 @@ export const isRelay = (signal: unknown): boolean => {
   return ((signal as any).flags & ReactiveFnFlags.isRelay) !== 0;
 };
 
-export function createDerivedSignal<T, Args extends unknown[]>(
+export function createReactiveFnSignal<T, Args extends unknown[]>(
   def: ReactiveFnDefinition<T, Args>,
   args: Args = [] as any,
   key?: SignalId,

@@ -9,8 +9,8 @@ export { isAsyncSignal, isTaskSignal, isRelaySignal } from './internals/async.js
 export { callback } from './internals/get.js';
 
 export {
-  createContext,
-  useContext,
+  context as createContext,
+  getContext,
   withContexts,
   setRootContexts,
   clearRootContexts,

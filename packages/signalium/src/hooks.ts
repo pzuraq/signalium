@@ -9,7 +9,7 @@ import {
   type SignalOptionsWithInit,
 } from './types.js';
 import { getCurrentScope, SignalScope } from './internals/contexts.js';
-import { createDerivedSignal, ReactiveFnDefinition } from './internals/reactive.js';
+import { createReactiveFnSignal, ReactiveFnDefinition } from './internals/reactive.js';
 import { AsyncSignalImpl } from './internals/async.js';
 import { Tracer } from './trace.js';
 import { equalsFrom } from './internals/utils/equals.js';
@@ -89,5 +89,5 @@ export function watcher<T>(
     tracer: opts?.tracer,
   };
 
-  return createDerivedSignal(def, undefined, undefined, opts?.scope);
+  return createReactiveFnSignal(def, undefined, undefined, opts?.scope);
 }

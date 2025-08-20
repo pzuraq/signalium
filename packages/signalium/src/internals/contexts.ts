@@ -1,5 +1,4 @@
-import { getFrameworkScope } from '../config.js';
-import { ReactiveFnSignal, ReactiveFnDefinition, createDerivedSignal } from './reactive.js';
+import { ReactiveFnSignal, ReactiveFnDefinition, createReactiveFnSignal } from './reactive.js';
 import { hashReactiveFn, hashValue } from './utils/hash.js';
 import { scheduleGcSweep } from './scheduling.js';
 import { CURRENT_CONSUMER } from './consumer.js';
@@ -29,7 +28,7 @@ export class ContextImpl<T> {
   }
 }
 
-export const createContext = <T>(initialValue: T, description?: string): Context<T> => {
+export const context = <T>(initialValue: T, description?: string): Context<T> => {
   return new ContextImpl(initialValue, description);
 };
 
@@ -81,7 +80,7 @@ export class SignalScope {
     let signal = this.signals.get(key) as ReactiveFnSignal<T, Args> | undefined;
 
     if (signal === undefined) {
-      signal = createDerivedSignal(def, args, key, this);
+      signal = createReactiveFnSignal(def, args, key, this);
       this.signals.set(key, signal);
     }
 
@@ -131,7 +130,7 @@ export const clearRootContexts = () => {
 let OVERRIDE_SCOPE: SignalScope | undefined;
 
 export const getCurrentScope = (): SignalScope => {
-  return OVERRIDE_SCOPE ?? CURRENT_CONSUMER?.scope ?? getFrameworkScope() ?? ROOT_SCOPE;
+  return OVERRIDE_SCOPE ?? CURRENT_CONSUMER?.scope ?? ROOT_SCOPE;
 };
 
 export function withContexts<C extends unknown[], U>(contexts: [...ContextPair<C>], fn: () => U): U {
@@ -157,12 +156,12 @@ export const withScope = <T>(scope: SignalScope, fn: () => T) => {
   }
 };
 
-export const useContext = <T>(context: Context<T>): T => {
-  const scope = OVERRIDE_SCOPE ?? CURRENT_CONSUMER?.scope ?? getFrameworkScope();
+export const getContext = <T>(context: Context<T>): T => {
+  const scope = OVERRIDE_SCOPE ?? CURRENT_CONSUMER?.scope;
 
   if (scope === undefined) {
     throw new Error(
-      'useContext must be used within a signal hook, a withContext, or within a framework-specific context provider.',
+      'getContext must be used within a reactive function, a withContext, or within a framework-specific context provider.',
     );
   }
 

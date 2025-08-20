@@ -98,7 +98,11 @@ export function checkSignal(signal: ReactiveFnSignal<any, any>): number {
   }
 
   if (state === ReactiveFnState.Dirty) {
-    runSignal(signal);
+    if (signal._isLazy) {
+      signal.updatedCount++;
+    } else {
+      runSignal(signal);
+    }
   }
 
   signal._state = ReactiveFnState.Clean;
@@ -178,7 +182,9 @@ export function runSignal(signal: ReactiveFnSignal<any, any[]>) {
       }
     } else if (!initialized || !signal.def.equals(prevValue!, nextValue)) {
       signal._value = nextValue;
-      signal.updatedCount = updatedCount + 1;
+      // If the signal is lazy, we don't want to increment the updatedCount, it
+      // has already been updated
+      signal.updatedCount = signal._isLazy ? updatedCount : updatedCount + 1;
     }
   } finally {
     setCurrentConsumer(prevConsumer);

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createContext, useContext, withContexts, signal, setRootContexts } from '../index.js';
+import { createContext, getContext, withContexts, signal, setRootContexts } from '../index.js';
 import { permute } from './utils/permute.js';
 import { nextTick } from './utils/async.js';
 import { reactive } from './utils/instrumented-hooks.js';
@@ -7,8 +7,8 @@ import { reactive } from './utils/instrumented-hooks.js';
 describe('contexts', () => {
   test('throws when useContext is used outside of a signal', () => {
     expect(() => {
-      useContext(createContext('test'));
-    }).toThrow('useContext must be used within a signal hook');
+      getContext(createContext('test'));
+    }).toThrow('getContext must be used within a reactive function');
   });
 
   test('setRootContexts sets contexts at the root level', () => {
@@ -17,7 +17,7 @@ describe('contexts', () => {
     const override = signal('Hey');
 
     // Create a reactive function that uses the context
-    const derived = reactive(() => `${useContext(context).value}, World`);
+    const derived = reactive(() => `${getContext(context).value}, World`);
 
     // Initially should use default value
     expect(derived()).toBe('Hello, World');
@@ -41,7 +41,7 @@ describe('contexts', () => {
     const override1 = signal('Hey');
     const override2 = signal('There');
 
-    const derived = reactive(() => `${useContext(context1).value}, ${useContext(context2).value}`);
+    const derived = reactive(() => `${getContext(context1).value}, ${getContext(context2).value}`);
 
     // Initially should use default values
     expect(derived()).toBe('Hello, World');
@@ -80,7 +80,7 @@ describe('contexts', () => {
     ]);
 
     // Create a reactive function that uses both contexts
-    const derived = reactive(() => `${useContext(ctx1).value}-${useContext(ctx2).value}`);
+    const derived = reactive(() => `${getContext(ctx1).value}-${getContext(ctx2).value}`);
 
     // Should inherit from root scope when no local overrides
     const result1 = withContexts([], () => derived());
@@ -125,7 +125,7 @@ describe('contexts', () => {
       const result = await inner();
 
       // Use context after awaiting inner result
-      const contextValue = useContext(ctx);
+      const contextValue = getContext(ctx);
       return result + '-' + contextValue;
     });
 
@@ -163,7 +163,7 @@ describe('contexts', () => {
 
       const computed = create(
         () => {
-          return useContext(ctx) + value.value;
+          return getContext(ctx) + value.value;
         },
         {
           desc: 'relay',
@@ -314,7 +314,7 @@ describe('contexts', () => {
       const ctx = createContext('default');
 
       const computed1 = create1(() => {
-        return useContext(ctx);
+        return getContext(ctx);
       });
 
       computed1.watch();
@@ -374,12 +374,12 @@ describe('contexts', () => {
       const ctx2 = createContext('default2');
 
       const computed1 = create1(() => {
-        return useContext(ctx1) + useContext(ctx2);
+        return getContext(ctx1) + getContext(ctx2);
       });
 
       const computed2 = create2(() => {
         return (
-          useContext(ctx2) +
+          getContext(ctx2) +
           withContexts([[ctx2, ':inner-override2']], () => {
             return computed1();
           })

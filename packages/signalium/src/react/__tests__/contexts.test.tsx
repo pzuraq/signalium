@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { signal, reactive, createContext, useContext, setRootContexts } from '../../index.js';
-import { ContextProvider, setupReact, useReactive, useScope } from '../index.js';
-import React, { useState } from 'react';
-
-setupReact();
+import { signal, reactive, createContext, setRootContexts } from '../../index.js';
+import { ContextProvider, useReactive, useContext } from '../index.js';
+import React from 'react';
+import { useScope } from '../context.js';
 
 describe('React > contexts', () => {
   test('useContext works inside computed with default value', async () => {
@@ -160,9 +159,9 @@ describe('React > contexts', () => {
     await expect.element(getByText('Hi, World')).toBeInTheDocument();
   });
 
-  test('useScope returns undefined outside of rendering context', async () => {
+  test('useScope throws outside of rendering context', async () => {
     // Direct call outside of rendering should return undefined
-    expect(useScope()).toBeUndefined();
+    expect(() => useScope()).toThrow();
 
     // Inside a component during rendering, it should return the scope
     function TestComponent() {

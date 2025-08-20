@@ -9,7 +9,7 @@ import {
   AsyncSignal,
   RelayState,
 } from '../types.js';
-import { createDerivedSignal, ReactiveFnSignal, ReactiveFnDefinition, ReactiveFnState } from './reactive.js';
+import { createReactiveFnSignal, ReactiveFnSignal, ReactiveFnDefinition, ReactiveFnState } from './reactive.js';
 import { generatorResultToPromise, getSignal } from './get.js';
 import { dirtySignal, dirtySignalConsumers } from './dirty.js';
 import { scheduleAsyncPull } from './scheduling.js';
@@ -154,7 +154,7 @@ export class AsyncSignalImpl<T, Args extends unknown[] = unknown[]> implements B
       desc: opts?.desc,
     };
 
-    p._signal = createDerivedSignal<() => void, unknown[]>(def, [], undefined, scope);
+    p._signal = createReactiveFnSignal<() => void, unknown[]>(def, [], undefined, scope);
 
     p._equals = equalsFrom(opts?.equals);
     p._initFlags(AsyncFlags.isRelay | AsyncFlags.Pending, initValue as T);

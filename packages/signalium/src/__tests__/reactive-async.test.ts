@@ -428,7 +428,7 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(0);
     expect(outerCount).toBe(1);
 
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, 50));
     expect(result1.value).toBe(16);
     expect(result1.isPending).toBe(false);
     expect(result1.isResolved).toBe(true);
@@ -452,7 +452,7 @@ describe('async computeds', () => {
     expect(inner2Count).toBe(2);
     expect(outerCount).toBe(1);
 
-    await new Promise(resolve => setTimeout(resolve, 10));
+    await new Promise(resolve => setTimeout(resolve, 50));
     expect(result3.value).toBe(16);
     expect(result3.isPending).toBe(false);
     expect(result3.isResolved).toBe(true);

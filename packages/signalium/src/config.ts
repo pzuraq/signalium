@@ -8,7 +8,6 @@ export type BatchFn = (fn: () => void) => void;
 interface SignalHooksConfig {
   scheduleFlush: FlushFn;
   runBatch: BatchFn;
-  getFrameworkScope: () => SignalScope | undefined;
 }
 
 export let scheduleFlush: FlushFn = flushWatchers => {
@@ -19,10 +18,7 @@ export let scheduleFlush: FlushFn = flushWatchers => {
 
 export let runBatch: BatchFn = fn => fn();
 
-export let getFrameworkScope: () => SignalScope | undefined = () => undefined;
-
 export function setConfig(cfg: Partial<SignalHooksConfig>) {
   scheduleFlush = cfg.scheduleFlush ?? scheduleFlush;
   runBatch = cfg.runBatch ?? runBatch;
-  getFrameworkScope = cfg.getFrameworkScope ?? getFrameworkScope;
 }

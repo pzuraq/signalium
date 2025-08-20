@@ -11,12 +11,12 @@ Contexts are a mainstay not just of React, but of most major frameworks these da
 Signalium includes contexts as well. A basic example looks like:
 
 ```js
-import { reactive, context, useContext, withContexts } from 'signalium';
+import { reactive, context, getContext, withContexts } from 'signalium';
 
 const ApiPrefixContext = context('/api/');
 
 const getUsersUrl = reactive(() => {
-  const prefix = useContext(ApiPrefixContext);
+  const prefix = getContext(ApiPrefixContext);
 
   return `${prefix}users`;
 });
@@ -50,7 +50,7 @@ import { createContext, withContexts, reactive } from 'signalium';
 const LogContext = createContext('root');
 
 const log = reactive(() => {
-  console.log(useContext(LogContext));
+  console.log(getContext(LogContext));
 });
 
 log(); // logs 'root'

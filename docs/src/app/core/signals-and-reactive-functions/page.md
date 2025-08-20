@@ -98,7 +98,7 @@ const getCurrentDirection = reactive((direction: 'left' | 'right') => {
 });
 ```
 
-This remains true even when we introduce mutable state, and even for other utilities such as `useContext` which are covered later in this guide.
+This remains true even when we introduce mutable state, and even for other utilities such as `getContext` which are covered later in this guide.
 
 ### Parameter Equality
 

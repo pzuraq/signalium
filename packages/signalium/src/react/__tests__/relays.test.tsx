@@ -1,11 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import { render } from 'vitest-browser-react';
 import { signal, reactive, relay } from 'signalium';
-import { setupReact, useReactive } from '../index.js';
+import { useReactive } from '../index.js';
 import React from 'react';
 import { sleep } from '../../__tests__/utils/async.js';
-
-setupReact();
 
 describe('React > Relays', () => {
   test('relays can be set by values accessed outside of normal run loop ', async () => {

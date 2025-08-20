@@ -16,7 +16,7 @@ import {
   VisualizerNode,
   SignalType,
 } from 'signalium/debug';
-import { setupReact, useReactive } from 'signalium/react';
+import { useReactive } from 'signalium/react';
 import clsx from 'clsx';
 import { transform } from '@babel/standalone';
 import { dedent } from '@/lib/string';
@@ -32,7 +32,6 @@ const item = {
 };
 
 setTracing(true);
-setupReact();
 
 type VisualizerNodeState =
   | 'inactive'

@@ -3,7 +3,7 @@ import { hashReactiveFn, hashValue } from './utils/hash.js';
 import { scheduleGcSweep } from './scheduling.js';
 import { CURRENT_CONSUMER } from './consumer.js';
 
-export const CONTEXT_KEY = Symbol('signalium:context');
+// ======= Contexts =======
 
 export type Context<T> = {
   defaultValue: T;
@@ -31,6 +31,32 @@ export class ContextImpl<T> {
 export const context = <T>(initialValue: T, description?: string): Context<T> => {
   return new ContextImpl(initialValue, description);
 };
+
+export function withContexts<C extends unknown[], U>(contexts: [...ContextPair<C>], fn: () => U): U {
+  const prevScope = CURRENT_SCOPE;
+  const currentScope = getCurrentScope();
+
+  try {
+    CURRENT_SCOPE = currentScope.getChild(contexts as [ContextImpl<unknown>, unknown][]);
+    return fn();
+  } finally {
+    CURRENT_SCOPE = prevScope;
+  }
+}
+
+export const getContext = <T>(context: Context<T>): T => {
+  const scope = CURRENT_SCOPE ?? CURRENT_CONSUMER?.scope;
+
+  if (scope === undefined) {
+    throw new Error(
+      'getContext must be used within a reactive function, a withContext, or within a framework-specific context provider.',
+    );
+  }
+
+  return scope.getContext(context) ?? (context as unknown as ContextImpl<T>).defaultValue;
+};
+
+// ======= Signal Scope =======
 
 export class SignalScope {
   private parentScope?: SignalScope;
@@ -127,46 +153,17 @@ export const clearRootContexts = () => {
   ROOT_SCOPE = new SignalScope([]);
 };
 
-let OVERRIDE_SCOPE: SignalScope | undefined;
+export let CURRENT_SCOPE: SignalScope | undefined;
+
+export const setCurrentScope = (scope: SignalScope | undefined) => {
+  CURRENT_SCOPE = scope;
+};
 
 export const getCurrentScope = (): SignalScope => {
-  return OVERRIDE_SCOPE ?? CURRENT_CONSUMER?.scope ?? ROOT_SCOPE;
+  return CURRENT_SCOPE ?? CURRENT_CONSUMER?.scope ?? ROOT_SCOPE;
 };
 
-export function withContexts<C extends unknown[], U>(contexts: [...ContextPair<C>], fn: () => U): U {
-  const prevScope = OVERRIDE_SCOPE;
-  const currentScope = getCurrentScope();
-
-  try {
-    OVERRIDE_SCOPE = currentScope.getChild(contexts as [ContextImpl<unknown>, unknown][]);
-    return fn();
-  } finally {
-    OVERRIDE_SCOPE = prevScope;
-  }
-}
-
-export const withScope = <T>(scope: SignalScope, fn: () => T) => {
-  const prevScope = OVERRIDE_SCOPE;
-
-  try {
-    OVERRIDE_SCOPE = scope;
-    return fn();
-  } finally {
-    OVERRIDE_SCOPE = prevScope;
-  }
-};
-
-export const getContext = <T>(context: Context<T>): T => {
-  const scope = OVERRIDE_SCOPE ?? CURRENT_CONSUMER?.scope;
-
-  if (scope === undefined) {
-    throw new Error(
-      'getContext must be used within a reactive function, a withContext, or within a framework-specific context provider.',
-    );
-  }
-
-  return scope.getContext(context) ?? (context as unknown as ContextImpl<T>).defaultValue;
-};
+// ======= Test Helper =======
 
 export function forceGc(_signal: object) {
   const signal = _signal as ReactiveFnSignal<any, any>;

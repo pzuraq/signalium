@@ -29,27 +29,37 @@ export function signaliumAsyncTransform(opts?: SignaliumAsyncTransformOptions): 
       if (!t.isCallExpression(path.node)) return false;
       const callee = path.node.callee;
 
-      const importPath = transformedImports[callee.name];
+      if (!t.isIdentifier(callee)) return false;
 
-      if (!importPath) return false;
-
-      // Check if reactive is imported from signalium
+      // Resolve binding for the local identifier (may be aliased)
       const binding = path.scope.getBinding(callee.name);
       if (!binding || !t.isImportSpecifier(binding.path.node)) return false;
 
+      const importSpec = binding.path.node;
+      const imported = (importSpec.imported as t.Identifier).name;
       const importDecl = binding.path.parent;
-
       if (!t.isImportDeclaration(importDecl)) return false;
 
-      return importPath.some(p =>
+      const importPaths = transformedImports[imported];
+      if (!importPaths) return false;
+
+      return importPaths.some(p =>
         typeof p === 'string' ? importDecl.source.value === p : p.test(importDecl.source.value),
       );
     };
 
+    const isWithinTrackedCall = (path: NodePath) => {
+      let current: NodePath | null = path.parentPath;
+      while (current) {
+        if (current.isCallExpression() && isReactiveCall(current as any)) return true;
+        current = current.parentPath;
+      }
+      return false;
+    };
+
     function convertReactiveToGenerator(path: NodePath<t.FunctionExpression | t.ArrowFunctionExpression>) {
-      // Only transform if parent is a reactive() call
-      const parentPath = path.parentPath;
-      if (!isReactiveCall(parentPath)) return;
+      // Only transform if within a tracked call (reactive/task/relay/callback)
+      if (!isWithinTrackedCall(path)) return;
       if (!path.node.async) return;
 
       // Transform all await expressions to yields

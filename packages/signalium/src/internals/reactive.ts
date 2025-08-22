@@ -8,6 +8,7 @@ import { Edge } from './edge.js';
 import { schedulePull, scheduleUnwatch } from './scheduling.js';
 import { hashValue } from './utils/hash.js';
 import { stringifyValue } from './utils/stringify.js';
+import { Callback } from './callback.js';
 
 /**
  * This file contains computed signal base types and struct definitions.
@@ -84,6 +85,7 @@ export class ReactiveFnSignal<T, Args extends unknown[]> {
 
   key: SignalId | undefined;
   args: Args;
+  callbacks: Callback[] | undefined = undefined;
 
   _listeners: ListenerMeta | null = null;
   _value: SignalValue<T> | undefined;

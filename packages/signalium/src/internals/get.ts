@@ -7,6 +7,7 @@ import { AsyncSignalImpl } from './async.js';
 import { SignalValue } from '../types.js';
 import { isGeneratorResult, isPromise, isAsyncSignalImpl } from './utils/type-utils.js';
 import { CURRENT_CONSUMER, setCurrentConsumer } from './consumer.js';
+import { generatorResultToPromiseWithConsumer } from './generators.js';
 
 export function getSignal<T, Args extends unknown[]>(signal: ReactiveFnSignal<T, Args>): SignalValue<T> {
   if (CURRENT_CONSUMER !== undefined) {
@@ -136,7 +137,7 @@ export function runSignal(signal: ReactiveFnSignal<any, any[]>) {
 
     if (nextValue !== null && typeof nextValue === 'object') {
       if (isGeneratorResult(nextValue)) {
-        nextValue = generatorResultToPromise(nextValue, signal);
+        nextValue = generatorResultToPromiseWithConsumer(nextValue, signal);
         valueIsPromise = true;
       } else if (isPromise(nextValue)) {
         valueIsPromise = true;
@@ -230,74 +231,4 @@ export function checkAndRunListeners(signal: ReactiveFnSignal<any, any>, willWat
   }
 
   return updatedCount;
-}
-
-export function callback<T, Args extends unknown[]>(fn: (...args: Args) => T): (...args: Args) => T {
-  const savedConsumer = CURRENT_CONSUMER;
-
-  return (...args) => {
-    const prevConsumer = CURRENT_CONSUMER;
-    setCurrentConsumer(savedConsumer);
-
-    try {
-      const result = fn(...args);
-
-      if (result !== null && typeof result === 'object' && isGeneratorResult(result)) {
-        return generatorResultToPromise(result, savedConsumer) as T;
-      }
-
-      return result;
-    } finally {
-      setCurrentConsumer(prevConsumer);
-    }
-  };
-}
-
-export function generatorResultToPromise<T, Args extends unknown[]>(
-  generator: Generator<any, T>,
-  savedConsumer: ReactiveFnSignal<any, any> | undefined,
-): Promise<T> {
-  function adopt(value: any) {
-    return typeof value === 'object' && value !== null && (isPromise(value) || isAsyncSignalImpl(value))
-      ? value
-      : Promise.resolve(value);
-  }
-
-  return new Promise((resolve, reject) => {
-    function step(result: any) {
-      if (result.done) {
-        resolve(result.value);
-      } else {
-        adopt(result.value).then(fulfilled, rejected);
-      }
-    }
-
-    function fulfilled(value: any) {
-      const prevConsumer = CURRENT_CONSUMER;
-
-      try {
-        setCurrentConsumer(savedConsumer);
-        step(generator.next(value));
-      } catch (e) {
-        reject(e);
-      } finally {
-        setCurrentConsumer(prevConsumer);
-      }
-    }
-
-    function rejected(value: any) {
-      const prevConsumer = CURRENT_CONSUMER;
-
-      try {
-        setCurrentConsumer(savedConsumer);
-        step(generator['throw'](value));
-      } catch (e) {
-        reject(e);
-      } finally {
-        setCurrentConsumer(prevConsumer);
-      }
-    }
-
-    step(generator.next());
-  });
 }

@@ -9,6 +9,9 @@
     "dev": "npm run dev -w signalium",
     "lint": "eslint . && prettier --check .",
     "test": "turbo run test",
+    "test:unit": "turbo run test:unit",
+    "test:transform": "turbo run test:transform",
+    "test:react": "turbo run test:react",
     "build": "turbo run build",
     "check-types": "turbo run check-types",
     "release": "turbo run build && changeset publish"

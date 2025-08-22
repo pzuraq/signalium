@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.18
+
+### Patch Changes
+
+- Updated dependencies [d471c90]
+- Updated dependencies [4367c00]
+- Updated dependencies [3c54d69]
+- Updated dependencies [2a6ba5c]
+  - signalium@2.0.0
+
 ## 0.0.17
 
 ### Patch Changes

@@ -36,11 +36,11 @@
     },
     "./transform": {
       "import": {
-        "development": "./src/transform.ts",
-        "default": "./dist/esm/transform.js"
+        "development": "./src/transform/index.ts",
+        "default": "./dist/esm/transform/index.js"
       },
       "require": {
-        "default": "./dist/cjs/transform.js"
+        "default": "./dist/cjs/transform/index.js"
       }
     },
     "./package.json": "./package.json"
@@ -54,9 +54,14 @@
     }
   },
   "scripts": {
-    "dev": "vitest dev --project unit",
+    "dev": "vitest dev",
+    "dev:unit": "vitest dev --project unit",
+    "dev:transform": "vitest dev --project transform",
     "dev:react": "vitest dev --project react",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:transform": "vitest run --project transform",
+    "test:react": "vitest run --project react",
     "check-types": "tsc --noEmit",
     "prepublishOnly": "cp build/react.js react.js && cp build/transform.js transform.js",
     "build": "npm run build:esm && npm run build:cjs",

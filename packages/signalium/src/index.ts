@@ -6,7 +6,7 @@ export { signal } from './internals/signal.js';
 
 export { isAsyncSignal, isTaskSignal, isRelaySignal } from './internals/async.js';
 
-export { callback } from './internals/get.js';
+export { callback } from './internals/callback.js';
 
 export {
   context as createContext,
@@ -15,7 +15,6 @@ export {
   setRootContexts,
   clearRootContexts,
   SignalScope,
-  CONTEXT_KEY,
 } from './internals/contexts.js';
 
 export { setConfig } from './config.js';

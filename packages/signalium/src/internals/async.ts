@@ -10,15 +10,15 @@ import {
   RelayState,
 } from '../types.js';
 import { createReactiveFnSignal, ReactiveFnSignal, ReactiveFnDefinition, ReactiveFnState } from './reactive.js';
-import { generatorResultToPromise, getSignal } from './get.js';
+import { getSignal } from './get.js';
 import { dirtySignal, dirtySignalConsumers } from './dirty.js';
 import { scheduleAsyncPull } from './scheduling.js';
 import { createEdge, EdgeType, findAndRemoveDirty, PromiseEdge } from './edge.js';
-import { SignalScope, withScope } from './contexts.js';
+import { SignalScope } from './contexts.js';
 import { signal } from './signal.js';
-import { isGeneratorResult } from './utils/type-utils.js';
 import { DEFAULT_EQUALS, equalsFrom } from './utils/equals.js';
 import { CURRENT_CONSUMER } from './consumer.js';
+import { createCallback } from './callback.js';
 
 const enum AsyncFlags {
   // ======= Notifiers ========
@@ -170,15 +170,9 @@ export class AsyncSignalImpl<T, Args extends unknown[] = unknown[]> implements B
     const p = new AsyncSignalImpl<T, Args>();
     const initValue = opts?.initValue;
 
-    p._signal = (...args) => {
-      return withScope(scope, () => {
-        const result = task(...args);
+    const { fn } = createCallback(task, scope);
 
-        return typeof result === 'object' && result !== null && isGeneratorResult(result)
-          ? generatorResultToPromise(result, undefined)
-          : result;
-      });
-    };
+    p._signal = fn;
 
     p._equals = equalsFrom(opts?.equals);
     p._initFlags(AsyncFlags.isRunnable, initValue as T);

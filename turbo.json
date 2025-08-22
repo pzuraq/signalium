@@ -11,6 +11,15 @@
     "test": {
       "dependsOn": ["^test", "^build"]
     },
+    "test:unit": {
+      "dependsOn": ["^test:unit", "^build"]
+    },
+    "test:transform": {
+      "dependsOn": ["^test:transform", "^build"]
+    },
+    "test:react": {
+      "dependsOn": ["^test:react", "^build"]
+    },
     "dev": {
       "persistent": true,
       "cache": false
